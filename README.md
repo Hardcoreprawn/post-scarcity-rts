@@ -91,4 +91,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup instructions.
 
 ## License
 
-TBD
+MIT License - see [LICENSE](LICENSE) for details.
