@@ -1,0 +1,49 @@
+[package]
+name = "rts_game"
+description = "Main game client - Bevy integration, rendering, UI, audio"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["audio"]
+# Development tools: debug console, cheats, hot reload
+dev-tools = ["bevy/file_watcher", "bevy/embedded_watcher"]
+# Map editor functionality
+editor = []
+# Audio support (can be disabled for faster compile in CI)
+audio = ["kira"]
+# Enable Steam integration
+steam = []
+
+[dependencies]
+rts_core.workspace = true
+bevy = { workspace = true, features = [
+    "bevy_asset",
+    "bevy_core_pipeline",
+    "bevy_gilrs",
+    "bevy_gizmos",
+    "bevy_render",
+    "bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_winit",
+    "multi_threaded",
+    "png",
+    "x11",
+] }
+bevy_egui = "0.28"
+serde.workspace = true
+ron.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+kira = { workspace = true, optional = true }
+
+[dev-dependencies]
+rts_test_utils.workspace = true
+
+[lints]
+workspace = true

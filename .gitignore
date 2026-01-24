@@ -1,0 +1,42 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo
+Cargo.lock
+!crates/rts_game/Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+*.log
+*.tmp
+
+# Game specific
+/saves/
+/replays/
+/logs/
+
+# Asset generation
+*.generated.*
+
+# Local configuration (not tracked)
+config/local.ron
+.env
+.env.local
+
+# Profiling
+*.trace
+perf.data
+perf.data.old
+flamegraph.svg

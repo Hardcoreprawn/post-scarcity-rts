@@ -1,0 +1,22 @@
+[package]
+name = "rts_test_utils"
+description = "Shared test utilities - fixtures, determinism harness, benchmarks"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+rts_core = { path = "../rts_core" }
+serde.workspace = true
+ron.workspace = true
+tracing.workspace = true
+fixed.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true

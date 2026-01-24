@@ -1,0 +1,27 @@
+[package]
+name = "rts_server"
+description = "Headless dedicated server - no rendering, network-only"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+rts_core.workspace = true
+serde.workspace = true
+ron.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+quinn.workspace = true
+
+[dev-dependencies]
+rts_test_utils.workspace = true
+
+[lints]
+workspace = true
