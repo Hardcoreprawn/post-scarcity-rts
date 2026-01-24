@@ -12,8 +12,10 @@
 use bevy::prelude::*;
 use rts_core::factions::FactionId;
 
+pub mod data_loader;
 pub mod plugins;
 
+pub use data_loader::{FactionDataPlugin, FactionRegistry};
 use plugins::{GamePlugins, UnitBundle};
 
 /// Run the game.

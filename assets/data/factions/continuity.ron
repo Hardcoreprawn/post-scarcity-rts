@@ -1,0 +1,645 @@
+// Continuity Authority Faction Data
+// Post-Scarcity RTS
+//
+// "The transition must be managed. That's all we're asking."
+
+(
+    id: Continuity,
+    display_name: "faction.continuity.name",
+    description: "faction.continuity.description",
+
+    primary_color: (0, 50, 150),    // Navy blue
+    secondary_color: (192, 192, 192), // Silver
+
+    starting_feedstock: 500,
+
+    starting_buildings: [
+        (type_id: "administration_center", offset_x: 0, offset_y: 0),
+    ],
+
+    starting_units: [
+        (type_id: "security_team", offset_x: 5, offset_y: 0),
+        (type_id: "security_team", offset_x: 5, offset_y: 3),
+        (type_id: "collection_vehicle", offset_x: -5, offset_y: 0),
+    ],
+
+    // ========================================
+    // UNITS
+    // ========================================
+    units: [
+        // ------ Tier 1: Security Forces ------
+        (
+            id: "security_team",
+            name: "unit.continuity.security_team.name",
+            description: "unit.continuity.security_team.description",
+            cost: 50,
+            build_time: 120,  // 4 seconds at 30 ticks/sec
+            health: 80,
+            speed: 42949672960,  // Fixed-point for 10.0
+            combat: Some((
+                damage: 12,
+                range: 21474836480,  // Fixed-point for 5.0
+                attack_cooldown: 30,
+                armor: 5,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["training_center"],
+            tags: ["infantry", "ground"],
+        ),
+        (
+            id: "crowd_management_unit",
+            name: "unit.continuity.crowd_management.name",
+            description: "unit.continuity.crowd_management.description",
+            cost: 75,
+            build_time: 150,
+            health: 60,
+            speed: 38654705664,  // Fixed-point for 9.0
+            combat: Some((
+                damage: 18,
+                range: 17179869184,  // Fixed-point for 4.0
+                attack_cooldown: 25,
+                armor: 3,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["training_center"],
+            tags: ["infantry", "ground", "area_denial"],
+        ),
+        (
+            id: "patrol_vehicle",
+            name: "unit.continuity.patrol_vehicle.name",
+            description: "unit.continuity.patrol_vehicle.description",
+            cost: 60,
+            build_time: 90,
+            health: 100,
+            speed: 64424509440,  // Fixed-point for 15.0
+            combat: Some((
+                damage: 8,
+                range: 25769803776,  // Fixed-point for 6.0
+                attack_cooldown: 20,
+                armor: 10,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["vehicle_depot"],
+            tags: ["vehicle", "ground", "scout"],
+        ),
+        (
+            id: "collection_vehicle",
+            name: "unit.continuity.collection_vehicle.name",
+            description: "unit.continuity.collection_vehicle.description",
+            cost: 100,
+            build_time: 180,
+            health: 150,
+            speed: 30064771072,  // Fixed-point for 7.0
+            combat: None,
+            tech_required: [],
+            tier: 1,
+            produced_at: ["administration_center"],
+            tags: ["vehicle", "ground", "harvester"],
+        ),
+
+        // ------ Tier 2: Peacekeeping Division ------
+        (
+            id: "guardian_mech",
+            name: "unit.continuity.guardian_mech.name",
+            description: "unit.continuity.guardian_mech.description",
+            cost: 300,
+            build_time: 360,  // 12 seconds
+            health: 500,
+            speed: 21474836480,  // Fixed-point for 5.0
+            combat: Some((
+                damage: 45,
+                range: 30064771072,  // Fixed-point for 7.0
+                attack_cooldown: 45,
+                armor: 50,
+            )),
+            tech_required: [],
+            tier: 2,
+            produced_at: ["walker_facility"],
+            tags: ["mech", "ground", "heavy", "signature"],
+        ),
+        (
+            id: "pacification_platform",
+            name: "unit.continuity.pacification_platform.name",
+            description: "unit.continuity.pacification_platform.description",
+            cost: 250,
+            build_time: 300,
+            health: 300,
+            speed: 17179869184,  // Fixed-point for 4.0
+            combat: Some((
+                damage: 60,
+                range: 51539607552,  // Fixed-point for 12.0
+                attack_cooldown: 90,
+                armor: 40,
+            )),
+            tech_required: [],
+            tier: 2,
+            produced_at: ["walker_facility"],
+            tags: ["vehicle", "ground", "artillery", "siege"],
+        ),
+        (
+            id: "protected_transport",
+            name: "unit.continuity.protected_transport.name",
+            description: "unit.continuity.protected_transport.description",
+            cost: 150,
+            build_time: 240,
+            health: 400,
+            speed: 38654705664,  // Fixed-point for 9.0
+            combat: Some((
+                damage: 15,
+                range: 21474836480,  // Fixed-point for 5.0
+                attack_cooldown: 30,
+                armor: 30,
+            )),
+            tech_required: [],
+            tier: 2,
+            produced_at: ["vehicle_depot"],
+            tags: ["vehicle", "ground", "transport"],
+        ),
+
+        // ------ Tier 3: Strategic Assets ------
+        (
+            id: "sovereign_platform",
+            name: "unit.continuity.sovereign_platform.name",
+            description: "unit.continuity.sovereign_platform.description",
+            cost: 800,
+            build_time: 600,  // 20 seconds
+            health: 1200,
+            speed: 12884901888,  // Fixed-point for 3.0
+            combat: Some((
+                damage: 100,
+                range: 38654705664,  // Fixed-point for 9.0
+                attack_cooldown: 60,
+                armor: 80,
+            )),
+            tech_required: ["strategic_operations"],
+            tier: 3,
+            produced_at: ["walker_facility"],
+            tags: ["mech", "ground", "super_heavy", "command"],
+        ),
+        (
+            id: "rapid_response_squadron",
+            name: "unit.continuity.rapid_response.name",
+            description: "unit.continuity.rapid_response.description",
+            cost: 400,
+            build_time: 420,
+            health: 400,
+            speed: 68719476736,  // Fixed-point for 16.0
+            combat: Some((
+                damage: 60,
+                range: 34359738368,  // Fixed-point for 8.0
+                attack_cooldown: 40,
+                armor: 30,
+            )),
+            tech_required: ["strategic_operations"],
+            tier: 3,
+            produced_at: ["air_operations"],
+            tags: ["air", "gunship"],
+        ),
+    ],
+
+    // ========================================
+    // BUILDINGS
+    // ========================================
+    buildings: [
+        // ------ Core Buildings ------
+        (
+            id: "administration_center",
+            name: "building.continuity.administration_center.name",
+            description: "building.continuity.administration_center.description",
+            cost: 0,  // Starting building
+            build_time: 0,
+            health: 1500,
+            produces: ["collection_vehicle"],
+            tech_required: [],
+            provides_tech: ["administration_established"],
+            tier: 1,
+            targetable: true,
+            armor: 20,
+            vision_range: Some(64424509440),  // Fixed-point for 15.0
+            tags: ["headquarters", "production"],
+            is_harvester: false,
+            is_main_base: true,
+        ),
+        (
+            id: "processing_facility",
+            name: "building.continuity.processing_facility.name",
+            description: "building.continuity.processing_facility.description",
+            cost: 200,
+            build_time: 240,
+            health: 600,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(42949672960),  // Fixed-point for 10.0
+            tags: ["economy", "refinery"],
+            is_harvester: true,
+            is_main_base: false,
+        ),
+
+        // ------ Production Buildings ------
+        (
+            id: "training_center",
+            name: "building.continuity.training_center.name",
+            description: "building.continuity.training_center.description",
+            cost: 150,
+            build_time: 180,
+            health: 500,
+            produces: ["security_team", "crowd_management_unit"],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(38654705664),  // Fixed-point for 9.0
+            tags: ["production", "infantry"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "vehicle_depot",
+            name: "building.continuity.vehicle_depot.name",
+            description: "building.continuity.vehicle_depot.description",
+            cost: 200,
+            build_time: 240,
+            health: 600,
+            produces: ["patrol_vehicle", "protected_transport"],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(38654705664),
+            tags: ["production", "vehicle"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "walker_facility",
+            name: "building.continuity.walker_facility.name",
+            description: "building.continuity.walker_facility.description",
+            cost: 350,
+            build_time: 360,
+            health: 800,
+            produces: ["guardian_mech", "pacification_platform", "sovereign_platform"],
+            tech_required: ["research_institute"],
+            provides_tech: [],
+            tier: 2,
+            targetable: true,
+            armor: 25,
+            vision_range: Some(42949672960),
+            tags: ["production", "mech", "advanced"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "air_operations",
+            name: "building.continuity.air_operations.name",
+            description: "building.continuity.air_operations.description",
+            cost: 400,
+            build_time: 420,
+            health: 700,
+            produces: ["rapid_response_squadron"],
+            tech_required: ["research_institute"],
+            provides_tech: [],
+            tier: 2,
+            targetable: true,
+            armor: 20,
+            vision_range: Some(51539607552),  // Fixed-point for 12.0
+            tags: ["production", "air"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Tech Buildings ------
+        (
+            id: "research_institute",
+            name: "building.continuity.research_institute.name",
+            description: "building.continuity.research_institute.description",
+            cost: 200,
+            build_time: 270,
+            health: 400,
+            produces: [],
+            tech_required: [],
+            provides_tech: ["tier_2_access"],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(38654705664),
+            tags: ["tech", "research"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "strategic_operations",
+            name: "building.continuity.strategic_operations.name",
+            description: "building.continuity.strategic_operations.description",
+            cost: 500,
+            build_time: 450,
+            health: 600,
+            produces: [],
+            tech_required: ["research_institute"],
+            provides_tech: ["tier_3_access", "strategic_operations"],
+            tier: 2,
+            targetable: true,
+            armor: 25,
+            vision_range: Some(64424509440),
+            tags: ["tech", "command", "superweapon"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Defense Buildings ------
+        (
+            id: "checkpoint",
+            name: "building.continuity.checkpoint.name",
+            description: "building.continuity.checkpoint.description",
+            cost: 100,
+            build_time: 120,
+            health: 300,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(51539607552),
+            tags: ["defense", "garrison"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "defense_turret",
+            name: "building.continuity.defense_turret.name",
+            description: "building.continuity.defense_turret.description",
+            cost: 150,
+            build_time: 150,
+            health: 350,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 20,
+            vision_range: Some(47244640256),  // Fixed-point for 11.0
+            tags: ["defense", "anti_ground"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+    ],
+
+    // ========================================
+    // TECHNOLOGIES
+    // ========================================
+    technologies: [
+        // ------ Tier 1 Upgrades ------
+        (
+            id: "enhanced_training",
+            name: "tech.continuity.enhanced_training.name",
+            description: "tech.continuity.enhanced_training.description",
+            cost: 100,
+            research_time: 900,  // 30 seconds
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "damage", percent: 15),
+                    applies_to: [],
+                    applies_to_tags: ["infantry"],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("research_institute"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "standard_issue_armor",
+            name: "tech.continuity.standard_issue_armor.name",
+            description: "tech.continuity.standard_issue_armor.description",
+            cost: 100,
+            research_time: 900,
+            effects: [
+                (
+                    effect_type: StatModifierFlat(stat: "armor", amount: 10),
+                    applies_to: [],
+                    applies_to_tags: ["infantry"],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("research_institute"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "surveillance_package",
+            name: "tech.continuity.surveillance_package.name",
+            description: "tech.continuity.surveillance_package.description",
+            cost: 75,
+            research_time: 600,  // 20 seconds
+            effects: [
+                (
+                    effect_type: VisionModifier(range: 8589934592),  // Fixed-point for 2.0
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("research_institute"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+
+        // ------ Tier 2 Branch A: Intervention Doctrine ------
+        (
+            id: "intervention_doctrine",
+            name: "tech.continuity.intervention_doctrine.name",
+            description: "tech.continuity.intervention_doctrine.description",
+            cost: 150,
+            research_time: 1200,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_branch", params: ["intervention"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 2,
+            exclusive_with: ["stabilization_doctrine"],
+            researched_at: Some("research_institute"),
+            is_doctrine: true,
+            branch: Some("intervention"),
+            icon: None,
+        ),
+        (
+            id: "precision_munitions",
+            name: "tech.continuity.precision_munitions.name",
+            description: "tech.continuity.precision_munitions.description",
+            cost: 200,
+            research_time: 1350,  // 45 seconds
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "building_damage", percent: 25),
+                    applies_to: [],
+                    applies_to_tags: ["siege", "artillery"],
+                ),
+            ],
+            prerequisites: ["intervention_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("research_institute"),
+            is_doctrine: false,
+            branch: Some("intervention"),
+            icon: None,
+        ),
+        (
+            id: "extended_reach",
+            name: "tech.continuity.extended_reach.name",
+            description: "tech.continuity.extended_reach.description",
+            cost: 150,
+            research_time: 900,
+            effects: [
+                (
+                    effect_type: StatModifierFlat(stat: "range", amount: 3),
+                    applies_to: [],
+                    applies_to_tags: ["artillery"],
+                ),
+            ],
+            prerequisites: ["intervention_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("research_institute"),
+            is_doctrine: false,
+            branch: Some("intervention"),
+            icon: None,
+        ),
+
+        // ------ Tier 2 Branch B: Stabilization Doctrine ------
+        (
+            id: "stabilization_doctrine",
+            name: "tech.continuity.stabilization_doctrine.name",
+            description: "tech.continuity.stabilization_doctrine.description",
+            cost: 150,
+            research_time: 1200,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_branch", params: ["stabilization"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 2,
+            exclusive_with: ["intervention_doctrine"],
+            researched_at: Some("research_institute"),
+            is_doctrine: true,
+            branch: Some("stabilization"),
+            icon: None,
+        ),
+        (
+            id: "deterrent_systems",
+            name: "tech.continuity.deterrent_systems.name",
+            description: "tech.continuity.deterrent_systems.description",
+            cost: 200,
+            research_time: 1350,
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "anti_infantry_damage", percent: 30),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["stabilization_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("research_institute"),
+            is_doctrine: false,
+            branch: Some("stabilization"),
+            icon: None,
+        ),
+        (
+            id: "defensive_posture",
+            name: "tech.continuity.defensive_posture.name",
+            description: "tech.continuity.defensive_posture.description",
+            cost: 150,
+            research_time: 900,
+            effects: [
+                (
+                    effect_type: GrantAbility(
+                        ability_id: "defensive_stance",
+                        targets: ["guardian_mech"],
+                    ),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["stabilization_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("research_institute"),
+            is_doctrine: false,
+            branch: Some("stabilization"),
+            icon: None,
+        ),
+
+        // ------ Tier 3 Upgrades ------
+        (
+            id: "emergency_protocols",
+            name: "tech.continuity.emergency_protocols.name",
+            description: "tech.continuity.emergency_protocols.description",
+            cost: 300,
+            research_time: 1800,  // 60 seconds
+            effects: [
+                (
+                    effect_type: GrantAbility(
+                        ability_id: "self_destruct",
+                        targets: ["guardian_mech", "sovereign_platform"],
+                    ),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["strategic_operations"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("strategic_operations"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "full_mobilization",
+            name: "tech.continuity.full_mobilization.name",
+            description: "tech.continuity.full_mobilization.description",
+            cost: 500,
+            research_time: 3600,  // 120 seconds
+            effects: [
+                (
+                    effect_type: ProductionSpeedModifier(percent: 25),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["strategic_operations"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("strategic_operations"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+    ],
+)

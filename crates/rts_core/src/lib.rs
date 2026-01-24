@@ -28,6 +28,7 @@
 
 pub mod buildings;
 pub mod components;
+pub mod data;
 pub mod economy;
 pub mod error;
 pub mod factions;
@@ -40,6 +41,7 @@ pub mod systems;
 /// Re-export commonly used types
 pub mod prelude {
     pub use crate::components::*;
+    pub use crate::data::{BuildingData, FactionData, TechData, TechEffect, TechEffectType, UnitData};
     pub use crate::economy::{
         Depot, EconomyEvent, Feedstock, Harvester, HarvesterState, PlayerEconomy, ResourceNode,
     };

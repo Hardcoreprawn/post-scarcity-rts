@@ -53,8 +53,8 @@ rts-game/
 
 ```bash
 # Clone and enter directory
-git clone https://github.com/your-org/rts-game.git
-cd rts-game
+git clone https://github.com/Hardcoreprawn/post-scarcity-rts.git
+cd post-scarcity-rts
 
 # Install pre-commit hooks
 pre-commit install
@@ -86,8 +86,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup instructions.
 
 | Badge | Status |
 | ----- | ------ |
-| Build | ![CI](https://github.com/your-org/rts-game/workflows/CI/badge.svg) |
-| Audit | ![Security](https://github.com/your-org/rts-game/workflows/Security/badge.svg) |
+| Build | ![CI](https://github.com/Hardcoreprawn/post-scarcity-rts/workflows/CI/badge.svg) |
+| Audit | ![Security](https://github.com/Hardcoreprawn/post-scarcity-rts/workflows/Security/badge.svg) |
 
 ## License
 
