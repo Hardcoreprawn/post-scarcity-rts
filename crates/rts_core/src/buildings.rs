@@ -193,7 +193,11 @@ impl PlacementGrid {
         // Mark all cells as occupied
         for dy in 0..footprint.height {
             for dx in 0..footprint.width {
-                self.set_cell(start_x + dx, start_y + dy, PlacementCell::Occupied(entity_id));
+                self.set_cell(
+                    start_x + dx,
+                    start_y + dy,
+                    PlacementCell::Occupied(entity_id),
+                );
             }
         }
 
@@ -378,8 +382,8 @@ pub fn can_place_building_with_resource_check(
                 let y = start_y + dy;
 
                 // Calculate Chebyshev (chessboard) distance
-                let dist_x = if x > res_x { x - res_x } else { res_x - x };
-                let dist_y = if y > res_y { y - res_y } else { res_y - y };
+                let dist_x = x.abs_diff(res_x);
+                let dist_y = y.abs_diff(res_y);
                 let distance = dist_x.max(dist_y);
 
                 if distance < MIN_RESOURCE_DISTANCE {
@@ -846,11 +850,13 @@ mod tests {
         let resources = vec![(3, 3)];
 
         // Too close to resource
-        let result = can_place_building_with_resource_check(&grid, vec2(2, 2), &footprint, &resources);
+        let result =
+            can_place_building_with_resource_check(&grid, vec2(2, 2), &footprint, &resources);
         assert!(matches!(result, PlacementResult::TooCloseToResource));
 
         // Far enough from resource
-        let result = can_place_building_with_resource_check(&grid, vec2(7, 7), &footprint, &resources);
+        let result =
+            can_place_building_with_resource_check(&grid, vec2(7, 7), &footprint, &resources);
         assert!(result.is_valid());
     }
 
@@ -1148,7 +1154,10 @@ mod tests {
             assert_eq!(events1.len(), events2.len());
 
             // Progress should be identical
-            assert_eq!(building1.construction_progress, building2.construction_progress);
+            assert_eq!(
+                building1.construction_progress,
+                building2.construction_progress
+            );
             assert_eq!(building1.is_constructed, building2.is_constructed);
         }
     }

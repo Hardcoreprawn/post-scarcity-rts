@@ -1,0 +1,772 @@
+// The Zephyr Guild Faction Data
+// Post-Scarcity RTS
+//
+// "Control the skies, control the world."
+
+(
+    id: Zephyr,
+    display_name: "faction.zephyr.name",
+    description: "faction.zephyr.description",
+
+    primary_color: (255, 215, 0),   // Gold
+    secondary_color: (135, 206, 250), // Sky blue
+
+    starting_feedstock: 450,
+
+    starting_buildings: [
+        (type_id: "sky_platform", offset_x: 0, offset_y: 0),
+    ],
+
+    starting_units: [
+        (type_id: "cloudrunner", offset_x: 5, offset_y: 0),
+        (type_id: "cloudrunner", offset_x: 5, offset_y: 3),
+        (type_id: "sky_collector", offset_x: -5, offset_y: 0),
+    ],
+
+    // ========================================
+    // UNITS
+    // ========================================
+    units: [
+        // ------ Tier 1: Sky Pirates ------
+        (
+            id: "cloudrunner",
+            name: "unit.zephyr.cloudrunner.name",
+            description: "unit.zephyr.cloudrunner.description",
+            cost: 45,
+            build_time: 90,
+            health: 70,
+            speed: 42949672960,  // Fixed-point for 10.0
+            combat: Some((
+                damage: 10,
+                range: 17179869184,  // Fixed-point for 4.0
+                attack_cooldown: 30,
+                armor: 5,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["landing_zone", "sky_platform"],
+            tags: ["infantry", "ground", "grapple", "boarding"],
+        ),
+        (
+            id: "scout_balloon",
+            name: "unit.zephyr.scout_balloon.name",
+            description: "unit.zephyr.scout_balloon.description",
+            cost: 40,
+            build_time: 60,
+            health: 50,
+            speed: 72614543360,  // Fixed-point for 17.0 - very fast
+            combat: None,  // Pure scout, no weapons
+            tech_required: [],
+            tier: 1,
+            produced_at: ["hangar_bay"],
+            tags: ["air", "scout", "stealth"],
+        ),
+        (
+            id: "boarding_crew",
+            name: "unit.zephyr.boarding_crew.name",
+            description: "unit.zephyr.boarding_crew.description",
+            cost: 60,
+            build_time: 120,
+            health: 60,
+            speed: 25769803776,  // Fixed-point for 6.0 - slow
+            combat: Some((
+                damage: 5,
+                range: 12884901888,  // Fixed-point for 3.0
+                attack_cooldown: 40,
+                armor: 5,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["landing_zone"],
+            tags: ["infantry", "ground", "capture"],
+        ),
+        (
+            id: "sky_collector",
+            name: "unit.zephyr.sky_collector.name",
+            description: "unit.zephyr.sky_collector.description",
+            cost: 70,
+            build_time: 120,
+            health: 80,
+            speed: 55834574848,  // Fixed-point for 13.0 - fast harvester
+            combat: None,
+            tech_required: [],
+            tier: 1,
+            produced_at: ["sky_platform", "sky_refinery"],
+            tags: ["air", "harvester", "piracy"],
+        ),
+
+        // ------ Tier 2: The Fleet ------
+        (
+            id: "corsair_gunship",
+            name: "unit.zephyr.corsair_gunship.name",
+            description: "unit.zephyr.corsair_gunship.description",
+            cost: 200,
+            build_time: 270,
+            health: 300,
+            speed: 55834574848,  // Fixed-point for 13.0
+            combat: Some((
+                damage: 35,
+                range: 30064771072,  // Fixed-point for 7.0
+                attack_cooldown: 30,
+                armor: 20,
+            )),
+            tech_required: [],
+            tier: 2,
+            produced_at: ["shipyard"],
+            tags: ["air", "assault", "anti_ground", "anti_air", "signature"],
+        ),
+        (
+            id: "bomber_zeppelin",
+            name: "unit.zephyr.bomber_zeppelin.name",
+            description: "unit.zephyr.bomber_zeppelin.description",
+            cost: 275,
+            build_time: 330,
+            health: 400,
+            speed: 21474836480,  // Fixed-point for 5.0 - slow
+            combat: Some((
+                damage: 50,  // High area damage
+                range: 34359738368,  // Fixed-point for 8.0
+                attack_cooldown: 60,
+                armor: 25,
+            )),
+            tech_required: ["navigation_tower"],
+            tier: 2,
+            produced_at: ["shipyard"],
+            tags: ["air", "bomber", "siege", "aoe"],
+        ),
+        (
+            id: "transport_barge",
+            name: "unit.zephyr.transport_barge.name",
+            description: "unit.zephyr.transport_barge.description",
+            cost: 175,
+            build_time: 240,
+            health: 350,
+            speed: 38654705664,  // Fixed-point for 9.0
+            combat: None,  // Troop carrier, no weapons
+            tech_required: [],
+            tier: 2,
+            produced_at: ["shipyard"],
+            tags: ["air", "transport", "paradrop"],
+        ),
+
+        // ------ Tier 3: Armada ------
+        (
+            id: "sky_dreadnought",
+            name: "unit.zephyr.sky_dreadnought.name",
+            description: "unit.zephyr.sky_dreadnought.description",
+            cost: 800,
+            build_time: 600,
+            health: 1200,
+            speed: 17179869184,  // Fixed-point for 4.0
+            combat: Some((
+                damage: 100,
+                range: 42949672960,  // Fixed-point for 10.0
+                attack_cooldown: 50,
+                armor: 50,
+            )),
+            tech_required: ["admirals_bridge"],
+            tier: 3,
+            produced_at: ["grand_dock"],
+            tags: ["air", "capital", "super_heavy"],
+        ),
+        (
+            id: "carrier_platform",
+            name: "unit.zephyr.carrier_platform.name",
+            description: "unit.zephyr.carrier_platform.description",
+            cost: 700,
+            build_time: 540,
+            health: 800,
+            speed: 12884901888,  // Fixed-point for 3.0 - very slow
+            combat: Some((
+                damage: 25,
+                range: 25769803776,  // Fixed-point for 6.0
+                attack_cooldown: 45,
+                armor: 30,
+            )),
+            tech_required: ["admirals_bridge"],
+            tier: 3,
+            produced_at: ["grand_dock"],
+            tags: ["air", "production", "mobile_base"],
+        ),
+        (
+            id: "storm_engine",
+            name: "unit.zephyr.storm_engine.name",
+            description: "unit.zephyr.storm_engine.description",
+            cost: 650,
+            build_time: 480,
+            health: 600,
+            speed: 21474836480,  // Fixed-point for 5.0
+            combat: Some((
+                damage: 30,
+                range: 47244640256,  // Fixed-point for 11.0 - long range
+                attack_cooldown: 75,
+                armor: 40,
+            )),
+            tech_required: ["admirals_bridge"],
+            tier: 3,
+            produced_at: ["grand_dock"],
+            tags: ["air", "support", "weather_control", "area_denial"],
+        ),
+    ],
+
+    // ========================================
+    // BUILDINGS
+    // ========================================
+    buildings: [
+        // ------ Core Buildings ------
+        (
+            id: "sky_platform",
+            name: "building.zephyr.sky_platform.name",
+            description: "building.zephyr.sky_platform.description",
+            cost: 0,  // Starting building
+            build_time: 0,
+            health: 900,  // Lower HP, but mobile
+            produces: ["cloudrunner", "sky_collector"],
+            tech_required: [],
+            provides_tech: ["platform_online"],
+            tier: 1,
+            targetable: true,
+            armor: 12,
+            vision_range: Some(55834574848),  // Fixed-point for 13.0
+            tags: ["headquarters", "floating", "mobile"],
+            is_harvester: false,
+            is_main_base: true,
+        ),
+        (
+            id: "trade_depot",
+            name: "building.zephyr.trade_depot.name",
+            description: "building.zephyr.trade_depot.description",
+            cost: 100,
+            build_time: 150,
+            health: 300,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 8,
+            vision_range: Some(38654705664),
+            tags: ["economy", "trade"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "sky_refinery",
+            name: "building.zephyr.sky_refinery.name",
+            description: "building.zephyr.sky_refinery.description",
+            cost: 150,
+            build_time: 195,
+            health: 350,
+            produces: ["sky_collector"],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(34359738368),
+            tags: ["economy", "refinery", "floating"],
+            is_harvester: true,
+            is_main_base: false,
+        ),
+        (
+            id: "smugglers_den",
+            name: "building.zephyr.smugglers_den.name",
+            description: "building.zephyr.smugglers_den.description",
+            cost: 125,
+            build_time: 165,
+            health: 250,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 8,
+            vision_range: Some(42949672960),
+            tags: ["economy", "piracy"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Production Buildings ------
+        (
+            id: "hangar_bay",
+            name: "building.zephyr.hangar_bay.name",
+            description: "building.zephyr.hangar_bay.description",
+            cost: 150,
+            build_time: 180,
+            health: 400,
+            produces: ["scout_balloon"],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 12,
+            vision_range: Some(38654705664),
+            tags: ["production", "air", "floating"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "shipyard",
+            name: "building.zephyr.shipyard.name",
+            description: "building.zephyr.shipyard.description",
+            cost: 250,
+            build_time: 300,
+            health: 550,
+            produces: ["corsair_gunship", "bomber_zeppelin", "transport_barge"],
+            tech_required: ["navigation_tower"],
+            provides_tech: [],
+            tier: 2,
+            targetable: true,
+            armor: 18,
+            vision_range: Some(38654705664),
+            tags: ["production", "air", "advanced", "floating"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "grand_dock",
+            name: "building.zephyr.grand_dock.name",
+            description: "building.zephyr.grand_dock.description",
+            cost: 450,
+            build_time: 420,
+            health: 750,
+            produces: ["sky_dreadnought", "carrier_platform", "storm_engine"],
+            tech_required: ["admirals_bridge"],
+            provides_tech: [],
+            tier: 3,
+            targetable: true,
+            armor: 25,
+            vision_range: Some(47244640256),
+            tags: ["production", "air", "tier3", "floating"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Ground Buildings (Rare) ------
+        (
+            id: "landing_zone",
+            name: "building.zephyr.landing_zone.name",
+            description: "building.zephyr.landing_zone.description",
+            cost: 100,
+            build_time: 120,
+            health: 250,
+            produces: ["cloudrunner", "boarding_crew"],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 8,
+            vision_range: Some(34359738368),
+            tags: ["production", "ground", "temporary"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "forward_base",
+            name: "building.zephyr.forward_base.name",
+            description: "building.zephyr.forward_base.description",
+            cost: 175,
+            build_time: 210,
+            health: 350,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 12,
+            vision_range: Some(38654705664),
+            tags: ["expansion", "ground", "packable"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Tech Buildings ------
+        (
+            id: "navigation_tower",
+            name: "building.zephyr.navigation_tower.name",
+            description: "building.zephyr.navigation_tower.description",
+            cost: 175,
+            build_time: 225,
+            health: 350,
+            produces: [],
+            tech_required: [],
+            provides_tech: ["tier_2_access"],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(51539607552),
+            tags: ["tech", "navigation"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "admirals_bridge",
+            name: "building.zephyr.admirals_bridge.name",
+            description: "building.zephyr.admirals_bridge.description",
+            cost: 400,
+            build_time: 390,
+            health: 500,
+            produces: [],
+            tech_required: ["navigation_tower"],
+            provides_tech: ["tier_3_access"],
+            tier: 2,
+            targetable: true,
+            armor: 18,
+            vision_range: Some(55834574848),
+            tags: ["tech", "command", "advanced"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Defense Buildings ------
+        (
+            id: "flak_balloon",
+            name: "building.zephyr.flak_balloon.name",
+            description: "building.zephyr.flak_balloon.description",
+            cost: 75,
+            build_time: 90,
+            health: 180,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 8,
+            vision_range: Some(51539607552),
+            tags: ["defense", "anti_air", "floating"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "sky_mine",
+            name: "building.zephyr.sky_mine.name",
+            description: "building.zephyr.sky_mine.description",
+            cost: 25,
+            build_time: 30,
+            health: 30,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: false,  // Hidden
+            armor: 0,
+            vision_range: None,
+            tags: ["defense", "trap", "hidden"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+    ],
+
+    // ========================================
+    // TECHNOLOGIES
+    // ========================================
+    technologies: [
+        // ------ Tier 1 Upgrades ------
+        (
+            id: "improved_engines",
+            name: "tech.zephyr.improved_engines.name",
+            description: "tech.zephyr.improved_engines.description",
+            cost: 100,
+            research_time: 750,  // 25 seconds
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "speed", percent: 15),
+                    applies_to: [],
+                    applies_to_tags: ["air"],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("navigation_tower"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "reinforced_hulls",
+            name: "tech.zephyr.reinforced_hulls.name",
+            description: "tech.zephyr.reinforced_hulls.description",
+            cost: 100,
+            research_time: 750,
+            effects: [
+                (
+                    effect_type: StatModifierFlat(stat: "armor", amount: 20),
+                    applies_to: [],
+                    applies_to_tags: ["air"],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("navigation_tower"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "extended_range",
+            name: "tech.zephyr.extended_range.name",
+            description: "tech.zephyr.extended_range.description",
+            cost: 75,
+            research_time: 600,  // 20 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "trade_income", params: ["25"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("navigation_tower"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+
+        // ------ Tier 2 Branch A: Pirate Fleet ------
+        (
+            id: "pirate_fleet_doctrine",
+            name: "tech.zephyr.pirate_fleet_doctrine.name",
+            description: "tech.zephyr.pirate_fleet_doctrine.description",
+            cost: 150,
+            research_time: 1200,  // 40 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_branch", params: ["pirate"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 2,
+            exclusive_with: ["war_fleet_doctrine"],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: true,
+            branch: Some("pirate"),
+            icon: None,
+        ),
+        (
+            id: "enhanced_piracy",
+            name: "tech.zephyr.enhanced_piracy.name",
+            description: "tech.zephyr.enhanced_piracy.description",
+            cost: 150,
+            research_time: 1200,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "piracy_steal", params: ["50"]),
+                    applies_to: ["sky_collector"],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["pirate_fleet_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: Some("pirate"),
+            icon: None,
+        ),
+        (
+            id: "intimidation",
+            name: "tech.zephyr.intimidation.name",
+            description: "tech.zephyr.intimidation.description",
+            cost: 175,
+            research_time: 1350,  // 45 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "intimidation_aura", params: ["15"]),
+                    applies_to: [],
+                    applies_to_tags: ["air"],
+                ),
+            ],
+            prerequisites: ["pirate_fleet_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: Some("pirate"),
+            icon: None,
+        ),
+        (
+            id: "rapid_boarding",
+            name: "tech.zephyr.rapid_boarding.name",
+            description: "tech.zephyr.rapid_boarding.description",
+            cost: 125,
+            research_time: 1050,  // 35 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "capture_speed", params: ["50"]),
+                    applies_to: ["boarding_crew"],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["pirate_fleet_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: Some("pirate"),
+            icon: None,
+        ),
+
+        // ------ Tier 2 Branch B: War Fleet ------
+        (
+            id: "war_fleet_doctrine",
+            name: "tech.zephyr.war_fleet_doctrine.name",
+            description: "tech.zephyr.war_fleet_doctrine.description",
+            cost: 150,
+            research_time: 1200,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_branch", params: ["war"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 2,
+            exclusive_with: ["pirate_fleet_doctrine"],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: true,
+            branch: Some("war"),
+            icon: None,
+        ),
+        (
+            id: "heavy_ordnance",
+            name: "tech.zephyr.heavy_ordnance.name",
+            description: "tech.zephyr.heavy_ordnance.description",
+            cost: 175,
+            research_time: 1350,
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "damage", percent: 30),
+                    applies_to: ["bomber_zeppelin"],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["war_fleet_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: Some("war"),
+            icon: None,
+        ),
+        (
+            id: "evasive_maneuvers",
+            name: "tech.zephyr.evasive_maneuvers.name",
+            description: "tech.zephyr.evasive_maneuvers.description",
+            cost: 150,
+            research_time: 1200,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "dodge_chance", params: ["25"]),
+                    applies_to: [],
+                    applies_to_tags: ["air"],
+                ),
+            ],
+            prerequisites: ["war_fleet_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: Some("war"),
+            icon: None,
+        ),
+        (
+            id: "combined_arms",
+            name: "tech.zephyr.combined_arms.name",
+            description: "tech.zephyr.combined_arms.description",
+            cost: 125,
+            research_time: 1050,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "air_ground_synergy", params: ["20"]),
+                    applies_to: [],
+                    applies_to_tags: ["air"],
+                ),
+            ],
+            prerequisites: ["war_fleet_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: Some("war"),
+            icon: None,
+        ),
+
+        // ------ Tier 3 Upgrades ------
+        (
+            id: "fleet_admiral",
+            name: "tech.zephyr.fleet_admiral.name",
+            description: "tech.zephyr.fleet_admiral.description",
+            cost: 300,
+            research_time: 1800,  // 60 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "command_aura", params: []),
+                    applies_to: ["sky_dreadnought", "carrier_platform"],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["admirals_bridge"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "monopoly",
+            name: "tech.zephyr.monopoly.name",
+            description: "tech.zephyr.monopoly.description",
+            cost: 350,
+            research_time: 2250,  // 75 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "trade_monopoly", params: ["50", "25"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["admirals_bridge"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "sky_supremacy",
+            name: "tech.zephyr.sky_supremacy.name",
+            description: "tech.zephyr.sky_supremacy.description",
+            cost: 400,
+            research_time: 2700,  // 90 seconds
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "speed", percent: 10),
+                    applies_to: [],
+                    applies_to_tags: ["air"],
+                ),
+                (
+                    effect_type: StatModifierPercent(stat: "damage", percent: 10),
+                    applies_to: [],
+                    applies_to_tags: ["air"],
+                ),
+            ],
+            prerequisites: ["admirals_bridge"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("admirals_bridge"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+    ],
+)

@@ -13,23 +13,23 @@ This roadmap outlines the development phases for Post-Scarcity RTS, with testabl
 
 ---
 
-## Phase 0: Foundation (Weeks 1-2)
+## Phase 0: Foundation (Weeks 1-2) ✅
 
 Establish development infrastructure and project skeleton.
 
-### 0.1 Repository Setup
+### 0.1 Repository Setup ✅
 
 - [x] Initialize Git repository
-- [ ] Configure `.gitignore` for Rust/Bevy
-- [ ] Set up branch protection rules (main, develop)
-- [ ] Create PR template and issue templates
+- [x] Configure `.gitignore` for Rust/Bevy
+- [x] Set up branch protection rules (main, develop)
+- [x] Create PR template and issue templates
 
-#### 0.2 Rust Project Initialization
+#### 0.2 Rust Project Initialization ✅
 
-- [ ] Initialize Cargo workspace
-- [ ] Configure `Cargo.toml` with core dependencies
-- [ ] Set up workspace structure (crates for core, game, editor)
-- [ ] Verify `cargo build` and `cargo run` work
+- [x] Initialize Cargo workspace
+- [x] Configure `Cargo.toml` with core dependencies
+- [x] Set up workspace structure (crates for core, game, editor)
+- [x] Verify `cargo build` and `cargo run` work
 
 #### 0.3 Pre-commit Hooks
 
@@ -55,182 +55,355 @@ Establish development infrastructure and project skeleton.
 
 **Exit Criteria:**
 
-- [ ] `cargo build --release` succeeds on all platforms via CI
+- [x] `cargo build --release` succeeds on all platforms via CI
 - [ ] Pre-commit hooks block badly formatted code
-- [ ] Empty window opens with Bevy
+- [x] Empty window opens with Bevy
 
 ---
 
-## Phase 1: Core Engine (Weeks 3-6)
+## Phase 1: Core Engine (Weeks 3-6) ✅
 
 Build the fundamental game systems that all features depend on.
 
-### 1.1 ECS Foundation
+### 1.1 ECS Foundation ✅
 
-- [ ] Entity spawning/despawning
-- [ ] Component registration system
-- [ ] System scheduling and ordering
-- [ ] Event system for game events
-- [ ] **Test:** Spawn 1000 entities, verify frame time < 16ms
+- [x] Entity spawning/despawning
+- [x] Component registration system
+- [x] System scheduling and ordering
+- [x] Event system for game events
+- [x] **Test:** Spawn 1000 entities, verify frame time < 16ms
 
-#### 1.2 Rendering Pipeline
+#### 1.2 Rendering Pipeline ✅
 
-- [ ] 2D sprite rendering (placeholder assets)
-- [ ] Camera system (pan, zoom)
-- [ ] Basic tilemap or terrain rendering
-- [ ] Unit selection visuals (circles, highlights)
-- [ ] **Test:** Render 500 sprites at 60fps
+- [x] 2D sprite rendering (placeholder assets)
+- [x] Camera system (pan, zoom)
+- [x] Basic tilemap or terrain rendering
+- [x] Unit selection visuals (circles, highlights)
+- [x] **Test:** Render 500 sprites at 60fps
 
-#### 1.3 Input System
+#### 1.3 Input System ✅
 
-- [ ] Mouse input (click, drag, box select)
-- [ ] Keyboard shortcuts
-- [ ] Camera controls (WASD, edge pan, mouse wheel)
+- [x] Mouse input (click, drag, box select)
+- [x] Keyboard shortcuts
+- [x] Camera controls (WASD, edge pan, mouse wheel)
 - [ ] Input mapping/rebinding foundation
-- [ ] **Test:** Select units, issue move commands
+- [x] **Test:** Select units, issue move commands
 
-#### 1.4 Pathfinding
+#### 1.4 Pathfinding ✅
 
-- [ ] Navigation mesh or grid generation
-- [ ] A* or flowfield pathfinding
-- [ ] Unit steering and avoidance
-- [ ] Formation movement basics
-- [ ] **Test:** 100 units navigate around obstacles without stacking
+- [x] Navigation mesh or grid generation
+- [x] A* or flowfield pathfinding
+- [x] Unit steering and avoidance
+- [x] Formation movement basics
+- [x] **Test:** 100 units navigate around obstacles without stacking
 
-#### 1.5 Basic Simulation Loop
+#### 1.5 Basic Simulation Loop ✅
 
-- [ ] Fixed timestep game loop
-- [ ] Deterministic update ordering
-- [ ] Game state serialization (for saves/netcode)
-- [ ] **Test:** Record and replay 60 seconds of gameplay identically
+- [x] Fixed timestep game loop
+- [x] Deterministic update ordering
+- [x] Game state serialization (for saves/netcode)
+- [x] **Test:** Record and replay 60 seconds of gameplay identically
 
 **Exit Criteria:**
 
-- [ ] Units move on command with pathfinding
-- [ ] Simulation is deterministic (replay produces identical results)
-- [ ] Stable 60fps with 500 units
+- [x] Units move on command with pathfinding
+- [x] Simulation is deterministic (replay produces identical results)
+- [x] Stable 60fps with 500 units
 
 ---
 
-## Phase 2: Gameplay Foundation (Weeks 7-12)
+## Phase 2: Gameplay Foundation (Weeks 7-12) ✅
 
 Implement core RTS mechanics with one faction.
 
-### 2.1 Resource System
+### 2.1 Resource System ✅
 
-- [ ] Feedstock resource nodes
-- [ ] Harvester units (gather, return, deposit)
-- [ ] Resource storage and display
-- [ ] Basic economy loop
-- [ ] **Test:** Harvesters collect resources, player can spend them
+- [x] Feedstock resource nodes (temporary & permanent)
+- [x] Harvester units (gather, return, deposit)
+- [x] Resource storage and display
+- [x] Basic economy loop
+- [x] Harvesters remember assigned nodes
+- [x] **Test:** Harvesters collect resources, player can spend them
 
-#### 2.2 Unit Production
+#### 2.2 Unit Production ✅
 
-- [ ] Building placement system
-- [ ] Production queues
-- [ ] Build times and costs
-- [ ] Rally points
-- [ ] **Test:** Build structure, train units, units rally to point
+- [x] Building placement system (depot spawning)
+- [x] Production queues
+- [x] Build times and costs
+- [x] Rally points
+- [x] **Test:** Build structure, train units, units rally to point
 
-#### 2.3 Combat System
+#### 2.3 Combat System ✅
 
-- [ ] Health and damage
-- [ ] Attack commands and auto-attack
-- [ ] Damage types and armor
-- [ ] Unit death and cleanup
-- [ ] **Test:** Two armies fight, units die, combat resolves
+- [x] Health and damage
+- [x] Attack commands and auto-attack
+- [x] Damage types and armor
+- [x] Unit death and cleanup
+- [x] Faction-restricted selection/commands
+- [x] **Test:** Two armies fight, units die, combat resolves
 
-#### 2.4 Building System
+#### 2.4 Building System ✅
 
-- [ ] Building placement grid
-- [ ] Construction time
-- [ ] Building health and destruction
-- [ ] Tech requirements
-- [ ] **Test:** Build tech tree progression works
+- [x] Building placement (depot exists, B key opens build menu)
+- [x] Construction time for buildings (UnderConstruction component)
+- [x] Building health and destruction
+- [x] Tech requirements (TechLab gates Ranger production)
+- [x] Additional building types (Barracks, SupplyDepot, TechLab, Turret)
+- [x] **Test:** Build tech tree progression works
 
-#### 2.5 Basic UI
+#### 2.5 Basic UI ✅
 
-- [ ] HUD (resources, supply, minimap placeholder)
-- [ ] Unit selection panel
-- [ ] Command card (actions/abilities)
-- [ ] Production panel
-- [ ] **Test:** All core actions accessible via UI
+- [x] HUD (resources, supply, minimap)
+- [x] Unit selection panel
+- [x] Command card (actions/abilities)
+- [x] Production panel
+- [x] **Test:** All core actions accessible via UI
+
+#### 2.6 Basic AI ✅
+
+- [x] AI faction production (harvesters, combat units)
+- [x] AI harvester management
+- [x] AI attack behavior (threshold-based)
+- [x] **Test:** AI provides basic challenge
 
 **Exit Criteria:**
 
-- [ ] Complete gameplay loop: gather → build → train → fight
-- [ ] One faction playable (Continuity Authority as baseline)
-- [ ] Win/lose conditions (destroy enemy base)
+- [x] Complete gameplay loop: gather → build → train → fight
+- [x] One faction playable (Continuity Authority as baseline)
 
 ---
 
-## Phase 3: Content Expansion (Weeks 13-20)
+## Phase 2.7: Core UX Polish (Weeks 12-14) 🔄 IN PROGRESS
 
-Implement all five factions with unique mechanics.
+Essential visual feedback and controls that should exist before faction testing.
 
-### 3.1 Faction Framework
+### 2.7.1 Victory Conditions ⏳
 
-- [ ] Faction data loading (RON files)
-- [ ] Faction-specific unit stats
-- [ ] Faction-specific buildings
-- [ ] Tech tree per faction
-- [ ] **Test:** Switch factions, all data loads correctly
+- [ ] Win condition: destroy enemy command building (Depot)
+- [ ] Lose condition: player command building destroyed
+- [ ] Victory screen with match statistics
+- [ ] Defeat screen with retry option
+- [ ] **Test:** Games end properly, can restart
 
-#### 3.2 Continuity Authority (Complete)
+#### 2.7.2 Visual Feedback 🔄 NEXT
 
-- [ ] All units implemented
-- [ ] Stockpile mechanic
-- [ ] Heavy mech feel
-- [ ] **Test:** Playable vs AI
+- [ ] Health bars above units and buildings
+- [ ] Selection circles under selected units
+- [ ] Rally point visuals (line/flag from building to point)
+- [ ] Building placement ghost preview (fix existing bug)
+- [ ] Damage flash/feedback on hit
+- [ ] **Test:** Player can read game state at a glance
 
-#### 3.3 The Collegium
+#### 2.7.3 Core Commands ⏳
 
-- [ ] Drone swarm mechanics
-- [ ] Network scaling bonus
-- [ ] Open-source discount
-- [ ] **Test:** Playable vs AI
+- [ ] Attack-move command (A + click)
+- [ ] Patrol command (P + click two points)
+- [ ] Stop command (S key)
+- [ ] Hold position command (H key)
+- [ ] **Test:** All standard RTS commands work
 
-#### 3.4 The Tinkers' Union
+#### 2.7.4 Minimap Interaction ⏳
 
-- [ ] Modular mech system
-- [ ] Module swapping
-- [ ] Salvage mechanic
-- [ ] Mobile buildings
-- [ ] **Test:** Playable vs AI
+- [ ] Click minimap to pan camera
+- [ ] Right-click minimap to issue move commands
+- [ ] Minimap shows unit positions accurately
+- [ ] Minimap ping system (Alt+click)
+- [ ] **Test:** Can play game primarily via minimap
 
-#### 3.5 The Sculptors
+#### 2.7.5 Production QoL ⏳
 
-- [ ] Patronage economy system
-- [ ] Bespoke unit production
-- [ ] Essence harvesting
-- [ ] Customization/adaptation system
-- [ ] **Test:** Playable vs AI
+- [ ] Select all buildings of type (Ctrl+click icon)
+- [ ] Global production tab (see all queues)
+- [ ] Production hotkeys (consistent across factions)
+- [ ] Queue reordering (shift+click to move)
+- [ ] **Test:** Efficient macro gameplay possible
 
-#### 3.6 The Zephyr Guild
+#### 2.7.6 Sprite Improvements 🔄
 
-- [ ] Flying units primary
-- [ ] Trade route system
-- [ ] Piracy mechanics
-- [ ] Mobile base
-- [ ] **Test:** Playable vs AI
+- [x] Basic unit sprites (infantry, ranger, harvester)
+- [x] Basic building sprites (depot, barracks, supply_depot, tech_lab, turret)
+- [x] Resource node sprites (temporary/permanent feedstock)
+- [x] Faction color tinting system
+- [ ] Improve unit sprites (more detailed, readable silhouettes)
+- [ ] Improve building sprites (distinct shapes per type)
+- [ ] Unit idle/move/attack animation frames (basic)
+- [ ] Death animations / destruction effects
+- [ ] **Test:** Units distinguishable at strategic zoom
+
+**Exit Criteria:**
+
+- [ ] Game feels "complete" even with one faction
+- [ ] New players can understand what's happening
+- [ ] All core RTS commands implemented
+- [ ] Visual feedback is clear and immediate
+
+---
+
+## Phase 3: Faction Differentiation (Weeks 15-24) 🔄 IN PROGRESS
+
+Implement all five factions with unique mechanics. **Staged rollout** to validate asymmetric balance before scaling.
+
+### 3.0 Faction Rollout Strategy
+
+**Stage A (Weeks 15-17):** Continuity Authority + Collegium
+
+- Two contrasting factions (heavy control vs swarm)
+- Validate asymmetric combat balance
+- Establish faction integration patterns
+
+**Stage B (Weeks 18-20):** Add Tinkers' Union + Sculptors
+
+- Expand to 4 factions
+- Balance pass with 6 matchups
+- Unique mechanics (modular, organic)
+
+**Stage C (Weeks 21-24):** Add Zephyr Guild + Full Balance
+
+- Complete 5-faction roster
+- Full 10-matchup balance matrix
+- Faction-specific AI behaviors
+
+### 3.1 Faction Data Files ✅
+
+- [x] FactionData schema (RON deserialization)
+- [x] FactionDataPlugin loader
+- [x] Continuity Authority data (10 units, 12 buildings, 10 techs)
+- [x] Collegium data (9 units, 10 buildings, 12 techs)
+- [x] Tinkers' Union data (10 units, 10 buildings, 12 techs)
+- [x] Sculptors data (10 units, 11 buildings, 14 techs)
+- [x] Zephyr Guild data (10 units, 14 buildings, 12 techs)
+- [x] **Test:** All RON files parse correctly
+
+#### 3.2 Faction Base Stats 🔄 NEXT
+
+- [ ] Wire FactionData to unit spawning (use faction stats from RON)
+- [ ] Wire FactionData to building spawning (use faction stats from RON)
+- [ ] Faction selection at game start
+- [ ] All 5 factions playable with Tier 1 units
+- [ ] **Test:** Switch factions, units have correct stats
+
+#### 3.3 Tech System (Deferred)
+
+*Design documented in [tech-trees.md](design/systems/tech-trees.md). Implementation after base factions work.*
+
+- [ ] ResearchedTechs component per faction
+- [ ] Research queue system (at buildings)
+- [ ] Branch exclusivity locking
+- [ ] Buff system with diminishing returns
+- [ ] Research UI on building command cards
+- [ ] Unit/ability unlocks from research
+- [ ] **Test:** Research a tech, see effect applied
+
+#### 3.4 Continuity Authority
+
+- [x] Data complete (security forces theme)
+- [ ] Tier 1 units spawnable with base stats
+- [ ] Stockpile mechanic (deferred to 3.3)
+- [ ] **Test:** Playable vs AI with base units
+
+#### 3.5 The Collegium
+
+- [x] Data complete (drone swarms theme)
+- [ ] Tier 1 units spawnable with base stats
+- [ ] Network scaling (deferred to 3.3)
+- [ ] **Test:** Playable vs AI with base units
+
+#### 3.6 The Tinkers' Union
+
+- [x] Data complete (modular mechs theme)
+- [ ] Tier 1 units spawnable with base stats
+- [ ] Module system (deferred to 3.3)
+- [ ] Mobile buildings (deferred)
+- [ ] **Test:** Playable vs AI with base units
+
+#### 3.7 The Sculptors
+
+- [x] Data complete (organic biotech theme)
+- [ ] Tier 1 units spawnable with base stats
+- [ ] Regeneration mechanics (deferred to 3.3)
+- [ ] **Test:** Playable vs AI with base units
+
+#### 3.8 The Zephyr Guild
+
+- [x] Data complete (air superiority theme)
+- [ ] Tier 1 units spawnable with base stats
+- [ ] Trade/piracy systems (deferred to 3.3)
+- [ ] **Test:** Playable vs AI with base units
 
 **Exit Criteria:**
 
 - [ ] All five factions playable
 - [ ] Each faction feels distinct
-- [ ] Balance pass complete (internal testing)
+- [ ] Basic balance pass (unit stats tuned)
 
 ---
 
-## Phase 4: AI Opponents (Weeks 21-26)
+## Phase 3.5: Balance Testing Infrastructure
 
-Create competent AI opponents for single-player.
+Automated testing to ensure game balance across factions.
+*Note: Expand after factions are playable - tests exist, need faction integration to be meaningful.*
+
+### 3.5.1 Unit Balance Tests ✅
+
+- [x] Damage formula verification
+- [x] Armor reduction calculations
+- [x] Time-to-kill matrices
+- [x] Cost efficiency analysis
+- [x] Army composition analysis framework
+- [x] **Test:** 27 balance tests passing
+
+#### 3.5.2 Simulation-Based Balance Testing
+
+- [ ] Headless simulation runner (no rendering)
+- [ ] 1v1 matchup simulator
+- [ ] Automated army composition testing
+- [ ] Win rate tracking per matchup
+- [ ] **Test:** Run 1000 simulated battles in < 1 minute
+
+#### 3.5.3 Faction Balance Matrix
+
+- [ ] Unit vs unit TTK matrix (all factions × all units)
+- [ ] Cost-adjusted combat efficiency
+- [ ] Counter-unit relationship verification
+- [ ] Faction army composition win rates
+- [ ] **Test:** All matchups within 45-55% win rate
+
+#### 3.5.4 Economy Balance Testing
+
+- [ ] Harvester ROI timing per faction
+- [ ] Build order viability analysis
+- [ ] Expansion timing simulations
+- [ ] Resource denial impact measurement
+- [ ] **Test:** All factions can sustain production by minute 3
+
+#### 3.5.5 Regression Testing
+
+- [ ] Golden balance snapshots
+- [ ] Stat change impact reports
+- [ ] Automated balance alerts on PRs
+- [ ] Historical balance tracking
+- [ ] **Test:** CI fails if balance regresses significantly
+
+**Exit Criteria:**
+
+- [ ] Can simulate 1000 battles headlessly in < 60 seconds
+- [ ] Balance matrix shows all matchups within acceptable range
+- [ ] CI alerts on balance-breaking changes
+
+---
+
+## Phase 4: Advanced AI (Weeks 25-30)
+
+Create competent AI opponents with faction-specific behaviors.
+
+> **Note:** Basic victory conditions moved to Phase 2.7
 
 ### 4.1 AI Framework
 
+- [x] Basic AI production/attack behavior (threshold-based)
 - [ ] Behavior tree or utility AI system
 - [ ] AI decision timing (not per-frame)
-- [ ] Difficulty scaling hooks
+- [ ] Difficulty scaling (Easy/Normal/Hard)
 - [ ] **Test:** AI makes decisions, doesn't freeze game
 
 #### 4.2 Economic AI
@@ -269,7 +442,7 @@ Create competent AI opponents for single-player.
 
 ---
 
-## Phase 5: Multiplayer (Weeks 27-34)
+## Phase 5: Multiplayer (Weeks 31-38)
 
 Implement deterministic lockstep multiplayer.
 
@@ -318,7 +491,7 @@ Implement deterministic lockstep multiplayer.
 
 ---
 
-## Phase 6: Polish & Content (Weeks 35-44)
+## Phase 6: Polish & Content (Weeks 39-50)
 
 Replace placeholder assets and polish the experience.
 
@@ -331,11 +504,13 @@ Replace placeholder assets and polish the experience.
 
 #### 6.2 Visual Polish
 
-- [ ] Unit sprites/models (open assets or commissioned)
-- [ ] Building sprites/models
-- [ ] Terrain tiles
+- [ ] Final unit sprites (professional pixel art or 3D renders)
+- [ ] Final building sprites (distinct, faction-themed)
+- [ ] Terrain tiles (biome variety)
 - [ ] Visual effects (attacks, explosions, abilities)
-- [ ] UI art pass
+- [ ] Unit animations (idle, move, attack, death)
+- [ ] UI art pass (faction-themed panels)
+- [ ] **Sprite quality pass** — Replace all placeholder sprites with polished versions
 
 #### 6.3 Audio
 
@@ -365,7 +540,7 @@ Replace placeholder assets and polish the experience.
 
 ---
 
-## Phase 7: Release Preparation (Weeks 45-52)
+## Phase 7: Release Preparation (Weeks 51-58)
 
 Prepare for Steam release.
 
@@ -544,18 +719,20 @@ jobs:
 
 ## Timeline Summary
 
-| Phase | Duration | Cumulative |
-| ----- | -------- | ---------- |
-| 0: Foundation | 2 weeks | Week 2 |
-| 1: Core Engine | 4 weeks | Week 6 |
-| 2: Gameplay | 6 weeks | Week 12 |
-| 3: Content | 8 weeks | Week 20 |
-| 4: AI | 6 weeks | Week 26 |
-| 5: Multiplayer | 8 weeks | Week 34 |
-| 6: Polish | 10 weeks | Week 44 |
-| 7: Release | 8 weeks | Week 52 |
+| Phase | Duration | Status |
+| ----- | -------- | ------ |
+| 0: Foundation | 2 weeks | ✅ Complete |
+| 1: Core Engine | 4 weeks | ✅ Complete |
+| 2: Gameplay | 6 weeks | ✅ Complete |
+| **2.7: Core UX Polish** | **3 weeks** | **🔄 In Progress** |
+| 3: Faction Differentiation | 10 weeks | 🔄 In Progress (data done) |
+| 3.5: Balance Testing | 2 weeks | ⏸️ Framework ready |
+| 4: Advanced AI | 6 weeks | ⏳ Pending |
+| 5: Multiplayer | 8 weeks | ⏳ Pending |
+| 6: Polish & Content | 12 weeks | ⏳ Pending |
+| 7: Release | 8 weeks | ⏳ Pending |
 
-Total: ~52 weeks (1 year)
+Total: ~58 weeks (~14 months)
 
 ---
 

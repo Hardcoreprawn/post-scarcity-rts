@@ -24,7 +24,6 @@
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
-#![warn(clippy::all, clippy::pedantic)]
 
 pub mod buildings;
 pub mod components;
@@ -41,7 +40,9 @@ pub mod systems;
 /// Re-export commonly used types
 pub mod prelude {
     pub use crate::components::*;
-    pub use crate::data::{BuildingData, FactionData, TechData, TechEffect, TechEffectType, UnitData};
+    pub use crate::data::{
+        BuildingData, FactionData, TechData, TechEffect, TechEffectType, UnitData,
+    };
     pub use crate::economy::{
         Depot, EconomyEvent, Feedstock, Harvester, HarvesterState, PlayerEconomy, ResourceNode,
     };

@@ -64,7 +64,10 @@ impl NavGrid {
     pub fn new(width: u32, height: u32, cell_size: Fixed) -> Self {
         assert!(width > 0, "NavGrid width must be positive");
         assert!(height > 0, "NavGrid height must be positive");
-        assert!(cell_size > Fixed::ZERO, "NavGrid cell_size must be positive");
+        assert!(
+            cell_size > Fixed::ZERO,
+            "NavGrid cell_size must be positive"
+        );
 
         let cell_count = (width as usize) * (height as usize);
         Self {
@@ -131,7 +134,7 @@ impl NavGrid {
     /// Check if a cell is walkable.
     #[must_use]
     pub fn is_walkable(&self, x: u32, y: u32) -> bool {
-        self.get_cell(x, y).map_or(false, |c| c.is_walkable())
+        self.get_cell(x, y).is_some_and(|c| c.is_walkable())
     }
 
     /// Convert world position to grid coordinates.
@@ -224,8 +227,8 @@ const DIAGONAL_COST: Fixed = Fixed::const_from_int(1); // Using 1 for Chebyshev 
 /// Calculate Chebyshev distance heuristic (suitable for 8-directional movement).
 #[inline]
 fn chebyshev_heuristic(x1: u32, y1: u32, x2: u32, y2: u32) -> Fixed {
-    let dx = if x1 > x2 { x1 - x2 } else { x2 - x1 };
-    let dy = if y1 > y2 { y1 - y2 } else { y2 - y1 };
+    let dx = x1.abs_diff(x2);
+    let dy = y1.abs_diff(y2);
     Fixed::from_num(dx.max(dy))
 }
 

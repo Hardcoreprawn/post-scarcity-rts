@@ -1,0 +1,662 @@
+// The Tinkers' Union Faction Data
+// Post-Scarcity RTS
+//
+// "If you can't open it, you don't own it."
+
+(
+    id: Tinkers,
+    display_name: "faction.tinkers.name",
+    description: "faction.tinkers.description",
+
+    primary_color: (255, 140, 0),    // Safety orange
+    secondary_color: (70, 130, 180), // Workshop blue
+
+    starting_feedstock: 400,
+
+    starting_buildings: [
+        (type_id: "workshop_hub", offset_x: 0, offset_y: 0),
+    ],
+
+    starting_units: [
+        (type_id: "field_engineer", offset_x: 5, offset_y: 0),
+        (type_id: "field_engineer", offset_x: 5, offset_y: 3),
+        (type_id: "utility_hauler", offset_x: -5, offset_y: 0),
+    ],
+
+    // ========================================
+    // UNITS
+    // ========================================
+    units: [
+        // ------ Tier 1: Shop Floor ------
+        (
+            id: "field_engineer",
+            name: "unit.tinkers.field_engineer.name",
+            description: "unit.tinkers.field_engineer.description",
+            cost: 40,
+            build_time: 120,
+            health: 65,
+            speed: 38654705664,  // Fixed-point for 9.0
+            combat: Some((
+                damage: 8,
+                range: 17179869184,  // Fixed-point for 4.0
+                attack_cooldown: 30,
+                armor: 5,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["workshop_hub"],
+            tags: ["infantry", "ground", "repair", "builder"],
+        ),
+        (
+            id: "sprint_bike",
+            name: "unit.tinkers.sprint_bike.name",
+            description: "unit.tinkers.sprint_bike.description",
+            cost: 65,
+            build_time: 105,
+            health: 100,
+            speed: 68719476736,  // Fixed-point for 16.0 - very fast
+            combat: Some((
+                damage: 12,
+                range: 21474836480,  // Fixed-point for 5.0
+                attack_cooldown: 30,
+                armor: 8,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["workshop_hub"],
+            tags: ["vehicle", "ground", "scout", "fast"],
+        ),
+        (
+            id: "railgun_buggy",
+            name: "unit.tinkers.railgun_buggy.name",
+            description: "unit.tinkers.railgun_buggy.description",
+            cost: 70,
+            build_time: 120,
+            health: 90,
+            speed: 42949672960,  // Fixed-point for 10.0
+            combat: Some((
+                damage: 28,
+                range: 38654705664,  // Fixed-point for 9.0
+                attack_cooldown: 45,
+                armor: 5,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["workshop_hub"],
+            tags: ["vehicle", "ground", "anti_armor"],
+        ),
+        (
+            id: "utility_hauler",
+            name: "unit.tinkers.utility_hauler.name",
+            description: "unit.tinkers.utility_hauler.description",
+            cost: 75,
+            build_time: 135,
+            health: 150,
+            speed: 42949672960,  // Fixed-point for 10.0
+            combat: None,
+            tech_required: [],
+            tier: 1,
+            produced_at: ["workshop_hub"],
+            tags: ["vehicle", "ground", "harvester", "support"],
+        ),
+
+        // ------ Tier 2: Custom Builds ------
+        (
+            id: "tinker_mech",
+            name: "unit.tinkers.tinker_mech.name",
+            description: "unit.tinkers.tinker_mech.description",
+            cost: 260,
+            build_time: 300,
+            health: 420,
+            speed: 30064771072,  // Fixed-point for 7.0
+            combat: Some((
+                damage: 32,  // Base DPS, varies by loadout
+                range: 25769803776,  // Fixed-point for 6.0
+                attack_cooldown: 35,
+                armor: 30,
+            )),
+            tech_required: [],
+            tier: 2,
+            produced_at: ["mech_assembly"],
+            tags: ["mech", "ground", "modular", "signature"],
+        ),
+        (
+            id: "support_carrier",
+            name: "unit.tinkers.support_carrier.name",
+            description: "unit.tinkers.support_carrier.description",
+            cost: 175,
+            build_time: 240,
+            health: 350,
+            speed: 25769803776,  // Fixed-point for 6.0
+            combat: None,  // Support role
+            tech_required: [],
+            tier: 2,
+            produced_at: ["mech_assembly"],
+            tags: ["vehicle", "ground", "transport", "repair", "mobile_workshop"],
+        ),
+        (
+            id: "lifter_drone",
+            name: "unit.tinkers.lifter_drone.name",
+            description: "unit.tinkers.lifter_drone.description",
+            cost: 180,
+            build_time: 255,
+            health: 300,
+            speed: 42949672960,  // Fixed-point for 10.0
+            combat: Some((
+                damage: 25,
+                range: 21474836480,  // Fixed-point for 5.0
+                attack_cooldown: 40,
+                armor: 12,
+            )),
+            tech_required: [],
+            tier: 2,
+            produced_at: ["drone_hangar"],
+            tags: ["air", "utility", "transport"],
+        ),
+
+        // ------ Tier 3: Masterworks ------
+        (
+            id: "magnum_opus",
+            name: "unit.tinkers.magnum_opus.name",
+            description: "unit.tinkers.magnum_opus.description",
+            cost: 650,
+            build_time: 540,
+            health: 850,
+            speed: 21474836480,  // Fixed-point for 5.0
+            combat: Some((
+                damage: 75,
+                range: 34359738368,  // Fixed-point for 8.0
+                attack_cooldown: 40,
+                armor: 55,
+            )),
+            tech_required: ["master_workshop"],
+            tier: 3,
+            produced_at: ["mech_assembly"],
+            tags: ["mech", "ground", "super_heavy", "modular", "unique"],
+        ),
+        (
+            id: "mobile_foundry",
+            name: "unit.tinkers.mobile_foundry.name",
+            description: "unit.tinkers.mobile_foundry.description",
+            cost: 750,
+            build_time: 600,
+            health: 900,
+            speed: 12884901888,  // Fixed-point for 3.0 - very slow
+            combat: Some((
+                damage: 20,
+                range: 21474836480,  // Fixed-point for 5.0
+                attack_cooldown: 50,
+                armor: 45,
+            )),
+            tech_required: ["master_workshop"],
+            tier: 3,
+            produced_at: ["mech_assembly"],
+            tags: ["vehicle", "ground", "production", "mobile_base"],
+        ),
+        (
+            id: "disruptor_array",
+            name: "unit.tinkers.disruptor_array.name",
+            description: "unit.tinkers.disruptor_array.description",
+            cost: 550,
+            build_time: 480,
+            health: 450,
+            speed: 17179869184,  // Fixed-point for 4.0
+            combat: Some((
+                damage: 15,  // Low DPS, utility focused
+                range: 42949672960,  // Fixed-point for 10.0
+                attack_cooldown: 60,
+                armor: 25,
+            )),
+            tech_required: ["master_workshop"],
+            tier: 3,
+            produced_at: ["drone_hangar"],
+            tags: ["vehicle", "ground", "support", "disable"],
+        ),
+    ],
+
+    // ========================================
+    // BUILDINGS
+    // ========================================
+    buildings: [
+        // ------ Core Buildings ------
+        (
+            id: "workshop_hub",
+            name: "building.tinkers.workshop_hub.name",
+            description: "building.tinkers.workshop_hub.description",
+            cost: 0,  // Starting building
+            build_time: 0,
+            health: 1000,  // Slightly less HP, but mobile
+            produces: ["field_engineer", "sprint_bike", "railgun_buggy", "utility_hauler"],
+            tech_required: [],
+            provides_tech: ["workshop_online"],
+            tier: 1,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(55834574848),  // Fixed-point for 13.0
+            tags: ["headquarters", "production", "mobile"],
+            is_harvester: false,
+            is_main_base: true,
+        ),
+        (
+            id: "collection_point",
+            name: "building.tinkers.collection_point.name",
+            description: "building.tinkers.collection_point.description",
+            cost: 75,  // Cheap, mobile
+            build_time: 90,
+            health: 250,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 8,
+            vision_range: Some(34359738368),
+            tags: ["economy", "refinery", "mobile"],
+            is_harvester: true,
+            is_main_base: false,
+        ),
+
+        // ------ Production Buildings ------
+        (
+            id: "mech_assembly",
+            name: "building.tinkers.mech_assembly.name",
+            description: "building.tinkers.mech_assembly.description",
+            cost: 200,
+            build_time: 240,
+            health: 600,
+            produces: ["tinker_mech", "support_carrier", "magnum_opus", "mobile_foundry"],
+            tech_required: ["repair_bay"],
+            provides_tech: [],
+            tier: 2,
+            targetable: true,
+            armor: 20,
+            vision_range: Some(38654705664),
+            tags: ["production", "mech", "mobile"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "drone_hangar",
+            name: "building.tinkers.drone_hangar.name",
+            description: "building.tinkers.drone_hangar.description",
+            cost: 250,
+            build_time: 270,
+            health: 500,
+            produces: ["lifter_drone", "disruptor_array"],
+            tech_required: ["repair_bay"],
+            provides_tech: [],
+            tier: 2,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(38654705664),
+            tags: ["production", "air"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Tech Buildings ------
+        (
+            id: "repair_bay",
+            name: "building.tinkers.repair_bay.name",
+            description: "building.tinkers.repair_bay.description",
+            cost: 150,
+            build_time: 180,
+            health: 400,
+            produces: [],
+            tech_required: [],
+            provides_tech: ["tier_2_access", "module_swapping"],
+            tier: 1,
+            targetable: true,
+            armor: 12,
+            vision_range: Some(34359738368),
+            tags: ["tech", "repair", "modules"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "parts_printer",
+            name: "building.tinkers.parts_printer.name",
+            description: "building.tinkers.parts_printer.description",
+            cost: 150,
+            build_time: 180,
+            health: 350,
+            produces: [],
+            tech_required: [],
+            provides_tech: ["component_fabrication"],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(30064771072),
+            tags: ["tech", "upgrades"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "master_workshop",
+            name: "building.tinkers.master_workshop.name",
+            description: "building.tinkers.master_workshop.description",
+            cost: 300,
+            build_time: 360,
+            health: 550,
+            produces: [],
+            tech_required: ["repair_bay"],
+            provides_tech: ["tier_3_access", "advanced_modules"],
+            tier: 2,
+            targetable: true,
+            armor: 18,
+            vision_range: Some(42949672960),
+            tags: ["tech", "advanced"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Defense Buildings ------
+        (
+            id: "sentry_gun",
+            name: "building.tinkers.sentry_gun.name",
+            description: "building.tinkers.sentry_gun.description",
+            cost: 60,
+            build_time: 75,
+            health: 180,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(42949672960),
+            tags: ["defense", "anti_ground"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "sensor_net",
+            name: "building.tinkers.sensor_net.name",
+            description: "building.tinkers.sensor_net.description",
+            cost: 75,
+            build_time: 90,
+            health: 150,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 5,
+            vision_range: Some(85899345920),  // Fixed-point for 20.0 - long range detection
+            tags: ["defense", "detection"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+    ],
+
+    // ========================================
+    // TECHNOLOGIES
+    // ========================================
+    technologies: [
+        // ------ Tier 1 Upgrades ------
+        (
+            id: "efficient_repairs",
+            name: "tech.tinkers.efficient_repairs.name",
+            description: "tech.tinkers.efficient_repairs.description",
+            cost: 75,
+            research_time: 600,  // 20 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "repair_speed", params: ["25"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("parts_printer"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "tuned_engines",
+            name: "tech.tinkers.tuned_engines.name",
+            description: "tech.tinkers.tuned_engines.description",
+            cost: 100,
+            research_time: 750,  // 25 seconds
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "speed", percent: 15),
+                    applies_to: [],
+                    applies_to_tags: ["vehicle", "mech"],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("parts_printer"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "recycling_protocols",
+            name: "tech.tinkers.recycling_protocols.name",
+            description: "tech.tinkers.recycling_protocols.description",
+            cost: 75,
+            research_time: 600,  // 20 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "death_refund", params: ["30"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("parts_printer"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+
+        // ------ Tier 2 Module Unlocks ------
+        (
+            id: "module_power_fist",
+            name: "tech.tinkers.module_power_fist.name",
+            description: "tech.tinkers.module_power_fist.description",
+            cost: 100,
+            research_time: 900,  // 30 seconds
+            effects: [
+                (
+                    effect_type: Unlock(target_id: "tinker_mech_melee"),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["repair_bay"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("repair_bay"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "module_autocannon",
+            name: "tech.tinkers.module_autocannon.name",
+            description: "tech.tinkers.module_autocannon.description",
+            cost: 100,
+            research_time: 900,
+            effects: [
+                (
+                    effect_type: Unlock(target_id: "tinker_mech_ranged"),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["repair_bay"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("repair_bay"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "module_missile_rack",
+            name: "tech.tinkers.module_missile_rack.name",
+            description: "tech.tinkers.module_missile_rack.description",
+            cost: 125,
+            research_time: 1050,  // 35 seconds
+            effects: [
+                (
+                    effect_type: Unlock(target_id: "tinker_mech_missile"),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["repair_bay"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("repair_bay"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "module_shield_emitter",
+            name: "tech.tinkers.module_shield_emitter.name",
+            description: "tech.tinkers.module_shield_emitter.description",
+            cost: 150,
+            research_time: 1200,  // 40 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_module", params: ["shield_emitter"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["repair_bay"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("repair_bay"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "module_repair_rig",
+            name: "tech.tinkers.module_repair_rig.name",
+            description: "tech.tinkers.module_repair_rig.description",
+            cost: 125,
+            research_time: 1050,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_module", params: ["repair_rig"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["repair_bay"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("repair_bay"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "module_jump_booster",
+            name: "tech.tinkers.module_jump_booster.name",
+            description: "tech.tinkers.module_jump_booster.description",
+            cost: 100,
+            research_time: 900,
+            effects: [
+                (
+                    effect_type: GrantAbility(
+                        ability_id: "jump",
+                        targets: [],
+                    ),
+                    applies_to: [],
+                    applies_to_tags: ["mech"],
+                ),
+            ],
+            prerequisites: ["repair_bay"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("repair_bay"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+
+        // ------ Tier 3 Upgrades ------
+        (
+            id: "overclocking",
+            name: "tech.tinkers.overclocking.name",
+            description: "tech.tinkers.overclocking.description",
+            cost: 250,
+            research_time: 1800,  // 60 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "ability_duration", params: ["overclock", "50"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["master_workshop"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("master_workshop"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "mobile_production",
+            name: "tech.tinkers.mobile_production.name",
+            description: "tech.tinkers.mobile_production.description",
+            cost: 300,
+            research_time: 2250,  // 75 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_mobile_production", params: []),
+                    applies_to: ["mobile_foundry"],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["master_workshop"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("master_workshop"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "engineering_mastery",
+            name: "tech.tinkers.engineering_mastery.name",
+            description: "tech.tinkers.engineering_mastery.description",
+            cost: 350,
+            research_time: 2700,  // 90 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "repair_speed", params: ["50"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+                (
+                    effect_type: Custom(effect_id: "module_swap_speed", params: ["25"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["master_workshop"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("master_workshop"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+    ],
+)

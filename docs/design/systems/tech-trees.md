@@ -38,6 +38,66 @@ TIER 3 (15+ min)
 
 ---
 
+## Research Mechanics
+
+### Where Research Happens
+
+- **Research is performed at the relevant building** (e.g., Barracks upgrades at Barracks)
+- **Prerequisite:** Must have a "research building" before any research is available:
+  - Continuity: Civic Institute
+  - Collegium: Data Node
+  - Tinkers: Parts Depot
+  - Sculptors: Archive
+  - Zephyr: Navigation Tower
+- **UI:** Research buttons appear on the building's command card when prerequisites are met
+
+### Branch Exclusivity ("Builds")
+
+- At Tier 2, factions **choose one doctrine branch**
+- Once you research **any tech** from a branch, the other branch is locked out
+- This creates distinct "builds" that encourage replayability
+- Example: Continuity choosing "Administrative Expansion" locks out "Enforcement Doctrine"
+
+### What Research Unlocks
+
+Research provides three types of benefits:
+
+1. **Abilities** — Active powers (e.g., "Emergency Powers" ability)
+2. **Buffs** — Stat bonuses (e.g., "+15% damage")
+3. **Unit/Building Access** — Unlocks higher-tier units and buildings
+
+### Buff Stacking: Diminishing Returns
+
+To prevent broken multiplicative stacking:
+
+```text
+Final Stat = Base × (1 + Largest Bonus) × (1 + 0.5 × Second Bonus) × (1 + 0.25 × Third Bonus) ...
+```
+
+**Example:** Three +20% damage buffs:
+
+- Naive multiplicative: 1.2 × 1.2 × 1.2 = 1.728 (+72.8%)
+- Diminishing: 1.2 × 1.1 × 1.05 = 1.386 (+38.6%)
+
+**Rules:**
+
+1. Sort bonuses largest-first
+2. Each subsequent bonus applies at 50% of the previous multiplier
+3. Floor at 10% effectiveness (no bonus becomes negligible)
+
+This keeps stacking meaningful but bounded.
+
+### Tinkers' Module System
+
+Tinkers use the **same underlying research model**, just with different flavor:
+
+- Instead of "Branch A vs Branch B", they unlock module slots
+- Modules are researched at Parts Depot like any other tech
+- A mech with "Plasma Claw" is mechanically equivalent to a unit with a damage buff
+- Balance uses the same stat framework, just different presentation
+
+---
+
 ## Tech Building Requirements
 
 ### Universal Pattern

@@ -70,7 +70,11 @@ pub struct UnitBlueprint {
     /// Attack damage (None if unit cannot attack).
     pub attack_damage: Option<i32>,
     /// Attack range (None if unit cannot attack).
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "option_fixed_serde")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_fixed_serde"
+    )]
     pub attack_range: Option<Fixed>,
 }
 
@@ -301,7 +305,8 @@ impl ProductionQueue {
         if self.is_full() {
             return Err(ProductionError::QueueFull);
         }
-        self.queue.push_back(ProductionItem::new(unit_type, build_time));
+        self.queue
+            .push_back(ProductionItem::new(unit_type, build_time));
         Ok(())
     }
 
@@ -322,7 +327,11 @@ impl ProductionQueue {
     /// Returns the cancelled item if found.
     pub fn cancel_unit_type(&mut self, unit_type: UnitTypeId) -> Option<ProductionItem> {
         // Find the last occurrence (most recently queued)
-        if let Some(pos) = self.queue.iter().rposition(|item| item.unit_type == unit_type) {
+        if let Some(pos) = self
+            .queue
+            .iter()
+            .rposition(|item| item.unit_type == unit_type)
+        {
             self.queue.remove(pos)
         } else {
             None
@@ -344,7 +353,7 @@ impl ProductionQueue {
     ///
     /// Returns the completed item if production is done.
     pub fn complete(&mut self) -> Option<ProductionItem> {
-        if self.queue.front().map_or(false, ProductionItem::is_complete) {
+        if self.queue.front().is_some_and(ProductionItem::is_complete) {
             self.queue.pop_front()
         } else {
             None
@@ -416,9 +425,7 @@ impl Building {
     /// Get construction progress as a percentage (0-100).
     #[must_use]
     pub fn construction_percentage(&self) -> u32 {
-        if self.is_constructed {
-            100
-        } else if self.construction_total == 0 {
+        if self.is_constructed || self.construction_total == 0 {
             100
         } else {
             (self.construction_progress * 100) / self.construction_total
@@ -557,13 +564,11 @@ impl BlueprintRegistry {
     }
 
     /// Get all registered unit blueprints.
-    #[must_use]
     pub fn all_units(&self) -> impl Iterator<Item = &UnitBlueprint> {
         self.units.values()
     }
 
     /// Get all registered building blueprints.
-    #[must_use]
     pub fn all_buildings(&self) -> impl Iterator<Item = &BuildingBlueprint> {
         self.buildings.values()
     }
@@ -573,7 +578,7 @@ impl BlueprintRegistry {
     pub fn can_building_produce(&self, building_id: BuildingTypeId, unit_id: UnitTypeId) -> bool {
         self.buildings
             .get(&building_id)
-            .map_or(false, |b| b.can_produce(unit_id))
+            .is_some_and(|b| b.can_produce(unit_id))
     }
 }
 
@@ -771,15 +776,8 @@ mod tests {
 
         // Register a combat unit
         registry.register_unit(
-            UnitBlueprint::new(
-                UnitTypeId(2),
-                "Tank",
-                300,
-                120,
-                200,
-                Fixed::from_num(2),
-            )
-            .with_combat(50, Fixed::from_num(5)),
+            UnitBlueprint::new(UnitTypeId(2), "Tank", 300, 120, 200, Fixed::from_num(2))
+                .with_combat(50, Fixed::from_num(5)),
         );
 
         // Register a barracks
@@ -811,14 +809,8 @@ mod tests {
 
     #[test]
     fn test_unit_blueprint_creation() {
-        let blueprint = UnitBlueprint::new(
-            UnitTypeId(1),
-            "Infantry",
-            100,
-            60,
-            50,
-            Fixed::from_num(1),
-        );
+        let blueprint =
+            UnitBlueprint::new(UnitTypeId(1), "Infantry", 100, 60, 50, Fixed::from_num(1));
 
         assert_eq!(blueprint.id, UnitTypeId(1));
         assert_eq!(blueprint.name, "Infantry");
@@ -832,15 +824,9 @@ mod tests {
 
     #[test]
     fn test_unit_blueprint_with_combat() {
-        let blueprint = UnitBlueprint::new(
-            UnitTypeId(1),
-            "Tank",
-            300,
-            120,
-            200,
-            Fixed::from_num(2),
-        )
-        .with_combat(50, Fixed::from_num(5));
+        let blueprint =
+            UnitBlueprint::new(UnitTypeId(1), "Tank", 300, 120, 200, Fixed::from_num(2))
+                .with_combat(50, Fixed::from_num(5));
 
         assert_eq!(blueprint.attack_damage, Some(50));
         assert_eq!(blueprint.attack_range, Some(Fixed::from_num(5)));
@@ -1042,11 +1028,25 @@ mod tests {
         // Tick 1: production starts
         let events = production_system(&mut buildings, &blueprints, 1);
         assert!(events.iter().any(|e| matches!(e, ProductionEvent::ProductionStarted { building: 1, unit_type } if *unit_type == UnitTypeId(1))));
-        assert!(events.iter().any(|e| matches!(e, ProductionEvent::ProductionProgress { progress: 1, total: 3, .. })));
+        assert!(events.iter().any(|e| matches!(
+            e,
+            ProductionEvent::ProductionProgress {
+                progress: 1,
+                total: 3,
+                ..
+            }
+        )));
 
         // Tick 2: in progress
         let events = production_system(&mut buildings, &blueprints, 2);
-        assert!(events.iter().any(|e| matches!(e, ProductionEvent::ProductionProgress { progress: 2, total: 3, .. })));
+        assert!(events.iter().any(|e| matches!(
+            e,
+            ProductionEvent::ProductionProgress {
+                progress: 2,
+                total: 3,
+                ..
+            }
+        )));
 
         // Tick 3: complete
         let events = production_system(&mut buildings, &blueprints, 3);
@@ -1071,9 +1071,12 @@ mod tests {
         let events = production_system(&mut buildings, &blueprints, 1);
 
         // Spawn position should be rally point
-        let complete_event = events.iter().find(|e| matches!(e, ProductionEvent::ProductionComplete { .. }));
+        let complete_event = events
+            .iter()
+            .find(|e| matches!(e, ProductionEvent::ProductionComplete { .. }));
         assert!(complete_event.is_some());
-        if let ProductionEvent::ProductionComplete { spawn_position, .. } = complete_event.unwrap() {
+        if let ProductionEvent::ProductionComplete { spawn_position, .. } = complete_event.unwrap()
+        {
             assert_eq!(*spawn_position, rally);
         }
     }
@@ -1108,13 +1111,25 @@ mod tests {
         let mut feedstock = 500;
 
         // Queue infantry (costs 100)
-        let result = queue_production(&mut queue, &building, UnitTypeId(1), &blueprints, &mut feedstock);
+        let result = queue_production(
+            &mut queue,
+            &building,
+            UnitTypeId(1),
+            &blueprints,
+            &mut feedstock,
+        );
         assert!(result.is_ok());
         assert_eq!(feedstock, 400);
         assert_eq!(queue.len(), 1);
 
         // Queue tank (costs 300)
-        let result = queue_production(&mut queue, &building, UnitTypeId(2), &blueprints, &mut feedstock);
+        let result = queue_production(
+            &mut queue,
+            &building,
+            UnitTypeId(2),
+            &blueprints,
+            &mut feedstock,
+        );
         assert!(result.is_ok());
         assert_eq!(feedstock, 100);
         assert_eq!(queue.len(), 2);
@@ -1128,8 +1143,17 @@ mod tests {
         let building = Building::constructed(BuildingTypeId(2));
         let mut feedstock = 50; // Not enough for infantry (100)
 
-        let result = queue_production(&mut queue, &building, UnitTypeId(1), &blueprints, &mut feedstock);
-        assert!(matches!(result, Err(ProductionError::InsufficientResources)));
+        let result = queue_production(
+            &mut queue,
+            &building,
+            UnitTypeId(1),
+            &blueprints,
+            &mut feedstock,
+        );
+        assert!(matches!(
+            result,
+            Err(ProductionError::InsufficientResources)
+        ));
         assert_eq!(feedstock, 50); // Unchanged
         assert!(queue.is_empty());
     }
@@ -1142,7 +1166,13 @@ mod tests {
         let building = Building::constructed(BuildingTypeId(1)); // Barracks can't build tanks
         let mut feedstock = 500;
 
-        let result = queue_production(&mut queue, &building, UnitTypeId(2), &blueprints, &mut feedstock);
+        let result = queue_production(
+            &mut queue,
+            &building,
+            UnitTypeId(2),
+            &blueprints,
+            &mut feedstock,
+        );
         assert!(matches!(result, Err(ProductionError::CannotProduceUnit)));
         assert_eq!(feedstock, 500); // Unchanged
     }
@@ -1155,8 +1185,17 @@ mod tests {
         let building = Building::new(BuildingTypeId(1), 90); // Not constructed
         let mut feedstock = 500;
 
-        let result = queue_production(&mut queue, &building, UnitTypeId(1), &blueprints, &mut feedstock);
-        assert!(matches!(result, Err(ProductionError::BuildingNotConstructed)));
+        let result = queue_production(
+            &mut queue,
+            &building,
+            UnitTypeId(1),
+            &blueprints,
+            &mut feedstock,
+        );
+        assert!(matches!(
+            result,
+            Err(ProductionError::BuildingNotConstructed)
+        ));
     }
 
     #[test]
@@ -1240,16 +1279,35 @@ mod tests {
         let events = production_system(&mut buildings, &blueprints, 1);
 
         // Should have started events for both
-        assert!(events.iter().any(|e| matches!(e, ProductionEvent::ProductionStarted { building: 1, .. })));
-        assert!(events.iter().any(|e| matches!(e, ProductionEvent::ProductionStarted { building: 2, .. })));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ProductionEvent::ProductionStarted { building: 1, .. })));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ProductionEvent::ProductionStarted { building: 2, .. })));
     }
 
     #[test]
     fn test_production_error_display() {
-        assert_eq!(ProductionError::QueueFull.to_string(), "Production queue is full");
-        assert_eq!(ProductionError::InsufficientResources.to_string(), "Insufficient resources");
-        assert_eq!(ProductionError::CannotProduceUnit.to_string(), "Building cannot produce this unit type");
-        assert_eq!(ProductionError::BuildingNotConstructed.to_string(), "Building is not yet constructed");
-        assert_eq!(ProductionError::BlueprintNotFound.to_string(), "Blueprint not found");
+        assert_eq!(
+            ProductionError::QueueFull.to_string(),
+            "Production queue is full"
+        );
+        assert_eq!(
+            ProductionError::InsufficientResources.to_string(),
+            "Insufficient resources"
+        );
+        assert_eq!(
+            ProductionError::CannotProduceUnit.to_string(),
+            "Building cannot produce this unit type"
+        );
+        assert_eq!(
+            ProductionError::BuildingNotConstructed.to_string(),
+            "Building is not yet constructed"
+        );
+        assert_eq!(
+            ProductionError::BlueprintNotFound.to_string(),
+            "Blueprint not found"
+        );
     }
 }

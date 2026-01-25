@@ -329,9 +329,7 @@ pub fn economy_system(
 
             HarvesterState::Gathering(node_id) => {
                 // Try to gather from the node
-                if let Some((_, node, _)) =
-                    nodes.iter_mut().find(|(id, _, _)| *id == node_id)
-                {
+                if let Some((_, node, _)) = nodes.iter_mut().find(|(id, _, _)| *id == node_id) {
                     if node.is_depleted() {
                         events.push(EconomyEvent::NodeDepleted { node: node_id });
                         harvester.state = HarvesterState::Idle;

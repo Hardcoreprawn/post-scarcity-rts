@@ -51,8 +51,8 @@ use crate::components::{
 use crate::error::{GameError, Result};
 use crate::math::{Fixed, Vec2Fixed};
 use crate::systems::{
-    command_processing_system, health_system, movement_system,
-    production_system, DamageEvent, PositionLookup, ProductionComplete,
+    command_processing_system, health_system, movement_system, production_system, DamageEvent,
+    PositionLookup, ProductionComplete,
 };
 
 /// Ticks per second for the simulation.
@@ -117,7 +117,7 @@ pub struct EntitySpawnParams {
     /// Initial velocity.
     pub velocity: Option<Velocity>,
     /// Maximum health (entity starts at full health).
-    pub health: Option<i32>,
+    pub health: Option<u32>,
     /// Movement speed (units per tick).
     pub movement: Option<Fixed>,
     /// Combat statistics.
@@ -405,7 +405,7 @@ impl Simulation {
                     None => continue,
                 };
                 let attack_target = match &entity.attack_target {
-                    Some(t) => t.clone(),
+                    Some(t) => *t,
                     None => continue,
                 };
                 let combat_stats = match &entity.combat_stats {
@@ -436,7 +436,7 @@ impl Simulation {
                         if let Some(target_entity) = self.entities.get_mut(target_id) {
                             if let Some(ref mut health) = target_entity.health {
                                 let damage = combat_stats.damage;
-                                health.apply_damage(damage as i32);
+                                health.apply_damage(damage);
 
                                 all_damage_events.push(DamageEvent {
                                     attacker: attacker_id,
@@ -674,9 +674,10 @@ impl Simulation {
             .get_mut(entity)
             .ok_or(GameError::EntityNotFound(entity))?;
 
-        let attack_target = ent.attack_target.as_mut().ok_or_else(|| {
-            GameError::InvalidState(format!("Entity {} cannot attack", entity))
-        })?;
+        let attack_target = ent
+            .attack_target
+            .as_mut()
+            .ok_or_else(|| GameError::InvalidState(format!("Entity {} cannot attack", entity)))?;
 
         attack_target.target = Some(target);
         Ok(())
@@ -736,9 +737,8 @@ impl Simulation {
     ///
     /// Returns an error if serialization fails.
     pub fn serialize(&self) -> Result<Vec<u8>> {
-        bincode::serialize(self).map_err(|e| {
-            GameError::InvalidState(format!("Failed to serialize simulation: {}", e))
-        })
+        bincode::serialize(self)
+            .map_err(|e| GameError::InvalidState(format!("Failed to serialize simulation: {}", e)))
     }
 
     /// Deserialize simulation state from bytes.

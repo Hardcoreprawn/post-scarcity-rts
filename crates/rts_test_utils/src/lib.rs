@@ -8,8 +8,8 @@
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
-#![warn(clippy::all, clippy::pedantic)]
 
+pub mod balance;
 pub mod determinism;
 pub mod fixtures;
 

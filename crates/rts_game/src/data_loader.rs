@@ -181,11 +181,10 @@ pub fn load_faction_from_file(path: &Path) -> DataLoadResult<FactionData> {
         })?;
 
     // Parse RON
-    let data: FactionData =
-        ron::from_str(&contents).map_err(|e| DataLoadError::ParseError {
-            path: path_str.clone(),
-            source: e,
-        })?;
+    let data: FactionData = ron::from_str(&contents).map_err(|e| DataLoadError::ParseError {
+        path: path_str.clone(),
+        source: e,
+    })?;
 
     // Validate data integrity
     let errors = data.validate();
@@ -238,7 +237,7 @@ pub fn load_factions_from_directory(dir: &Path) -> DataLoadResult<FactionRegistr
         })?;
 
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "ron") {
+        if path.extension().is_some_and(|ext| ext == "ron") {
             let data = load_faction_from_file(&path)?;
             registry.register(data)?;
         }

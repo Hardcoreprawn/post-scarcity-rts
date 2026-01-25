@@ -18,7 +18,7 @@ Thank you for your interest in contributing! This document covers guidelines for
 
 - **Rust 1.75+**: Install via [rustup](https://rustup.rs/)
 - **Git**: For version control
-- **pre-commit**: For git hooks (`pip install pre-commit`)
+- **Git Bash** (Windows) or standard shell (Linux/macOS)
 
 ### Quick Start
 
@@ -27,8 +27,8 @@ Thank you for your interest in contributing! This document covers guidelines for
 git clone https://github.com/your-org/rts-game.git
 cd rts-game
 
-# Install pre-commit hooks
-pre-commit install
+# Install git hooks
+sh tools/install-hooks.sh
 
 # Build the workspace
 cargo build

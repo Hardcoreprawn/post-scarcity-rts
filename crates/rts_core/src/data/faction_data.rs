@@ -158,9 +158,10 @@ impl FactionData {
             }
 
             for tech_id in &building.tech_required {
-                if self.get_technology(tech_id).is_none() {
+                // Accept both technologies and buildings as prerequisites
+                if self.get_technology(tech_id).is_none() && self.get_building(tech_id).is_none() {
                     errors.push(format!(
-                        "Building '{}' requires unknown tech '{}'",
+                        "Building '{}' requires unknown tech or building '{}'",
                         building.id, tech_id
                     ));
                 }
@@ -179,9 +180,10 @@ impl FactionData {
             }
 
             for tech_id in &unit.tech_required {
-                if self.get_technology(tech_id).is_none() {
+                // Accept both technologies and buildings as prerequisites
+                if self.get_technology(tech_id).is_none() && self.get_building(tech_id).is_none() {
                     errors.push(format!(
-                        "Unit '{}' requires unknown tech '{}'",
+                        "Unit '{}' requires unknown tech or building '{}'",
                         unit.id, tech_id
                     ));
                 }
@@ -191,7 +193,10 @@ impl FactionData {
         // Check tech prerequisites
         for tech in &self.technologies {
             for prereq_id in &tech.prerequisites {
-                if self.get_technology(prereq_id).is_none() {
+                // Accept both technologies and buildings as prerequisites
+                if self.get_technology(prereq_id).is_none()
+                    && self.get_building(prereq_id).is_none()
+                {
                     errors.push(format!(
                         "Tech '{}' has unknown prerequisite '{}'",
                         tech.id, prereq_id
@@ -304,7 +309,9 @@ mod tests {
     #[test]
     fn test_validate_invalid_reference() {
         let mut faction = create_test_faction_data();
-        faction.buildings[0].produces.push("unknown_unit".to_string());
+        faction.buildings[0]
+            .produces
+            .push("unknown_unit".to_string());
 
         let errors = faction.validate();
         assert!(!errors.is_empty());

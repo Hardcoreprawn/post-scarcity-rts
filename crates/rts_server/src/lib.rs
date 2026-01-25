@@ -7,7 +7,6 @@
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
-#![warn(clippy::all, clippy::pedantic)]
 
 pub mod lobby;
 pub mod network;

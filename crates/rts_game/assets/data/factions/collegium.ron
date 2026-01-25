@@ -1,0 +1,609 @@
+// The Collegium Faction Data
+// Post-Scarcity RTS
+//
+// "Knowledge is the only resource that grows when shared."
+
+(
+    id: Collegium,
+    display_name: "faction.collegium.name",
+    description: "faction.collegium.description",
+
+    primary_color: (255, 255, 255),   // White
+    secondary_color: (100, 150, 255), // Light blue
+
+    starting_feedstock: 500,
+
+    starting_buildings: [
+        (type_id: "assembly_core", offset_x: 0, offset_y: 0),
+    ],
+
+    starting_units: [
+        (type_id: "research_assistant", offset_x: 5, offset_y: 0),
+        (type_id: "research_assistant", offset_x: 5, offset_y: 3),
+        (type_id: "harvester_swarm", offset_x: -5, offset_y: 0),
+    ],
+
+    // ========================================
+    // UNITS
+    // ========================================
+    units: [
+        // ------ Tier 1: Academic Corps ------
+        (
+            id: "research_assistant",
+            name: "unit.collegium.research_assistant.name",
+            description: "unit.collegium.research_assistant.description",
+            cost: 30,
+            build_time: 90,  // 3 seconds - very fast
+            health: 50,
+            speed: 47244640256,  // Fixed-point for 11.0
+            combat: Some((
+                damage: 8,
+                range: 17179869184,  // Fixed-point for 4.0
+                attack_cooldown: 30,
+                armor: 0,
+            )),
+            tech_required: [],
+            tier: 1,
+            produced_at: ["drone_bay"],
+            tags: ["infantry", "ground", "cheap"],
+        ),
+        (
+            id: "scout_drone",
+            name: "unit.collegium.scout_drone.name",
+            description: "unit.collegium.scout_drone.description",
+            cost: 25,
+            build_time: 60,  // 2 seconds
+            health: 40,
+            speed: 85899345920,  // Fixed-point for 20.0 - fastest unit
+            combat: None,  // No weapons
+            tech_required: [],
+            tier: 1,
+            produced_at: ["drone_bay"],
+            tags: ["drone", "air", "scout", "stealth"],
+        ),
+        (
+            id: "constructor_bot",
+            name: "unit.collegium.constructor_bot.name",
+            description: "unit.collegium.constructor_bot.description",
+            cost: 50,
+            build_time: 120,
+            health: 80,
+            speed: 38654705664,  // Fixed-point for 9.0
+            combat: None,
+            tech_required: [],
+            tier: 1,
+            produced_at: ["assembly_core"],
+            tags: ["ground", "builder", "support"],
+        ),
+        (
+            id: "harvester_swarm",
+            name: "unit.collegium.harvester_swarm.name",
+            description: "unit.collegium.harvester_swarm.description",
+            cost: 80,  // Cheaper than Continuity harvester
+            build_time: 150,
+            health: 100,  // Low HP, but spawn as group conceptually
+            speed: 51539607552,  // Fixed-point for 12.0
+            combat: None,
+            tech_required: [],
+            tier: 1,
+            produced_at: ["assembly_core"],
+            tags: ["drone", "ground", "harvester"],
+        ),
+
+        // ------ Tier 2: Distributed Force ------
+        (
+            id: "attack_drone_squadron",
+            name: "unit.collegium.attack_drone_squadron.name",
+            description: "unit.collegium.attack_drone_squadron.description",
+            cost: 120,
+            build_time: 180,
+            health: 240,  // 60 HP each x 4 drones
+            speed: 55834574848,  // Fixed-point for 13.0
+            combat: Some((
+                damage: 40,  // High DPS from 4 drones
+                range: 25769803776,  // Fixed-point for 6.0
+                attack_cooldown: 25,
+                armor: 0,  // Very fragile
+            )),
+            tech_required: [],
+            tier: 2,
+            produced_at: ["fabricator_array"],
+            tags: ["drone", "air", "swarm", "signature"],
+        ),
+        (
+            id: "shield_drone",
+            name: "unit.collegium.shield_drone.name",
+            description: "unit.collegium.shield_drone.description",
+            cost: 100,
+            build_time: 150,
+            health: 100,
+            speed: 38654705664,  // Fixed-point for 9.0
+            combat: None,  // Support unit, no weapons
+            tech_required: [],
+            tier: 2,
+            produced_at: ["fabricator_array"],
+            tags: ["drone", "air", "support", "shield"],
+        ),
+        (
+            id: "hover_tank",
+            name: "unit.collegium.hover_tank.name",
+            description: "unit.collegium.hover_tank.description",
+            cost: 200,
+            build_time: 270,
+            health: 300,
+            speed: 34359738368,  // Fixed-point for 8.0
+            combat: Some((
+                damage: 35,
+                range: 38654705664,  // Fixed-point for 9.0
+                attack_cooldown: 40,
+                armor: 25,
+            )),
+            tech_required: [],
+            tier: 2,
+            produced_at: ["fabricator_array"],
+            tags: ["vehicle", "ground", "anti_armor", "hover"],
+        ),
+
+        // ------ Tier 3: Knowledge Ascendant ------
+        (
+            id: "archon_core",
+            name: "unit.collegium.archon_core.name",
+            description: "unit.collegium.archon_core.description",
+            cost: 500,
+            build_time: 480,
+            health: 600,
+            speed: 21474836480,  // Fixed-point for 5.0
+            combat: Some((
+                damage: 80,
+                range: 34359738368,  // Fixed-point for 8.0
+                attack_cooldown: 50,
+                armor: 40,
+            )),
+            tech_required: ["research_campus"],
+            tier: 3,
+            produced_at: ["ascension_spire"],
+            tags: ["drone", "air", "super_heavy", "command"],
+        ),
+        (
+            id: "zeppelin_lab",
+            name: "unit.collegium.zeppelin_lab.name",
+            description: "unit.collegium.zeppelin_lab.description",
+            cost: 600,
+            build_time: 540,
+            health: 800,
+            speed: 12884901888,  // Fixed-point for 3.0 - very slow
+            combat: Some((
+                damage: 20,
+                range: 25769803776,  // Fixed-point for 6.0
+                attack_cooldown: 45,
+                armor: 20,
+            )),
+            tech_required: ["research_campus"],
+            tier: 3,
+            produced_at: ["ascension_spire"],
+            tags: ["air", "production", "mobile_base"],
+        ),
+    ],
+
+    // ========================================
+    // BUILDINGS
+    // ========================================
+    buildings: [
+        // ------ Core Buildings ------
+        (
+            id: "assembly_core",
+            name: "building.collegium.assembly_core.name",
+            description: "building.collegium.assembly_core.description",
+            cost: 0,  // Starting building
+            build_time: 0,
+            health: 1200,  // Slightly weaker than Continuity
+            produces: ["constructor_bot", "harvester_swarm"],
+            tech_required: [],
+            provides_tech: ["assembly_online"],
+            tier: 1,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(64424509440),  // Fixed-point for 15.0
+            tags: ["headquarters", "production"],
+            is_harvester: false,
+            is_main_base: true,
+        ),
+        (
+            id: "micro_refinery",
+            name: "building.collegium.micro_refinery.name",
+            description: "building.collegium.micro_refinery.description",
+            cost: 100,  // Cheaper than Continuity - distributed processing
+            build_time: 150,
+            health: 350,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(38654705664),
+            tags: ["economy", "refinery"],
+            is_harvester: true,
+            is_main_base: false,
+        ),
+        (
+            id: "data_node",
+            name: "building.collegium.data_node.name",
+            description: "building.collegium.data_node.description",
+            cost: 75,
+            build_time: 120,
+            health: 200,
+            produces: [],
+            tech_required: [],
+            provides_tech: ["network_bonus"],
+            tier: 1,
+            targetable: true,
+            armor: 5,
+            vision_range: Some(42949672960),
+            tags: ["tech", "network", "buff"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Production Buildings ------
+        (
+            id: "drone_bay",
+            name: "building.collegium.drone_bay.name",
+            description: "building.collegium.drone_bay.description",
+            cost: 100,
+            build_time: 150,
+            health: 400,
+            produces: ["research_assistant", "scout_drone"],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(38654705664),
+            tags: ["production", "infantry", "drone"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "fabricator_array",
+            name: "building.collegium.fabricator_array.name",
+            description: "building.collegium.fabricator_array.description",
+            cost: 175,
+            build_time: 240,
+            health: 500,
+            produces: ["attack_drone_squadron", "shield_drone", "hover_tank"],
+            tech_required: ["data_node"],
+            provides_tech: [],
+            tier: 2,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(38654705664),
+            tags: ["production", "vehicle", "advanced"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "ascension_spire",
+            name: "building.collegium.ascension_spire.name",
+            description: "building.collegium.ascension_spire.description",
+            cost: 400,
+            build_time: 420,
+            health: 700,
+            produces: ["archon_core", "zeppelin_lab"],
+            tech_required: ["research_campus"],
+            provides_tech: [],
+            tier: 3,
+            targetable: true,
+            armor: 25,
+            vision_range: Some(47244640256),
+            tags: ["production", "tier3"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Tech Buildings ------
+        (
+            id: "research_campus",
+            name: "building.collegium.research_campus.name",
+            description: "building.collegium.research_campus.description",
+            cost: 350,
+            build_time: 360,
+            health: 500,
+            produces: [],
+            tech_required: ["data_node"],
+            provides_tech: ["tier_3_access"],
+            tier: 2,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(51539607552),
+            tags: ["tech", "research", "advanced"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+
+        // ------ Defense Buildings ------
+        (
+            id: "auto_turret",
+            name: "building.collegium.auto_turret.name",
+            description: "building.collegium.auto_turret.description",
+            cost: 75,
+            build_time: 90,
+            health: 200,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 10,
+            vision_range: Some(47244640256),
+            tags: ["defense", "anti_ground"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+        (
+            id: "shield_pylon",
+            name: "building.collegium.shield_pylon.name",
+            description: "building.collegium.shield_pylon.description",
+            cost: 150,
+            build_time: 180,
+            health: 250,
+            produces: [],
+            tech_required: [],
+            provides_tech: [],
+            tier: 1,
+            targetable: true,
+            armor: 15,
+            vision_range: Some(38654705664),
+            tags: ["defense", "shield", "support"],
+            is_harvester: false,
+            is_main_base: false,
+        ),
+    ],
+
+    // ========================================
+    // TECHNOLOGIES
+    // ========================================
+    technologies: [
+        // ------ Tier 1 Upgrades ------
+        (
+            id: "optimized_algorithms",
+            name: "tech.collegium.optimized_algorithms.name",
+            description: "tech.collegium.optimized_algorithms.description",
+            cost: 75,
+            research_time: 600,  // 20 seconds
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "speed", percent: 10),
+                    applies_to: [],
+                    applies_to_tags: ["drone"],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("data_node"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "distributed_targeting",
+            name: "tech.collegium.distributed_targeting.name",
+            description: "tech.collegium.distributed_targeting.description",
+            cost: 100,
+            research_time: 750,  // 25 seconds
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "damage", percent: 10),
+                    applies_to: [],
+                    applies_to_tags: ["drone"],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("data_node"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "emergency_protocols",
+            name: "tech.collegium.emergency_protocols.name",
+            description: "tech.collegium.emergency_protocols.description",
+            cost: 75,
+            research_time: 600,
+            effects: [
+                (
+                    effect_type: GrantAbility(
+                        ability_id: "auto_retreat",
+                        targets: [],
+                    ),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 1,
+            exclusive_with: [],
+            researched_at: Some("data_node"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+
+        // ------ Tier 2 Branch A: Swarm Doctrine ------
+        (
+            id: "swarm_doctrine",
+            name: "tech.collegium.swarm_doctrine.name",
+            description: "tech.collegium.swarm_doctrine.description",
+            cost: 150,
+            research_time: 1200,  // 40 seconds
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_branch", params: ["swarm"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 2,
+            exclusive_with: ["quality_doctrine"],
+            researched_at: Some("research_campus"),
+            is_doctrine: true,
+            branch: Some("swarm"),
+            icon: None,
+        ),
+        (
+            id: "hive_mind",
+            name: "tech.collegium.hive_mind.name",
+            description: "tech.collegium.hive_mind.description",
+            cost: 150,
+            research_time: 1200,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "swarm_bonus", params: ["6", "20"]),
+                    applies_to: [],
+                    applies_to_tags: ["drone"],
+                ),
+            ],
+            prerequisites: ["swarm_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("research_campus"),
+            is_doctrine: false,
+            branch: Some("swarm"),
+            icon: None,
+        ),
+        (
+            id: "rapid_fabrication",
+            name: "tech.collegium.rapid_fabrication.name",
+            description: "tech.collegium.rapid_fabrication.description",
+            cost: 200,
+            research_time: 1500,  // 50 seconds
+            effects: [
+                (
+                    effect_type: ProductionSpeedModifier(percent: 40),
+                    applies_to: [],
+                    applies_to_tags: ["drone"],
+                ),
+            ],
+            prerequisites: ["swarm_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("research_campus"),
+            is_doctrine: false,
+            branch: Some("swarm"),
+            icon: None,
+        ),
+
+        // ------ Tier 2 Branch B: Quality Doctrine ------
+        (
+            id: "quality_doctrine",
+            name: "tech.collegium.quality_doctrine.name",
+            description: "tech.collegium.quality_doctrine.description",
+            cost: 150,
+            research_time: 1200,
+            effects: [
+                (
+                    effect_type: Custom(effect_id: "unlock_branch", params: ["quality"]),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: [],
+            tier: 2,
+            exclusive_with: ["swarm_doctrine"],
+            researched_at: Some("research_campus"),
+            is_doctrine: true,
+            branch: Some("quality"),
+            icon: None,
+        ),
+        (
+            id: "advanced_alloys",
+            name: "tech.collegium.advanced_alloys.name",
+            description: "tech.collegium.advanced_alloys.description",
+            cost: 200,
+            research_time: 1500,
+            effects: [
+                (
+                    effect_type: StatModifierFlat(stat: "armor", amount: 15),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["quality_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("research_campus"),
+            is_doctrine: false,
+            branch: Some("quality"),
+            icon: None,
+        ),
+        (
+            id: "focused_beams",
+            name: "tech.collegium.focused_beams.name",
+            description: "tech.collegium.focused_beams.description",
+            cost: 175,
+            research_time: 1350,  // 45 seconds
+            effects: [
+                (
+                    effect_type: StatModifierPercent(stat: "damage", percent: 25),
+                    applies_to: [],
+                    applies_to_tags: ["energy_weapon"],
+                ),
+            ],
+            prerequisites: ["quality_doctrine"],
+            tier: 2,
+            exclusive_with: [],
+            researched_at: Some("research_campus"),
+            is_doctrine: false,
+            branch: Some("quality"),
+            icon: None,
+        ),
+
+        // ------ Tier 3 Upgrades ------
+        (
+            id: "fabrication_mastery",
+            name: "tech.collegium.fabrication_mastery.name",
+            description: "tech.collegium.fabrication_mastery.description",
+            cost: 300,
+            research_time: 1800,  // 60 seconds
+            effects: [
+                (
+                    effect_type: CostModifier(percent: -25),
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["research_campus"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("research_campus"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+        (
+            id: "network_supremacy",
+            name: "tech.collegium.network_supremacy.name",
+            description: "tech.collegium.network_supremacy.description",
+            cost: 250,
+            research_time: 1500,
+            effects: [
+                (
+                    effect_type: VisionModifier(range: 21474836480),  // Fixed-point for 5.0
+                    applies_to: [],
+                    applies_to_tags: [],
+                ),
+            ],
+            prerequisites: ["research_campus"],
+            tier: 3,
+            exclusive_with: [],
+            researched_at: Some("research_campus"),
+            is_doctrine: false,
+            branch: None,
+            icon: None,
+        ),
+    ],
+)

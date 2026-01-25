@@ -73,10 +73,8 @@ pub fn command_processing_system(
                     // Calculate direction and set velocity
                     // Using fast inverse sqrt approximation via fixed-point
                     let direction = normalize_vec2(diff);
-                    velocity.value = Vec2Fixed::new(
-                        direction.x * movement.speed,
-                        direction.y * movement.speed,
-                    );
+                    velocity.value =
+                        Vec2Fixed::new(direction.x * movement.speed, direction.y * movement.speed);
                 }
             }
             Some(Command::Stop) => {
@@ -98,10 +96,8 @@ pub fn command_processing_system(
                     command_queue.pop();
                 } else {
                     let direction = normalize_vec2(diff);
-                    velocity.value = Vec2Fixed::new(
-                        direction.x * movement.speed,
-                        direction.y * movement.speed,
-                    );
+                    velocity.value =
+                        Vec2Fixed::new(direction.x * movement.speed, direction.y * movement.speed);
                 }
             }
             Some(Command::Patrol(_)) | Some(Command::Follow(_)) | Some(Command::Guard(_)) => {
@@ -266,11 +262,11 @@ pub fn calculate_damage(
         return 0;
     }
 
-    // Apply multiplier
+    // Apply multiplier (both base_damage and multiplier are non-negative)
     let damage_fixed = Fixed::from_num(base_damage) * multiplier;
 
-    // Convert back to integer (truncate toward zero)
-    let modified_damage = damage_fixed.to_num::<i32>().max(0) as u32;
+    // Convert back to u32 (truncate toward zero, always non-negative)
+    let modified_damage: u32 = damage_fixed.to_num();
 
     // Subtract armor (minimum 1 damage if not immune)
     if modified_damage <= armor_value {
@@ -396,7 +392,7 @@ pub fn combat_system(
                 target_combat.armor_value,
             );
 
-            target_health.apply_damage(final_damage as i32);
+            target_health.apply_damage(final_damage);
 
             // Emit damage event
             combat_events.push(CombatEvent::DamageDealt {
@@ -482,8 +478,9 @@ pub fn projectile_system(
         // Check if we've arrived (within one tick of movement)
         if dist_sq <= speed_sq {
             // Hit the target!
-            if let Some((_, target_health, target_combat)) =
-                targets.iter_mut().find(|(id, _, _)| *id == projectile.target)
+            if let Some((_, target_health, target_combat)) = targets
+                .iter_mut()
+                .find(|(id, _, _)| *id == projectile.target)
             {
                 let final_damage = calculate_damage(
                     projectile.damage,
@@ -492,7 +489,7 @@ pub fn projectile_system(
                     target_combat.armor_value,
                 );
 
-                target_health.apply_damage(final_damage as i32);
+                target_health.apply_damage(final_damage);
 
                 updates.push(ProjectileUpdate {
                     projectile_id: *proj_id,
@@ -514,7 +511,10 @@ pub fn projectile_system(
             // Move toward target
             let direction = normalize_vec2(diff);
             proj_pos.value = proj_pos.value
-                + Vec2Fixed::new(direction.x * projectile.speed, direction.y * projectile.speed);
+                + Vec2Fixed::new(
+                    direction.x * projectile.speed,
+                    direction.y * projectile.speed,
+                );
 
             updates.push(ProjectileUpdate {
                 projectile_id: *proj_id,
@@ -543,7 +543,13 @@ pub fn projectile_system(
 /// # Returns
 /// Number of new attack targets acquired
 pub fn auto_attack_system<F>(
-    units: &mut [(EntityId, &Position, &mut AttackTarget, &CombatStats, &CommandQueue)],
+    units: &mut [(
+        EntityId,
+        &Position,
+        &mut AttackTarget,
+        &CombatStats,
+        &CommandQueue,
+    )],
     enemies: &[(EntityId, Position)],
     is_enemy: F,
 ) -> usize
@@ -722,8 +728,14 @@ mod tests {
     #[test]
     fn test_health_system_identifies_dead() {
         let alive = Health::new(100);
-        let dead = Health { current: 0, max: 100 };
-        let also_dead = Health { current: -5, max: 50 };
+        let dead = Health {
+            current: 0,
+            max: 100,
+        };
+        let also_dead = Health {
+            current: 0,
+            max: 50,
+        };
 
         let entities = vec![(1u64, &alive), (2u64, &dead), (3u64, &also_dead)];
         let dead_list = health_system(&entities);
@@ -904,8 +916,8 @@ mod tests {
         let target_pos = Position::new(Vec2Fixed::new(Fixed::from_num(3), Fixed::from_num(0)));
 
         let mut attack_target = AttackTarget::with_target(2);
-        let mut attacker_stats = CombatStats::new(100, Fixed::from_num(10), 30)
-            .with_damage_type(DamageType::Explosive);
+        let mut attacker_stats =
+            CombatStats::new(100, Fixed::from_num(10), 30).with_damage_type(DamageType::Explosive);
 
         let mut target_health = Health::new(200);
         let target_stats = CombatStats::default().with_armor(ArmorType::Building, 0);
@@ -924,8 +936,16 @@ mod tests {
         assert_eq!(damage_events[0].damage, 150);
 
         // Should have AttackStarted and DamageDealt events
-        assert!(combat_events.iter().any(|e| matches!(e, CombatEvent::AttackStarted { .. })));
-        assert!(combat_events.iter().any(|e| matches!(e, CombatEvent::DamageDealt { final_damage: 150, .. })));
+        assert!(combat_events
+            .iter()
+            .any(|e| matches!(e, CombatEvent::AttackStarted { .. })));
+        assert!(combat_events.iter().any(|e| matches!(
+            e,
+            CombatEvent::DamageDealt {
+                final_damage: 150,
+                ..
+            }
+        )));
     }
 
     #[test]
@@ -945,7 +965,8 @@ mod tests {
 
         // Tick 1: Should not deal damage while on cooldown (3->2)
         {
-            let mut attackers = vec![(1u64, &attacker_pos, &mut attack_target, &mut attacker_stats)];
+            let mut attackers =
+                vec![(1u64, &attacker_pos, &mut attack_target, &mut attacker_stats)];
             let mut targets = vec![(2u64, &mut target_health, &target_stats)];
             let (damage_events, _) = combat_system(&mut attackers, &mut targets, &position_lookup);
             assert!(damage_events.is_empty());
@@ -954,7 +975,8 @@ mod tests {
 
         // Tick 2: Still on cooldown (2->1)
         {
-            let mut attackers = vec![(1u64, &attacker_pos, &mut attack_target, &mut attacker_stats)];
+            let mut attackers =
+                vec![(1u64, &attacker_pos, &mut attack_target, &mut attacker_stats)];
             let mut targets = vec![(2u64, &mut target_health, &target_stats)];
             let (damage_events, _) = combat_system(&mut attackers, &mut targets, &position_lookup);
             assert!(damage_events.is_empty());
@@ -963,7 +985,8 @@ mod tests {
 
         // Tick 3: Cooldown reaches 0 (1->0), attack fires, cooldown resets to 5
         {
-            let mut attackers = vec![(1u64, &attacker_pos, &mut attack_target, &mut attacker_stats)];
+            let mut attackers =
+                vec![(1u64, &attacker_pos, &mut attack_target, &mut attacker_stats)];
             let mut targets = vec![(2u64, &mut target_health, &target_stats)];
             let (damage_events, _) = combat_system(&mut attackers, &mut targets, &position_lookup);
             assert_eq!(damage_events.len(), 1);
@@ -995,7 +1018,9 @@ mod tests {
         assert!(damage_events.is_empty());
 
         // Should have OutOfRange event
-        assert!(combat_events.iter().any(|e| matches!(e, CombatEvent::OutOfRange { .. })));
+        assert!(combat_events
+            .iter()
+            .any(|e| matches!(e, CombatEvent::OutOfRange { .. })));
     }
 
     #[test]
@@ -1020,7 +1045,10 @@ mod tests {
         // Should have UnitKilled event
         assert!(combat_events.iter().any(|e| matches!(
             e,
-            CombatEvent::UnitKilled { killer: 1, victim: 2 }
+            CombatEvent::UnitKilled {
+                killer: 1,
+                victim: 2
+            }
         )));
 
         // Attack target should be cleared

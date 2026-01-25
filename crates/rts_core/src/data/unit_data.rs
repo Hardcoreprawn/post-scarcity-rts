@@ -11,7 +11,7 @@ use crate::math::{fixed_serde, Fixed};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CombatStats {
     /// Base damage per attack.
-    pub damage: i32,
+    pub damage: u32,
 
     /// Attack range in game units.
     #[serde(with = "fixed_serde")]
@@ -22,7 +22,7 @@ pub struct CombatStats {
 
     /// Armor value that reduces incoming damage.
     #[serde(default)]
-    pub armor: i32,
+    pub armor: u32,
 }
 
 /// Data-driven unit definition.
@@ -65,13 +65,13 @@ pub struct UnitData {
     pub description: String,
 
     /// Feedstock cost to produce this unit.
-    pub cost: i32,
+    pub cost: u32,
 
     /// Production time in simulation ticks.
     pub build_time: u32,
 
     /// Maximum health points.
-    pub health: i32,
+    pub health: u32,
 
     /// Movement speed (fixed-point).
     #[serde(with = "fixed_serde")]

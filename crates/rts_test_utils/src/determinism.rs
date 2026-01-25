@@ -248,7 +248,11 @@ where
 /// );
 /// result.assert_deterministic();
 /// ```
-pub fn run_parallel_simulations<F>(setup_fn: F, num_sims: usize, num_ticks: u64) -> ParallelSimResult
+pub fn run_parallel_simulations<F>(
+    setup_fn: F,
+    num_sims: usize,
+    num_ticks: u64,
+) -> ParallelSimResult
 where
     F: Fn() -> rts_core::simulation::Simulation + Send + Sync,
 {
@@ -317,10 +321,7 @@ where
 ///
 /// `None` if simulations are deterministic, `Some(tick)` if they diverge
 /// at that tick.
-pub fn find_first_divergence<F>(
-    setup_fn: F,
-    num_ticks: u64,
-) -> Option<u64>
+pub fn find_first_divergence<F>(setup_fn: F, num_ticks: u64) -> Option<u64>
 where
     F: Fn() -> rts_core::simulation::Simulation,
 {
@@ -347,10 +348,7 @@ where
 /// Verify that serialization round-trip preserves simulation state exactly.
 ///
 /// This is critical for save/load and network synchronization.
-pub fn verify_serialization_determinism<F>(
-    setup_fn: F,
-    num_ticks: u64,
-) -> bool
+pub fn verify_serialization_determinism<F>(setup_fn: F, num_ticks: u64) -> bool
 where
     F: Fn() -> rts_core::simulation::Simulation,
 {
@@ -410,8 +408,7 @@ pub mod strategies {
 
     /// Generate a fixed-point 2D vector for positions.
     pub fn arb_vec2_position() -> impl Strategy<Value = Vec2Fixed> {
-        (arb_fixed_position(), arb_fixed_position())
-            .prop_map(|(x, y)| Vec2Fixed::new(x, y))
+        (arb_fixed_position(), arb_fixed_position()).prop_map(|(x, y)| Vec2Fixed::new(x, y))
     }
 
     /// Generate a MoveTo command.
@@ -446,8 +443,8 @@ pub mod strategies {
     }
 
     /// Generate health values (1-1000).
-    pub fn arb_health() -> impl Strategy<Value = i32> {
-        1i32..1000i32
+    pub fn arb_health() -> impl Strategy<Value = u32> {
+        1u32..1000u32
     }
 
     /// Generate damage values (1-100).
@@ -466,7 +463,7 @@ pub mod strategies {
         /// Position.
         pub position: Vec2Fixed,
         /// Health.
-        pub health: i32,
+        pub health: u32,
         /// Movement speed (None = immobile).
         pub speed: Option<Fixed>,
     }
@@ -495,7 +492,7 @@ pub mod strategies {
 mod tests {
     use super::*;
     use proptest::prelude::*;
-    use rts_core::components::{Command, CombatStats};
+    use rts_core::components::{CombatStats, Command};
     use rts_core::math::{Fixed, Vec2Fixed};
     use rts_core::simulation::{EntitySpawnParams, Simulation};
 
@@ -505,13 +502,7 @@ mod tests {
 
     #[test]
     fn test_verify_determinism_simple() {
-        let result = verify_determinism(
-            3,
-            100,
-            || 0u64,
-            |n| *n += 1,
-            |n| *n,
-        );
+        let result = verify_determinism(3, 100, || 0u64, |n| *n += 1, |n| *n);
 
         assert!(result.is_deterministic);
         assert_eq!(result.hashes, vec![100, 100, 100]);
@@ -529,7 +520,7 @@ mod tests {
                 let mut sim = Simulation::new();
                 sim.spawn_entity(EntitySpawnParams {
                     position: Some(Vec2Fixed::new(Fixed::from_num(100), Fixed::from_num(50))),
-                    health: Some(100),
+                    health: Some(100u32),
                     movement: Some(Fixed::from_num(5)),
                     ..Default::default()
                 });
@@ -586,10 +577,7 @@ mod tests {
                     // Issue commands
                     let _ = sim.apply_command(
                         id,
-                        Command::MoveTo(Vec2Fixed::new(
-                            Fixed::from_num(500),
-                            Fixed::from_num(500),
-                        )),
+                        Command::MoveTo(Vec2Fixed::new(Fixed::from_num(500), Fixed::from_num(500))),
                     );
                 }
                 sim
@@ -636,7 +624,9 @@ mod tests {
             5,
             200,
             setup_combat_scenario,
-            |sim| { sim.tick(); },
+            |sim| {
+                sim.tick();
+            },
             |sim| sim.state_hash(),
         );
         result.assert_deterministic();
@@ -683,10 +673,7 @@ mod tests {
 
         let _ = sim.apply_command(
             unit,
-            Command::MoveTo(Vec2Fixed::new(
-                Fixed::from_num(1000),
-                Fixed::from_num(1000),
-            )),
+            Command::MoveTo(Vec2Fixed::new(Fixed::from_num(1000), Fixed::from_num(1000))),
         );
 
         sim
@@ -698,7 +685,9 @@ mod tests {
             5,
             500,
             setup_movement_scenario,
-            |sim| { sim.tick(); },
+            |sim| {
+                sim.tick();
+            },
             |sim| sim.state_hash(),
         );
         result.assert_deterministic();
@@ -750,7 +739,9 @@ mod tests {
             3,
             100,
             setup_production_scenario,
-            |sim| { sim.tick(); },
+            |sim| {
+                sim.tick();
+            },
             |sim| sim.state_hash(),
         );
         result.assert_deterministic();
@@ -928,8 +919,8 @@ mod tests {
         /// This catches floating-point contamination in damage calculations.
         #[test]
         fn prop_combat_damage_is_exact(
-            attacker_health in 50i32..200,
-            defender_health in 50i32..200,
+            attacker_health in 50u32..200,
+            defender_health in 50u32..200,
             damage in 5u32..30,
             range in 10i32..100,
         ) {
@@ -978,10 +969,7 @@ mod tests {
                 let x = (i % 10) * 100;
                 let y = (i / 10) * 100;
                 let unit = sim.spawn_entity(EntitySpawnParams {
-                    position: Some(Vec2Fixed::new(
-                        Fixed::from_num(x),
-                        Fixed::from_num(y),
-                    )),
+                    position: Some(Vec2Fixed::new(Fixed::from_num(x), Fixed::from_num(y))),
                     health: Some(100),
                     movement: Some(Fixed::from_num(2)),
                     ..Default::default()
@@ -990,10 +978,7 @@ mod tests {
                 // Give them all movement commands
                 let _ = sim.apply_command(
                     unit,
-                    Command::MoveTo(Vec2Fixed::new(
-                        Fixed::from_num(500),
-                        Fixed::from_num(500),
-                    )),
+                    Command::MoveTo(Vec2Fixed::new(Fixed::from_num(500), Fixed::from_num(500))),
                 );
             }
             sim
@@ -1003,7 +988,9 @@ mod tests {
             5,
             1000,
             setup,
-            |s| { s.tick(); },
+            |s| {
+                s.tick();
+            },
             |s| s.state_hash(),
         );
         result.assert_deterministic();

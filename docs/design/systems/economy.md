@@ -27,6 +27,30 @@ Feedstock is raw organic matter that can be converted into anything through fabr
 | Salvage | Tinkers' Union | Battlefield wrecks | Bonus income, repairs |
 | Trade Income | Zephyr Guild | Trade routes | Passive gold generation |
 
+### Tiered Resources (Universal)
+
+> **TODO:** Implement T2/T3 resources in game code.
+
+Beyond faction-specific resources, all factions require **universal rare resources** for top-tier units:
+
+| Tier | Name | Source | Used For |
+| ---- | ---- | ------ | -------- |
+| T1 | Feedstock | Permanent base nodes, field deposits | Basic units, buildings, economy |
+| T2 | **Exotics** | Contested field nodes only (mid-map) | T2 units, upgrades, advanced buildings |
+| T3 | **Cores** | 1-2 rare deposits per map (dangerous locations) | T3 units, superweapons, faction pinnacles |
+
+**Lore:**
+
+- **Exotics** — Rare elements that can't be synthesized (platinum group metals, lanthanides). Hoards from old-world tech facilities, recycled from pre-collapse machinery.
+- **Cores** — Fragments of pre-collapse AI substrates or quantum computing remnants. Irreplaceable relics that enable the most advanced fabrication.
+
+**Strategic Intent:**
+
+- Feedstock is safe but only gets you basic forces
+- Exotics force early/mid-game expansion and conflict
+- Cores force late-game fights over high-value objectives
+- No turtling to victory — must contest the map for T2/T3
+
 ### Supply (Population Cap)
 
 All factions share supply mechanics:

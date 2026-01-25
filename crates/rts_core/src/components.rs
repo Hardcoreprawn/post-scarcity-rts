@@ -386,22 +386,22 @@ pub struct Movement {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Health {
     /// Current health points.
-    pub current: i32,
+    pub current: u32,
     /// Maximum health points.
-    pub max: i32,
+    pub max: u32,
 }
 
 impl Health {
     /// Create new health component at full health.
     #[must_use]
-    pub const fn new(max: i32) -> Self {
+    pub const fn new(max: u32) -> Self {
         Self { current: max, max }
     }
 
-    /// Check if entity is dead (health <= 0).
+    /// Check if entity is dead (health == 0).
     #[must_use]
     pub const fn is_dead(&self) -> bool {
-        self.current <= 0
+        self.current == 0
     }
 
     /// Check if entity is at full health.
@@ -411,23 +411,25 @@ impl Health {
     }
 
     /// Apply damage, returning actual damage dealt.
-    pub fn apply_damage(&mut self, amount: i32) -> i32 {
+    /// Uses saturating subtraction to prevent underflow.
+    pub fn apply_damage(&mut self, amount: u32) -> u32 {
         let actual = amount.min(self.current);
-        self.current -= actual;
+        self.current = self.current.saturating_sub(actual);
         actual
     }
 
     /// Heal the entity, returning actual amount healed.
-    pub fn heal(&mut self, amount: i32) -> i32 {
-        let headroom = self.max - self.current;
+    /// Uses saturating addition to prevent overflow.
+    pub fn heal(&mut self, amount: u32) -> u32 {
+        let headroom = self.max.saturating_sub(self.current);
         let actual = amount.min(headroom);
-        self.current += actual;
+        self.current = self.current.saturating_add(actual);
         actual
     }
 
     /// Get health as a percentage (0-100).
     #[must_use]
-    pub fn percentage(&self) -> i32 {
+    pub fn percentage(&self) -> u32 {
         if self.max == 0 {
             0
         } else {
@@ -641,7 +643,10 @@ impl ProductionQueue {
 
     /// Add an item to the production queue.
     pub fn enqueue(&mut self, unit_id: String, build_time: u32) {
-        self.queue.push_back(ProductionItem { unit_id, build_time });
+        self.queue.push_back(ProductionItem {
+            unit_id,
+            build_time,
+        });
     }
 
     /// Get the currently producing item.

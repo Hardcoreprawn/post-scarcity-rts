@@ -56,6 +56,12 @@ pub enum TechEffectType {
         percent: i32,
     },
 
+    /// Modify unit/building cost.
+    CostModifier {
+        /// Percentage modifier (negative for reduction, e.g., -10 for -10% cost).
+        percent: i32,
+    },
+
     /// Custom effect handled by game logic.
     Custom {
         /// Effect identifier for custom handling.
