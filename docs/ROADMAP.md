@@ -388,6 +388,22 @@ Automated testing to ensure game balance across factions.
 - [ ] **Test:** CI fails if balance regresses significantly
 - [ ] **Test:** CI fails if simulation determinism breaks
 
+#### 3.5.6 Derived Unit Cost System
+
+*Critical for mod/DLC support: calculate unit costs from stats so modders can't easily create overpowered cheap units.*
+
+- [ ] Design cost formula based on unit stats (HP, DPS, speed, range, armor)
+- [ ] Weight coefficients for each stat contribution
+- [ ] Role modifiers (harvester, support, scout get adjusted weights)
+- [ ] Tier multipliers (late-game units cost more per stat point)
+- [ ] Implement `derive_cost(UnitData) -> Cost` function
+- [ ] Validate existing faction unit costs against formula
+- [ ] Flag units with cost deviations > 15% for manual review
+- [ ] Add balance tests comparing derived vs authored costs
+- [ ] Document formula in ADR for modding transparency
+- [ ] **Test:** Random stat combinations produce reasonable costs
+- [ ] **Test:** No faction has cost efficiency outliers > 20%
+
 **Exit Criteria:**
 
 - [ ] Can simulate 1000 battles headlessly in < 60 seconds
@@ -564,6 +580,21 @@ Prepare for Steam release.
 - [ ] Cloud saves
 - [ ] Steam Deck verification
 - [ ] Workshop support (maps/mods) — stretch goal
+
+#### 7.2.1 Modding & DLC Support
+
+*Enables community content and future expansion packs.*
+
+- [ ] Mod loading system (additional RON data files)
+- [ ] Unit cost auto-calculation (derived from stats, see 3.5.6)
+- [ ] Mod validation CLI (check for balance outliers)
+- [ ] Mod manifest format (version, dependencies, compatibility)
+- [ ] Sandbox mode (disable achievements when mods active)
+- [ ] DLC content loading (same pipeline as mods, just official)
+- [ ] Workshop upload/download integration
+- [ ] Mod conflict resolution (load order, overrides)
+- [ ] **Test:** Load custom faction from Workshop
+- [ ] **Test:** Overpowered unit gets flagged or cost-adjusted
 
 #### 7.3 QA & Testing
 
