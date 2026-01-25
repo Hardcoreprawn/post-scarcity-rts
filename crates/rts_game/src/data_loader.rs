@@ -10,6 +10,7 @@ use std::path::Path;
 use bevy::prelude::*;
 use rts_core::data::FactionData;
 use rts_core::factions::FactionId;
+use rts_core::unit_kind::{UnitKindRegistry, UnitRole};
 use thiserror::Error;
 
 /// Errors that can occur during faction data loading.
@@ -130,7 +131,29 @@ impl FactionRegistry {
     pub fn is_empty(&self) -> bool {
         self.factions.is_empty()
     }
+}
 
+/// Bevy wrapper for the unit kind registry.
+///
+/// Maps unit string IDs to numeric IDs for fast runtime lookups.
+/// This is the unified identity system - use this instead of `UnitType` enum.
+#[derive(Resource, Debug, Default)]
+pub struct BevyUnitKindRegistry(pub UnitKindRegistry);
+
+impl std::ops::Deref for BevyUnitKindRegistry {
+    type Target = UnitKindRegistry;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for BevyUnitKindRegistry {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl FactionRegistry {
     /// Validate that all required factions are present.
     ///
     /// # Errors
@@ -256,21 +279,38 @@ pub struct FactionDataPlugin;
 impl Plugin for FactionDataPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FactionRegistry>()
+            .init_resource::<BevyUnitKindRegistry>()
             .add_systems(PreStartup, load_faction_data);
     }
 }
 
 /// System that loads faction data at startup.
-fn load_faction_data(mut registry: ResMut<FactionRegistry>) {
+fn load_faction_data(
+    mut faction_registry: ResMut<FactionRegistry>,
+    mut unit_kind_registry: ResMut<BevyUnitKindRegistry>,
+) {
     // Determine the faction data directory
     let faction_dir = Path::new("assets/data/factions");
 
     match load_factions_from_directory(faction_dir) {
         Ok(loaded_registry) => {
-            *registry = loaded_registry;
+            *faction_registry = loaded_registry;
+
+            // Build UnitKindRegistry from loaded factions
+            // This creates the unified identity system mapping string IDs to numeric IDs
+            for faction in faction_registry.all_factions() {
+                for unit in &faction.units {
+                    let role = UnitRole::from_tags(&unit.tags, unit.tier, unit.combat.is_some());
+                    unit_kind_registry.register(faction.id, &unit.id, role);
+                }
+            }
+            tracing::info!(
+                "Registered {} unit kinds in UnitKindRegistry",
+                unit_kind_registry.len()
+            );
 
             // Log loaded factions
-            for faction in registry.all_factions() {
+            for faction in faction_registry.all_factions() {
                 tracing::debug!(
                     "Faction {} available: {} units, {} buildings",
                     faction.id.short_name(),
@@ -280,7 +320,7 @@ fn load_faction_data(mut registry: ResMut<FactionRegistry>) {
             }
 
             // Warn if not all factions are present (expected during development)
-            if let Err(e) = registry.validate_completeness() {
+            if let Err(e) = faction_registry.validate_completeness() {
                 tracing::warn!("Faction data incomplete: {}", e);
             }
         }

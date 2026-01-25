@@ -35,7 +35,7 @@ pub mod ui;
 pub mod victory;
 
 use components::UnderConstruction;
-pub use data_loader::{FactionDataPlugin, FactionRegistry};
+pub use data_loader::{BevyUnitKindRegistry, FactionDataPlugin, FactionRegistry};
 pub use plugins::HeadlessGamePlugins;
 use plugins::{
     DepotBundle, GamePlugins, HarvesterBundle, ResourceNodeBundle, TurretBundle, UnitBundle,

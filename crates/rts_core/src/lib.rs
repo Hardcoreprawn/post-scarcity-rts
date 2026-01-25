@@ -36,6 +36,7 @@ pub mod pathfinding;
 pub mod production;
 pub mod simulation;
 pub mod systems;
+pub mod unit_kind;
 
 /// Re-export commonly used types
 pub mod prelude {
@@ -54,4 +55,5 @@ pub mod prelude {
         ProductionEvent, ProductionItem, ProductionQueue, TechId, UnitBlueprint, UnitTypeId,
     };
     pub use crate::simulation::Simulation;
+    pub use crate::unit_kind::{UnitKindId, UnitKindInfo, UnitKindRegistry, UnitRole};
 }

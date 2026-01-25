@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use rts_core::components::Command as CoreCommand;
 use rts_core::factions::FactionId;
 use rts_core::math::Vec2Fixed;
+use rts_core::unit_kind::{UnitKindId, UnitRole};
 
 // ============================================================================
 // Core Component Wrappers
@@ -967,6 +968,51 @@ impl Unit {
     #[must_use]
     pub const fn supply(&self) -> i32 {
         self.unit_type.supply()
+    }
+}
+
+/// Component identifying a unit's kind and role.
+///
+/// This is the data-driven replacement for the hardcoded `UnitType` enum.
+/// The `id` maps to loaded RON data via `BevyUnitKindRegistry`.
+/// Use this for new code instead of the legacy `Unit` component.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnitKind {
+    /// The numeric ID of this unit kind. Look up in registry for full data.
+    pub id: UnitKindId,
+    /// Cached role flags for fast queries (is infantry? harvester? etc.)
+    pub role: UnitRole,
+}
+
+impl UnitKind {
+    /// Create a new UnitKind component.
+    #[must_use]
+    pub const fn new(id: UnitKindId, role: UnitRole) -> Self {
+        Self { id, role }
+    }
+
+    /// Check if this unit has a specific role.
+    #[must_use]
+    pub const fn has_role(&self, role: UnitRole) -> bool {
+        self.role.contains(role)
+    }
+
+    /// Check if this is infantry.
+    #[must_use]
+    pub const fn is_infantry(&self) -> bool {
+        self.role.contains(UnitRole::INFANTRY)
+    }
+
+    /// Check if this is a harvester.
+    #[must_use]
+    pub const fn is_harvester(&self) -> bool {
+        self.role.contains(UnitRole::HARVESTER)
+    }
+
+    /// Check if this is an air unit.
+    #[must_use]
+    pub const fn is_air(&self) -> bool {
+        self.role.contains(UnitRole::AIR)
     }
 }
 
