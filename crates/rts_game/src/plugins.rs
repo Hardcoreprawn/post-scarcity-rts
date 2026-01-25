@@ -92,5 +92,23 @@ impl PluginGroup for HeadlessGamePlugins {
             .add(CombatPlugin)
             .add(ProductionPlugin)
             .add(AiPlugin)
+            .add(HeadlessVictoryPlugin)
     }
 }
+
+/// Victory plugin for headless testing (no UI).
+///
+/// Includes victory detection logic without the UI overlay system.
+pub struct HeadlessVictoryPlugin;
+
+impl Plugin for HeadlessVictoryPlugin {
+    fn build(&self, app: &mut App) {
+        use crate::victory::{GameState, MatchStats};
+        app.init_resource::<GameState>()
+            .init_resource::<MatchStats>()
+            .add_systems(Update, crate::victory::check_victory_conditions);
+    }
+}
+
+// Re-export for testing
+pub use crate::victory::check_victory_conditions;

@@ -42,16 +42,16 @@ Establish development infrastructure and project skeleton.
   - Commit message format validation
 - [ ] Document hook setup in CONTRIBUTING.md
 
-#### 0.4 CI/CD Pipeline
+#### 0.4 CI/CD Pipeline ✅ ~~[#10](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/10)~~
 
-- [ ] GitHub Actions workflow for:
+- [x] GitHub Actions workflow for:
   - Build (Windows, Linux, macOS)
   - Test suite
   - Clippy lints
   - Documentation generation
   - Release builds (tagged commits)
 - [ ] Badge status in README
-- [ ] Artifact uploads for builds
+- [x] Artifact uploads for builds
 
 **Exit Criteria:**
 
@@ -89,10 +89,10 @@ Build the fundamental game systems that all features depend on.
 - [ ] Input mapping/rebinding foundation
 - [x] **Test:** Select units, issue move commands
 
-#### 1.4 Pathfinding ✅
+#### 1.4 Pathfinding ✅ (A* only — [#4](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/4) tracks flowfield)
 
 - [x] Navigation mesh or grid generation
-- [x] A* or flowfield pathfinding
+- [x] Flowfield pathfinding (A* implemented, flowfield deferred)
 - [x] Unit steering and avoidance
 - [x] Formation movement basics
 - [x] **Test:** 100 units navigate around obstacles without stacking
@@ -133,13 +133,15 @@ Implement core RTS mechanics with one faction.
 - [x] Rally points
 - [x] **Test:** Build structure, train units, units rally to point
 
-#### 2.3 Combat System ✅
+#### 2.3 Combat System ✅ (hitscan only — [#1](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/1) tracks projectiles)
 
 - [x] Health and damage
 - [x] Attack commands and auto-attack
 - [x] Damage types and armor
 - [x] Unit death and cleanup
 - [x] Faction-restricted selection/commands
+- [ ] Projectile system (deferred to Phase 3)
+- [ ] Splash damage for explosives (deferred to Phase 3)
 - [x] **Test:** Two armies fight, units die, combat resolves
 
 #### 2.4 Building System ✅
@@ -177,15 +179,15 @@ Implement core RTS mechanics with one faction.
 
 Essential visual feedback and controls that should exist before faction testing.
 
-### 2.7.1 Victory Conditions ⏳
+### 2.7.1 Victory Conditions ✅ ~~[#5](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/5)~~
 
-- [ ] Win condition: destroy enemy command building (Depot)
-- [ ] Lose condition: player command building destroyed
-- [ ] Victory screen with match statistics
-- [ ] Defeat screen with retry option
-- [ ] **Test:** Games end properly, can restart
+- [x] Win condition: destroy enemy command building (Depot)
+- [x] Lose condition: player command building destroyed
+- [x] Victory screen with match statistics
+- [x] Defeat screen with retry option
+- [x] **Test:** 13 unit tests covering edge cases (multi-faction, mutual destruction, etc.)
 
-#### 2.7.2 Visual Feedback 🔄 NEXT
+#### 2.7.2 Visual Feedback 🔄 NEXT [#6](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/6)
 
 - [ ] Health bars above units and buildings
 - [ ] Selection circles under selected units
@@ -194,7 +196,7 @@ Essential visual feedback and controls that should exist before faction testing.
 - [ ] Damage flash/feedback on hit
 - [ ] **Test:** Player can read game state at a glance
 
-#### 2.7.3 Core Commands ⏳
+#### 2.7.3 Core Commands ⏳ [#8](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/8)
 
 - [ ] Attack-move command (A + click)
 - [ ] Patrol command (P + click two points)
@@ -274,7 +276,7 @@ Implement all five factions with unique mechanics. **Staged rollout** to validat
 - [x] Zephyr Guild data (10 units, 14 buildings, 12 techs)
 - [x] **Test:** All RON files parse correctly
 
-#### 3.2 Faction Base Stats 🔄 NEXT
+#### 3.2 Faction Base Stats 🔄 NEXT [#2](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/2)
 
 - [ ] Wire FactionData to unit spawning (use faction stats from RON)
 - [ ] Wire FactionData to building spawning (use faction stats from RON)
@@ -376,13 +378,15 @@ Automated testing to ensure game balance across factions.
 - [ ] Resource denial impact measurement
 - [ ] **Test:** All factions can sustain production by minute 3
 
-#### 3.5.5 Regression Testing
+#### 3.5.5 Regression Testing [#7](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/7)
 
 - [ ] Golden balance snapshots
 - [ ] Stat change impact reports
 - [ ] Automated balance alerts on PRs
 - [ ] Historical balance tracking
+- [ ] Determinism validation in CI (state hash comparison)
 - [ ] **Test:** CI fails if balance regresses significantly
+- [ ] **Test:** CI fails if simulation determinism breaks
 
 **Exit Criteria:**
 
@@ -398,12 +402,15 @@ Create competent AI opponents with faction-specific behaviors.
 
 > **Note:** Basic victory conditions moved to Phase 2.7
 
-### 4.1 AI Framework
+### 4.1 AI Framework [#9](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/9)
 
 - [x] Basic AI production/attack behavior (threshold-based)
 - [ ] Behavior tree or utility AI system
 - [ ] AI decision timing (not per-frame)
 - [ ] Difficulty scaling (Easy/Normal/Hard)
+- [ ] Scouting behavior
+- [ ] Reactive defense (respond to player rushes)
+- [ ] Retreat logic (pull back damaged army)
 - [ ] **Test:** AI makes decisions, doesn't freeze game
 
 #### 4.2 Economic AI
@@ -701,6 +708,17 @@ jobs:
         # Steam CLI upload step
         run: echo "Steam upload would happen here"
 ```
+
+---
+
+## Known Technical Debt
+
+Issues to address during polish phases or when they become blockers.
+
+| Issue | Description | Priority | Phase |
+| ----- | ----------- | -------- | ----- |
+| [#3](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/3) | Component duplication between rts_core/rts_game | Low | 6 |
+| [#4](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/4) | Flowfield pathfinding for mass movement | Medium | 5 |
 
 ---
 

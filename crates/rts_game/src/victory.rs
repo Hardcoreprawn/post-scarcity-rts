@@ -49,7 +49,10 @@ pub struct MatchStats {
 }
 
 /// Checks if victory or defeat conditions have been met.
-fn check_victory_conditions(
+///
+/// Victory occurs when all enemy depots are destroyed.
+/// Defeat occurs when all player depots are destroyed.
+pub fn check_victory_conditions(
     mut game_state: ResMut<GameState>,
     player_faction: Res<PlayerFaction>,
     depots: Query<(&GameFaction, &GameHealth), With<GameDepot>>,
