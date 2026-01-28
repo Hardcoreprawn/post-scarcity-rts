@@ -37,6 +37,22 @@ Classic base-building RTS with modern systems, featuring five ideologically dist
 
 ---
 
+## Critical Design & UX Focus (Non-Negotiable)
+
+These are **must-pass gates** for future development. If they are not met, the game will fail in playtests and external reviews regardless of feature depth.
+
+1. **Readability at Strategic Zoom**
+   - Unit class, ownership, and health state must be clear within 1–2 seconds.
+   - Visual language (silhouettes, outlines, VFX) takes priority over detail.
+2. **Responsive RTS Controls**
+   - Core commands must be fast, reliable, and predictable (Attack-Move, Hold, Patrol, Stop).
+3. **Cohesive Visual Identity**
+   - A defined style guide and faction-specific silhouettes/colors are mandatory.
+4. **UX Clarity Over Feature Count**
+   - Features that introduce cognitive load or reduce clarity are deferred until UX is proven.
+
+---
+
 ## Setting
 
 ### The World
