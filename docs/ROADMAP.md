@@ -87,11 +87,11 @@ Implement core RTS mechanics with minimal assets.
 
 ### 2.7.1 Visual Feedback (Priority High)
 
-- [ ] Health bars (units & buildings)
-- [ ] Selection circles & highlighting
-- [ ] Damage feedback (flash on hit)
+- [x] Health bars (units & buildings)
+- [x] Selection circles & highlighting
+- [x] Damage feedback (flash on hit)
 - [ ] Building placement ghost fix
-- [ ] Range indicators (attack/vision) when selected
+- [x] Range indicators (attack/vision) when selected
 - [ ] Faction silhouette/readability pass (strategic zoom target)
 - [ ] VFX language baseline (damage types, critical hits, ability activations)
 

@@ -5,7 +5,7 @@
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::prelude::*;
 
-use crate::components::{GameHealth, GamePosition, UnderConstruction};
+use crate::components::{CombatStats, GameHealth, GamePosition, Selected, UnderConstruction};
 use crate::selection::SelectionHighlight;
 
 /// Plugin for basic sprite rendering.
@@ -19,10 +19,19 @@ pub struct RenderPlugin;
 /// Plugin for damage flash feedback only (no gizmo dependencies).
 pub struct DamageFlashPlugin;
 
+/// Plugin for range indicator updates only (no gizmo dependencies).
+pub struct RangeIndicatorPlugin;
+
 impl Plugin for DamageFlashPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, track_damage_flash)
             .add_systems(Update, update_damage_flash.after(track_damage_flash));
+    }
+}
+
+impl Plugin for RangeIndicatorPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, update_range_indicators);
     }
 }
 
@@ -31,6 +40,11 @@ impl Plugin for RenderPlugin {
         app.add_systems(Update, sync_transform_from_position)
             .add_systems(Update, render_selection_highlight)
             .add_systems(Update, render_health_bars)
+            .add_systems(Update, update_range_indicators)
+            .add_systems(
+                Update,
+                render_range_indicators.after(update_range_indicators),
+            )
             .add_systems(Update, track_damage_flash)
             .add_systems(Update, update_damage_flash.after(track_damage_flash));
     }
@@ -46,6 +60,13 @@ pub struct DamageFlash {
     pub timer: f32,
     /// Base color to restore after flash.
     pub base_color: Color,
+}
+
+/// Component for rendering a unit's attack range indicator.
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct RangeIndicator {
+    /// Range radius in world units.
+    pub radius: f32,
 }
 
 /// Tracks last known health to detect damage events.
@@ -138,6 +159,36 @@ fn render_health_bars(
                 fill_color,
             );
         }
+    }
+}
+
+/// Updates range indicators for selected combat units.
+fn update_range_indicators(
+    mut commands: Commands,
+    selected_missing: Query<(Entity, &CombatStats), (With<Selected>, Without<RangeIndicator>)>,
+    mut selected_with: Query<(&mut RangeIndicator, &CombatStats), With<Selected>>,
+    deselected: Query<Entity, (With<RangeIndicator>, Without<Selected>)>,
+) {
+    for (entity, stats) in selected_missing.iter() {
+        commands.entity(entity).insert(RangeIndicator {
+            radius: stats.range,
+        });
+    }
+
+    for (mut indicator, stats) in selected_with.iter_mut() {
+        indicator.radius = stats.range;
+    }
+
+    for entity in deselected.iter() {
+        commands.entity(entity).remove::<RangeIndicator>();
+    }
+}
+
+/// Renders range indicators using gizmos.
+fn render_range_indicators(indicators: Query<(&Transform, &RangeIndicator)>, mut gizmos: Gizmos) {
+    for (transform, indicator) in indicators.iter() {
+        let pos = transform.translation.truncate();
+        gizmos.circle_2d(pos, indicator.radius, Color::srgba(0.0, 0.7, 1.0, 0.5));
     }
 }
 
