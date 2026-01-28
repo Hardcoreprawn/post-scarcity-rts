@@ -13,6 +13,7 @@
 
 - [Coding Standards](standards/coding-standards.md) — Code conventions, naming, documentation
 - [Project Conventions](standards/project-conventions.md) — Asset organization, data formats, configuration
+- [Visual Quality Bar](standards/visual-quality-bar.md) — Readability, UX, and performance gates
 
 ## Game Design
 

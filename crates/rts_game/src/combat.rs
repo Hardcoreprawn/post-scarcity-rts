@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 
 use crate::components::{
-    Armor, ArmorType, AttackTarget, CombatStats, Dead, GameFaction, GameHealth, GamePosition,
-    MovementTarget, PlayerFaction, Regeneration, Unit,
+    Armor, ArmorType, AttackTarget, CombatStats, DamageType, Dead, GameFaction, GameHealth,
+    GamePosition, MovementTarget, PlayerFaction, Regeneration, Unit,
 };
 use crate::economy::PlayerResources;
 use rts_core::math::{Fixed, Vec2Fixed};
@@ -26,6 +26,16 @@ pub struct WeaponFire {
     pub timer: f32,
     /// Color of the weapon fire.
     pub color: Color,
+}
+
+/// Get weapon fire color based on damage type.
+#[must_use]
+pub fn weapon_fire_color(damage_type: DamageType) -> Color {
+    match damage_type {
+        DamageType::Kinetic => Color::srgb(1.0, 0.8, 0.0), // Yellow-orange
+        DamageType::Energy => Color::srgb(0.3, 0.8, 1.0),  // Cyan-blue
+        DamageType::Explosive => Color::srgb(1.0, 0.4, 0.2), // Hot red-orange
+    }
 }
 
 /// Plugin for combat systems.
@@ -224,7 +234,7 @@ fn execute_attacks(
                 from: my_pos,
                 to: target_world,
                 timer: WEAPON_FIRE_DURATION,
-                color: Color::srgba(1.0, 0.8, 0.0, 1.0), // Orange laser
+                color: weapon_fire_color(stats.damage_type),
             });
 
             tracing::debug!("Attack! {} damage ({}x modifier)", final_damage, modifier);

@@ -9,7 +9,7 @@
 //! Sources of non-determinism include:
 //!
 //! - **Floating-point math**: Different CPUs can produce different results.
-//!   We use fixed-point arithmetic via [`Fixed`] throughout.
+//!   We use fixed-point arithmetic via [`rts_core::math::Fixed`] throughout.
 //!
 //! - **HashMap iteration order**: Rust's default hasher is randomized.
 //!   We always iterate in sorted entity ID order.

@@ -94,52 +94,52 @@ Lockstep deterministic simulation for RTS multiplayer:
 └─────────────────────────────────────┘
 ```
 
-## Module Breakdown
+## Module Breakdown (Workspace Crates)
 
-### `/src/core/`
+### `crates/rts_core/`
 
 | Module | Responsibility |
 | ------ | -------------- |
-| `engine.rs` | Main game loop, timing, state management |
-| `ecs.rs` | Entity Component System implementation |
-| `renderer.rs` | Rendering abstraction layer |
+| `simulation.rs` | Deterministic simulation loop and tick orchestration |
+| `systems.rs` | Simulation systems (movement, combat, production) |
+| `components.rs` | Core simulation components and commands |
+| `math.rs` | Fixed-point math types and helpers |
+| `pathfinding.rs` | Deterministic A* pathfinding |
+| `data/` | Data definitions for factions, units, tech (no IO) |
+
+### `crates/rts_game/`
+
+| Module | Responsibility |
+| ------ | -------------- |
+| `simulation.rs` | Client-side command processing and visual movement plumbing |
 | `input.rs` | Input handling and command mapping |
-| `audio.rs` | Audio engine integration |
-| `physics.rs` | Collision detection, pathfinding |
+| `render.rs` | Rendering systems and visuals |
+| `ui.rs` | HUD, menus, and UI interaction |
+| `selection.rs` | Unit selection and group management |
+| `data_loader.rs` | Loading FactionData from RON and registry wiring |
+| `ai.rs` | Game-layer AI helpers and adapters |
 
-### `/src/factions/`
-
-| Module | Responsibility |
-| ------ | -------------- |
-| `faction.rs` | Base faction trait and shared logic |
-| `continuity/` | Continuity Authority-specific units, buildings, tech |
-| `collegium/` | Collegium-specific implementations |
-| `tinkers/` | Tinkers' Union implementations |
-| `biosovereigns/` | Bio-Sovereigns implementations |
-| `zephyr/` | Zephyr Guild implementations |
-
-### `/src/ui/`
+### `crates/rts_server/`
 
 | Module | Responsibility |
 | ------ | -------------- |
-| `hud.rs` | In-game HUD elements |
-| `menus.rs` | Menu screens |
-| `minimap.rs` | Minimap rendering and interaction |
-| `selection.rs` | Unit selection box and group management |
-
-### `/src/networking/`
-
-| Module | Responsibility |
-| ------ | -------------- |
+| `network.rs` | Networking primitives and message routing |
 | `lobby.rs` | Game lobby and matchmaking |
-| `lockstep.rs` | Lockstep synchronization |
-| `commands.rs` | Command serialization |
+| `lib.rs` | Server integration with deterministic core |
 
-### `/src/ai/`
+### `crates/rts_tools/`
 
 | Module | Responsibility |
 | ------ | -------------- |
-| `director.rs` | High-level AI decision making |
+| `validate.rs` | Data validation and linting |
+| `main.rs` | Tool entry point |
+
+### `crates/rts_test_utils/`
+
+| Module | Responsibility |
+| ------ | -------------- |
+| `determinism.rs` | Determinism helpers and hash utilities |
+| `fixtures.rs` | Test fixtures for sim scenarios |
 | `tactical.rs` | Unit-level tactical decisions |
 | `personalities/` | Faction-specific AI behaviors |
 
