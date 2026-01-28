@@ -92,10 +92,12 @@ Implement core RTS mechanics with minimal assets.
 - [x] Damage feedback (flash on hit)
 - [x] Building placement ghost fix
 - [x] Range indicators (attack/vision) when selected
-- [ ] Faction silhouette/readability pass (strategic zoom target)
+- [x] Faction silhouette/readability pass (strategic zoom target)
   - [x] Unit outline ring for readability
-- [ ] VFX language baseline (damage types, critical hits, ability activations)
+  - [ ] Faction-specific silhouette art pass (deferred to Phase 3.2)
+- [x] VFX language baseline (damage types, critical hits, ability activations)
   - [x] Damage-type weapon fire tinting baseline
+  - [ ] Ability/critical-hit VFX pass (deferred to Phase 3.2)
 
 ### 2.7.2 Core Controls (Priority High)
 
@@ -208,10 +210,12 @@ This is the hard ship gate for any external demo or publisher review.
 ### 3.2 Visual Identity
 
 - [ ] **Sprite Audit:** Replace "programmer art" with cohesive placeholders.
+- [ ] **Silhouette Pass:** Faction-specific silhouettes at strategic zoom (deferred from Phase 2.7.1).
 - [ ] **Asset Pipeline:** Define automated import process & sprite atlas tools.
 - [ ] **Animation:** Basic Idle (breathing) / Move (bobbing) / Attack (recoil) states.
 - [ ] **Audio:** Basic SFX for specific unit types (gunfire, engines).
 - [ ] **Terrain:** Basic tileset variation (not just flat color).
+- [ ] **Ability/Hit VFX:** Ability activation and critical-hit VFX pass (deferred from Phase 2.7.1).
 
 ### 3.3 The Slice Content
 
