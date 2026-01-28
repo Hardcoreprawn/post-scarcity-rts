@@ -121,6 +121,10 @@ test(determinism): add replay comparison test
 6. Address review feedback
 7. Squash and merge when approved
 
+**CI Note:**
+- Pull requests run a **fast path** (format, clippy, and tests on Ubuntu).
+- Full matrix tests (Linux/Windows/macOS) + docs + release build run on `main`/`develop` pushes.
+
 ## Coding Guidelines
 
 ### Must Follow
