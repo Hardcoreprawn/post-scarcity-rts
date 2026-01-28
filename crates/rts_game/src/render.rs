@@ -5,7 +5,10 @@
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::prelude::*;
 
-use crate::components::{CombatStats, GameHealth, GamePosition, Selected, UnderConstruction};
+use crate::bundles::faction_color;
+use crate::components::{
+    CombatStats, GameFaction, GameHealth, GamePosition, Selectable, Selected, UnderConstruction,
+};
 use crate::selection::SelectionHighlight;
 
 /// Plugin for basic sprite rendering.
@@ -22,6 +25,9 @@ pub struct DamageFlashPlugin;
 /// Plugin for range indicator updates only (no gizmo dependencies).
 pub struct RangeIndicatorPlugin;
 
+/// Plugin for outline updates only (no gizmo dependencies).
+pub struct OutlinePlugin;
+
 impl Plugin for DamageFlashPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, track_damage_flash)
@@ -35,6 +41,12 @@ impl Plugin for RangeIndicatorPlugin {
     }
 }
 
+impl Plugin for OutlinePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, update_unit_outlines);
+    }
+}
+
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, sync_transform_from_position)
@@ -45,6 +57,8 @@ impl Plugin for RenderPlugin {
                 Update,
                 render_range_indicators.after(update_range_indicators),
             )
+            .add_systems(Update, update_unit_outlines)
+            .add_systems(Update, render_unit_outlines.after(update_unit_outlines))
             .add_systems(Update, track_damage_flash)
             .add_systems(Update, update_damage_flash.after(track_damage_flash));
     }
@@ -67,6 +81,15 @@ pub struct DamageFlash {
 pub struct RangeIndicator {
     /// Range radius in world units.
     pub radius: f32,
+}
+
+/// Component for an outline ring used to improve unit readability.
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct UnitOutline {
+    /// Outline radius in world units.
+    pub radius: f32,
+    /// Outline color.
+    pub color: Color,
 }
 
 /// Tracks last known health to detect damage events.
@@ -190,6 +213,44 @@ fn render_range_indicators(indicators: Query<(&Transform, &RangeIndicator)>, mut
         let pos = transform.translation.truncate();
         gizmos.circle_2d(pos, indicator.radius, Color::srgba(0.0, 0.7, 1.0, 0.5));
     }
+}
+
+/// Updates unit outlines for readability.
+fn update_unit_outlines(
+    mut commands: Commands,
+    units: Query<(Entity, &Sprite, &GameFaction), (With<Selectable>, Without<UnitOutline>)>,
+    mut outlined: Query<(&mut UnitOutline, &Sprite, &GameFaction), With<Selectable>>,
+    removed: Query<Entity, (With<UnitOutline>, Without<Selectable>)>,
+) {
+    for (entity, sprite, faction) in units.iter() {
+        let radius = outline_radius(sprite);
+        let color = faction_color(faction.faction);
+        commands
+            .entity(entity)
+            .insert(UnitOutline { radius, color });
+    }
+
+    for (mut outline, sprite, faction) in outlined.iter_mut() {
+        outline.radius = outline_radius(sprite);
+        outline.color = faction_color(faction.faction);
+    }
+
+    for entity in removed.iter() {
+        commands.entity(entity).remove::<UnitOutline>();
+    }
+}
+
+/// Render unit outlines as thin rings.
+fn render_unit_outlines(outlines: Query<(&Transform, &UnitOutline)>, mut gizmos: Gizmos) {
+    for (transform, outline) in outlines.iter() {
+        let pos = transform.translation.truncate();
+        gizmos.circle_2d(pos, outline.radius, outline.color.with_alpha(0.35));
+    }
+}
+
+fn outline_radius(sprite: &Sprite) -> f32 {
+    let size = sprite.custom_size.unwrap_or(Vec2::new(32.0, 32.0));
+    size.x.max(size.y) / 2.0 + 2.0
 }
 
 /// Detects damage and applies a brief flash to unit sprites.

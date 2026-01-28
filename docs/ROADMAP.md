@@ -93,8 +93,9 @@ Implement core RTS mechanics with minimal assets.
 - [x] Building placement ghost fix
 - [x] Range indicators (attack/vision) when selected
 - [ ] Faction silhouette/readability pass (strategic zoom target)
+  - [x] Unit outline ring for readability
 - [ ] VFX language baseline (damage types, critical hits, ability activations)
-	- [x] Damage-type weapon fire tinting baseline
+  - [x] Damage-type weapon fire tinting baseline
 
 ### 2.7.2 Core Controls (Priority High)
 
