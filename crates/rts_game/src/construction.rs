@@ -2,7 +2,6 @@
 //!
 //! Handles building placement, construction progress, and completion.
 
-use bevy::gizmos::gizmos::Gizmos;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 
@@ -17,10 +16,14 @@ use crate::economy::PlayerResources;
 /// Plugin for building construction.
 pub struct ConstructionPlugin;
 
+/// Plugin for placement ghost visuals only (no gizmo dependencies).
+pub struct PlacementGhostPlugin;
+
 impl Plugin for ConstructionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FactionBuildings>()
             .init_resource::<BuildingPlacement>()
+            .init_resource::<GhostEntity>()
             .add_systems(Update, construction_progress)
             .add_systems(Update, complete_construction.after(construction_progress))
             .add_systems(Update, track_buildings)
@@ -31,9 +34,16 @@ impl Plugin for ConstructionPlugin {
             )
             .add_systems(
                 Update,
-                render_placement_ghost.after(update_placement_preview),
+                update_placement_ghost_sprite.after(update_placement_preview),
             )
             .add_systems(Update, building_hotkeys);
+    }
+}
+
+impl Plugin for PlacementGhostPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GhostEntity>()
+            .add_systems(Update, update_placement_ghost_sprite);
     }
 }
 
@@ -46,6 +56,20 @@ pub struct BuildingPlacement {
     pub valid_placement: bool,
     /// Preview position.
     pub preview_position: Option<Vec2>,
+}
+
+/// Tracks the entity used for placement ghost visuals.
+#[derive(Resource, Default)]
+pub struct GhostEntity {
+    /// The current ghost entity, if any.
+    pub entity: Option<Entity>,
+}
+
+/// Marker component for building placement ghost sprite.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BuildingGhost {
+    /// The building type being previewed.
+    pub building_type: BuildingType,
 }
 
 /// Advances construction progress on buildings.
@@ -263,34 +287,60 @@ fn handle_placement_input(
     }
 }
 
-/// Renders a ghost preview of the building being placed.
-fn render_placement_ghost(placement: Res<BuildingPlacement>, mut gizmos: Gizmos) {
+/// Updates placement ghost sprite based on current placement state.
+fn update_placement_ghost_sprite(
+    mut commands: Commands,
+    placement: Res<BuildingPlacement>,
+    mut ghost_entity: ResMut<GhostEntity>,
+    mut ghosts: Query<(&mut Sprite, &mut Transform, &mut BuildingGhost)>,
+) {
     let Some(building_type) = placement.placing else {
+        if let Some(entity) = ghost_entity.entity.take() {
+            commands.entity(entity).despawn_recursive();
+        }
         return;
     };
 
     let Some(position) = placement.preview_position else {
+        if let Some(entity) = ghost_entity.entity.take() {
+            commands.entity(entity).despawn_recursive();
+        }
         return;
+    };
+
+    let color = if placement.valid_placement {
+        Color::srgba(0.0, 1.0, 0.0, 0.4) // Green for valid
+    } else {
+        Color::srgba(1.0, 0.0, 0.0, 0.4) // Red for invalid
     };
 
     let (width, height) = building_type.size();
     let size = Vec2::new(width, height);
-    let color = if placement.valid_placement {
-        Color::srgba(0.0, 1.0, 0.0, 0.5) // Green for valid
-    } else {
-        Color::srgba(1.0, 0.0, 0.0, 0.5) // Red for invalid
-    };
 
-    // Draw building footprint
-    gizmos.rect_2d(position, 0.0, size, color);
+    if let Some(entity) = ghost_entity.entity {
+        if let Ok((mut sprite, mut transform, mut ghost)) = ghosts.get_mut(entity) {
+            sprite.color = color;
+            sprite.custom_size = Some(size);
+            transform.translation = position.extend(-0.25);
+            ghost.building_type = building_type;
+            return;
+        }
+    }
 
-    // Draw border
-    let border_color = if placement.valid_placement {
-        Color::srgba(0.0, 1.0, 0.0, 1.0)
-    } else {
-        Color::srgba(1.0, 0.0, 0.0, 1.0)
-    };
-    gizmos.rect_2d(position, 0.0, size + Vec2::splat(2.0), border_color);
+    let entity = commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                color,
+                custom_size: Some(size),
+                ..default()
+            },
+            transform: Transform::from_translation(position.extend(-0.25)),
+            ..default()
+        })
+        .insert(BuildingGhost { building_type })
+        .id();
+
+    ghost_entity.entity = Some(entity);
 }
 
 /// Keyboard shortcuts for building placement.

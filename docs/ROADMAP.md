@@ -90,7 +90,7 @@ Implement core RTS mechanics with minimal assets.
 - [x] Health bars (units & buildings)
 - [x] Selection circles & highlighting
 - [x] Damage feedback (flash on hit)
-- [ ] Building placement ghost fix
+- [x] Building placement ghost fix
 - [x] Range indicators (attack/vision) when selected
 - [ ] Faction silhouette/readability pass (strategic zoom target)
 - [ ] VFX language baseline (damage types, critical hits, ability activations)
