@@ -94,6 +94,7 @@ Implement core RTS mechanics with minimal assets.
 - [x] Range indicators (attack/vision) when selected
 - [ ] Faction silhouette/readability pass (strategic zoom target)
 - [ ] VFX language baseline (damage types, critical hits, ability activations)
+	- [x] Damage-type weapon fire tinting baseline
 
 ### 2.7.2 Core Controls (Priority High)
 
