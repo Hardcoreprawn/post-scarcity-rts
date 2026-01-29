@@ -7,7 +7,8 @@ use bevy::prelude::*;
 
 use crate::bundles::faction_color;
 use crate::components::{
-    CombatStats, GameFaction, GameHealth, GamePosition, Selectable, Selected, UnderConstruction,
+    Building, CombatStats, GameFaction, GameHealth, GamePosition, Selectable, Selected,
+    UnderConstruction,
 };
 use crate::selection::SelectionHighlight;
 use crate::simulation::CoreSimulationSet;
@@ -160,18 +161,23 @@ fn render_selection_highlight(
 
 /// Renders health bars above units.
 fn render_health_bars(
-    units: Query<(&Transform, &Sprite, &GameHealth, Option<&UnderConstruction>)>,
+    units: Query<(
+        &Transform,
+        &Sprite,
+        &GameHealth,
+        Option<&UnderConstruction>,
+        Option<&Building>,
+    )>,
     mut gizmos: Gizmos,
 ) {
     const BAR_HEIGHT: f32 = 4.0;
     const BAR_PADDING: f32 = 8.0;
 
-    for (transform, sprite, health, under_construction) in units.iter() {
-        // Always show bar for buildings under construction
+    for (transform, sprite, health, under_construction, building) in units.iter() {
         let is_constructing = under_construction.is_some();
+        let is_building = building.is_some();
 
-        // Skip full health units (unless under construction)
-        if health.is_full() && !is_constructing {
+        if !should_render_health_bar(health, is_constructing, is_building) {
             continue;
         }
 
@@ -217,6 +223,18 @@ fn render_health_bars(
             );
         }
     }
+}
+
+fn should_render_health_bar(health: &GameHealth, is_constructing: bool, is_building: bool) -> bool {
+    if is_building {
+        return true;
+    }
+
+    if is_constructing {
+        return true;
+    }
+
+    !health.is_full()
 }
 
 /// Updates range indicators for selected combat units.
@@ -403,5 +421,14 @@ mod tests {
         let mut pings = app.world_mut().query::<&CommandPing>();
         let ping = pings.single(app.world());
         assert_eq!(ping.position, Vec2::new(5.0, -3.0));
+    }
+
+    #[test]
+    fn health_bars_always_show_for_buildings() {
+        let full_health = GameHealth::new(100);
+
+        assert!(should_render_health_bar(&full_health, false, true));
+        assert!(!should_render_health_bar(&full_health, false, false));
+        assert!(should_render_health_bar(&full_health, true, false));
     }
 }

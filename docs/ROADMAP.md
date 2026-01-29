@@ -138,16 +138,16 @@ These issues are actively tracked and mapped to the roadmap phases for clarity a
 
 ### Phase 2.7 (Readability, Control, Determinism)
 
-- [Issue #6](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/6) — Health bars (combat readability)
+- [Issue #6](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/6) — Health bars (combat readability) ✅
 - [Issue #22](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/22) — Death feedback (delay despawn / effect)
-- [Issue #12](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/12) — Build placement ghost visuals (duplicates: #16, #19)
+- [Issue #12](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/12) — Build placement ghost visuals ✅ (duplicates: #16, #19)
 - [Issue #13](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/13) — Resource bar/tooltips polish (duplicates: #17, #20)
 - [Issue #11](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/11) — Allow selection of enemy units ✅ (duplicates: #15, #18)
 - [Issue #14](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/14) — Input conflict on B key for build menu ✅
 - [Issue #23](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/23) — Selection radius should use collider/size ✅
 - [Issue #21](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/21) — Attack commands should honor shift-queue
-- [Issue #8](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/8) — Attack-move / Stop / Hold / Patrol commands
-- [Issue #24](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/24) — Resolve simulation duplication (core authoritative)
+- [Issue #8](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/8) — Attack-move / Stop / Hold / Patrol commands ✅
+- [Issue #24](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/24) — Resolve simulation duplication (core authoritative) ✅
 - [Issue #29](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/29) — Determinism leak in `Vec2Fixed`
 - [Issue #26](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/26) — Consolidate component definitions (core ↔ view mirroring)
 - [Issue #30](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/30) — Decouple victory logic from view layer
