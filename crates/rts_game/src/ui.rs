@@ -502,7 +502,7 @@ fn ui_selection_panel(
 /// Renders the command panel with action buttons.
 fn ui_command_panel(
     mut contexts: EguiContexts,
-    selected: Query<Entity, With<Selected>>,
+    selected: Query<(Entity, &GameFaction), With<Selected>>,
     mut core_commands: ResMut<CoreCommandBuffer>,
     core_ids: Query<&CoreEntityId>,
     mut depot_production: Query<
@@ -519,16 +519,16 @@ fn ui_command_panel(
     let Some(ctx) = contexts.try_ctx_mut() else {
         return;
     };
-    let selected_count = selected.iter().count();
+    let owned_entities = player_owned_entities(selected.iter(), player_faction.faction);
 
-    if selected_count == 0 {
+    if owned_entities.is_empty() {
         return;
     }
 
     // Check if we have a selected depot or barracks (for production UI)
     let mut selected_depot: Option<Entity> = None;
     let mut selected_barracks: Option<Entity> = None;
-    for entity in selected.iter() {
+    for entity in owned_entities.iter().copied() {
         if depot_production.get(entity).is_ok() {
             selected_depot = Some(entity);
         } else if let Ok((_, building, _)) = building_production.get(entity) {
@@ -637,7 +637,7 @@ fn ui_command_panel(
                     .button(egui::RichText::new("⏹ Stop").size(14.0))
                     .clicked()
                 {
-                    for entity in selected.iter() {
+                    for entity in owned_entities.iter().copied() {
                         if let Ok(core_id) = core_ids.get(entity) {
                             core_commands.set(core_id.0, CoreCommand::Stop);
                         }
@@ -649,7 +649,7 @@ fn ui_command_panel(
                     .button(egui::RichText::new("🛡 Hold").size(14.0))
                     .clicked()
                 {
-                    for entity in selected.iter() {
+                    for entity in owned_entities.iter().copied() {
                         if let Ok(core_id) = core_ids.get(entity) {
                             core_commands.set(core_id.0, CoreCommand::HoldPosition);
                         }
@@ -712,6 +712,21 @@ fn render_production_queue(
             }
         }
     }
+}
+
+fn player_owned_entities<'a>(
+    selected: impl Iterator<Item = (Entity, &'a GameFaction)>,
+    player_faction: FactionId,
+) -> Vec<Entity> {
+    selected
+        .filter_map(|(entity, faction)| {
+            if faction.faction == player_faction {
+                Some(entity)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 /// Renders the build menu for placing new buildings.
@@ -834,5 +849,20 @@ mod tests {
         assert!(factions.contains(&FactionId::Tinkers));
         assert!(factions.contains(&FactionId::BioSovereigns));
         assert!(factions.contains(&FactionId::Zephyr));
+    }
+
+    #[test]
+    fn player_owned_entities_filters_enemy_units() {
+        let owned = GameFaction {
+            faction: FactionId::Continuity,
+        };
+        let enemy = GameFaction {
+            faction: FactionId::Collegium,
+        };
+
+        let entities = vec![(Entity::from_raw(1), &owned), (Entity::from_raw(2), &enemy)];
+
+        let result = player_owned_entities(entities.into_iter(), FactionId::Continuity);
+        assert_eq!(result, vec![Entity::from_raw(1)]);
     }
 }

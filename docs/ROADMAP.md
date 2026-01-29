@@ -1,7 +1,7 @@
 # Development Roadmap
 
 **Last Updated:** January 29, 2026
-**Status:** Phase 2.7 (In Progress)
+**Status:** Phase 3 (In Progress)
 
 ## Overview
 
@@ -81,7 +81,7 @@ Implement core RTS mechanics with minimal assets.
 
 ---
 
-## Phase 2.7: Readability & Control (Weeks 12-15) 🔄 IN PROGRESS
+## Phase 2.7: Readability & Control (Weeks 12-15) ✅ COMPLETE
 
 **Goal:** The game must be readable and controllable. No new features until the current ones feel responsive.
 
@@ -124,11 +124,11 @@ Implement core RTS mechanics with minimal assets.
 
 **Exit Criteria:**
 
-- [ ] A new player can understand combat state at a glance.
+- [x] A new player can understand combat state at a glance.
 - [x] All standard RTS commands function reliably.
 - [x] Unit tests for command issuance logic.
 - [x] Client visuals reflect core sim state (no sim drift).
-- [ ] Readability baseline hit: units/teams/health identifiable in < 2 seconds.
+- [x] Readability baseline hit: units/teams/health identifiable in < 2 seconds.
 
 ---
 
@@ -142,7 +142,7 @@ These issues are actively tracked and mapped to the roadmap phases for clarity a
 - [Issue #22](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/22) — Death feedback (delay despawn / effect)
 - [Issue #12](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/12) — Build placement ghost visuals (duplicates: #16, #19)
 - [Issue #13](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/13) — Resource bar/tooltips polish (duplicates: #17, #20)
-- [Issue #11](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/11) — Allow selection of enemy units (duplicates: #15, #18)
+- [Issue #11](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/11) — Allow selection of enemy units ✅ (duplicates: #15, #18)
 - [Issue #14](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/14) — Input conflict on B key for build menu
 - [Issue #23](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/23) — Selection radius should use collider/size
 - [Issue #21](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/21) — Attack commands should honor shift-queue
@@ -203,6 +203,7 @@ This is the hard ship gate for any external demo or publisher review.
 
 ### 3.1 Technical Wiring (GDD Alignment)
 
+- [ ] **Issue #25 (Active):** Replace legacy `UnitType` with data-driven `UnitKindId`.
 - [ ] **Data Wiring:** Connect FactionData RON files to actual Unit/Building spawning.
 - [ ] **No Hardcoded Spawns:** All scenario/unit spawns are driven by data definitions.
 - [ ] **Fog of War (Prototype):** Basic explored/unexplored/visible states.

@@ -81,7 +81,6 @@ fn handle_selection_input(
     mut selection_state: ResMut<SelectionState>,
     mut double_click_state: ResMut<DoubleClickState>,
     mut commands: Commands,
-    player_faction: Res<PlayerFaction>,
     selectables: Query<(Entity, &Transform, &GameFaction, Option<&UnitDataId>), With<Selectable>>,
     selected: Query<Entity, With<Selected>>,
     placement: Res<BuildingPlacement>,
@@ -147,15 +146,11 @@ fn handle_selection_input(
                 }
             }
 
-            // Find and select unit under cursor (only player faction)
+            // Find and select unit under cursor
             let click_radius = 20.0;
             let mut closest: Option<(Entity, f32, Option<&UnitDataId>)> = None;
 
-            for (entity, transform, faction, unit_data_id) in selectables.iter() {
-                // Only allow selecting player's own units
-                if faction.faction != player_faction.faction {
-                    continue;
-                }
+            for (entity, transform, _faction, unit_data_id) in selectables.iter() {
                 let distance = transform.translation.truncate().distance(world_position);
                 if distance < click_radius && closest.map_or(true, |(_, d, _)| distance < d) {
                     closest = Some((entity, distance, unit_data_id));
@@ -168,10 +163,7 @@ fn handle_selection_input(
                     double_click_unit_id(&mut double_click_state, unit_data_id, now);
 
                 if let Some(unit_id) = double_click_id {
-                    for (candidate, _, faction, candidate_id) in selectables.iter() {
-                        if faction.faction != player_faction.faction {
-                            continue;
-                        }
+                    for (candidate, _, _faction, candidate_id) in selectables.iter() {
                         if candidate_id.map(|id| id.as_str()) == Some(unit_id.as_str()) {
                             commands.entity(candidate).insert(Selected);
                         }
@@ -236,7 +228,6 @@ fn apply_box_selection(
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut commands: Commands,
-    player_faction: Res<PlayerFaction>,
     selectables: Query<(Entity, &Transform, &GameFaction), With<Selectable>>,
     selected: Query<Entity, With<Selected>>,
 ) {
@@ -273,16 +264,12 @@ fn apply_box_selection(
         }
     }
 
-    // Select all units within the box (only player faction)
+    // Select all units within the box
     let min = start.min(end);
     let max = start.max(end);
     let selection_rect = Rect::from_corners(min, max);
 
-    for (entity, transform, faction) in selectables.iter() {
-        // Only allow selecting player's own units
-        if faction.faction != player_faction.faction {
-            continue;
-        }
+    for (entity, transform, _faction) in selectables.iter() {
         let pos = transform.translation.truncate();
         if selection_rect.contains(pos) {
             commands.entity(entity).insert(Selected);
