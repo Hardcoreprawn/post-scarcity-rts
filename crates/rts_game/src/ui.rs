@@ -35,12 +35,14 @@ impl Plugin for GameUiPlugin {
             .init_resource::<PlayerFaction>()
             .init_resource::<UiSettings>()
             .init_resource::<InputMode>()
+            .init_resource::<CombatLegendState>()
             .add_systems(Update, apply_ui_accessibility.after(EguiSet::InitContexts))
             .add_systems(
                 Update,
                 (
                     ui_resource_bar,
                     ui_minimap.in_set(ClientCommandSet::Gather),
+                    ui_combat_legend,
                     ui_selection_panel,
                     ui_command_panel.in_set(ClientCommandSet::Gather),
                     ui_build_menu,
@@ -138,6 +140,76 @@ pub fn faction_name(faction: FactionId) -> &'static str {
         FactionId::BioSovereigns => "The Sculptors",
         FactionId::Zephyr => "Zephyr Guild",
     }
+}
+
+/// Combat legend visibility state.
+#[derive(Resource, Debug, Clone, Copy)]
+struct CombatLegendState {
+    visible: bool,
+}
+
+impl Default for CombatLegendState {
+    fn default() -> Self {
+        Self { visible: true }
+    }
+}
+
+fn combat_legend_entries() -> Vec<(FactionId, &'static str)> {
+    vec![
+        (FactionId::Continuity, faction_name(FactionId::Continuity)),
+        (FactionId::Collegium, faction_name(FactionId::Collegium)),
+        (FactionId::Tinkers, faction_name(FactionId::Tinkers)),
+        (
+            FactionId::BioSovereigns,
+            faction_name(FactionId::BioSovereigns),
+        ),
+        (FactionId::Zephyr, faction_name(FactionId::Zephyr)),
+    ]
+}
+
+/// Renders a compact combat legend for at-a-glance readability.
+fn ui_combat_legend(
+    mut contexts: EguiContexts,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut legend_state: ResMut<CombatLegendState>,
+) {
+    let Some(ctx) = contexts.try_ctx_mut() else {
+        return;
+    };
+
+    if keyboard.just_pressed(KeyCode::F1) {
+        legend_state.visible = !legend_state.visible;
+    }
+
+    if !legend_state.visible {
+        return;
+    }
+
+    egui::Window::new("Combat Legend")
+        .title_bar(false)
+        .resizable(false)
+        .anchor(egui::Align2::RIGHT_TOP, [-10.0, 10.0])
+        .show(ctx, |ui| {
+            ui.label(egui::RichText::new("Combat Legend [F1]").strong());
+            ui.separator();
+
+            ui.label(egui::RichText::new("Health bar = current HP").size(11.0));
+            ui.label(egui::RichText::new("Ring = selected").size(11.0));
+            ui.label(egui::RichText::new("Flash = taking damage").size(11.0));
+
+            ui.separator();
+            ui.label(egui::RichText::new("Faction colors").size(11.0));
+
+            for (faction, name) in combat_legend_entries() {
+                let color = faction_to_egui_color(faction);
+                ui.horizontal(|ui| {
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::Vec2::splat(10.0), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 2.0, color);
+                    ui.label(egui::RichText::new(name).size(11.0));
+                });
+            }
+        });
 }
 
 /// Renders the top resource bar showing feedstock and supply.
@@ -749,5 +821,18 @@ mod tests {
         apply_ui_settings(&ctx, settings);
 
         assert!(ctx.style().visuals.override_text_color.is_some());
+    }
+
+    #[test]
+    fn combat_legend_entries_include_all_factions() {
+        let entries = combat_legend_entries();
+        assert_eq!(entries.len(), 5);
+
+        let factions: Vec<_> = entries.iter().map(|(faction, _)| *faction).collect();
+        assert!(factions.contains(&FactionId::Continuity));
+        assert!(factions.contains(&FactionId::Collegium));
+        assert!(factions.contains(&FactionId::Tinkers));
+        assert!(factions.contains(&FactionId::BioSovereigns));
+        assert!(factions.contains(&FactionId::Zephyr));
     }
 }

@@ -89,6 +89,7 @@ Implement core RTS mechanics with minimal assets.
 
 - [x] Health bars (units & buildings)
 - [x] Selection circles & highlighting
+- [x] Combat legend overlay (health/selection cues + faction colors)
 - [x] Damage feedback (flash on hit)
 - [x] Building placement ghost fix
 - [x] Range indicators (attack/vision) when selected
