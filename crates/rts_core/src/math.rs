@@ -88,6 +88,65 @@ impl Vec2Fixed {
         };
         dx + dy
     }
+
+    /// Dot product of two vectors.
+    #[must_use]
+    pub fn dot(self, other: Self) -> Fixed {
+        self.x * other.x + self.y * other.y
+    }
+
+    /// Linearly interpolate between two vectors.
+    #[must_use]
+    pub fn lerp(self, other: Self, t: Fixed) -> Self {
+        Self {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+        }
+    }
+
+    /// Normalize vector using fixed-point math.
+    #[must_use]
+    pub fn normalize(self) -> Self {
+        let len_sq = self.dot(self);
+
+        if len_sq == Fixed::ZERO {
+            return Self::ZERO;
+        }
+
+        let len = fixed_sqrt(len_sq);
+        if len == Fixed::ZERO {
+            return Self::ZERO;
+        }
+
+        Self::new(self.x / len, self.y / len)
+    }
+}
+
+/// Computes the square root of a fixed-point number using binary search.
+fn fixed_sqrt(value: Fixed) -> Fixed {
+    if value <= Fixed::ZERO {
+        return Fixed::ZERO;
+    }
+
+    let mut low = Fixed::ZERO;
+    let mut high = if value > Fixed::from_num(1) {
+        value
+    } else {
+        Fixed::from_num(1)
+    };
+
+    for _ in 0..32 {
+        let mid = (low + high) / Fixed::from_num(2);
+        let mid_sq = mid.saturating_mul(mid);
+
+        if mid_sq <= value {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    low
 }
 
 impl std::ops::Add for Vec2Fixed {
@@ -136,5 +195,32 @@ mod tests {
         let result1 = a * Fixed::from_num(7);
         let result2 = b * Fixed::from_num(7);
         assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_vec2_dot() {
+        let a = Vec2Fixed::new(Fixed::from_num(2), Fixed::from_num(3));
+        let b = Vec2Fixed::new(Fixed::from_num(4), Fixed::from_num(-1));
+        let dot = a.dot(b);
+        assert_eq!(dot, Fixed::from_num(5));
+    }
+
+    #[test]
+    fn test_vec2_lerp() {
+        let a = Vec2Fixed::new(Fixed::from_num(0), Fixed::from_num(0));
+        let b = Vec2Fixed::new(Fixed::from_num(10), Fixed::from_num(20));
+        let mid = a.lerp(b, Fixed::from_num(0.5));
+        assert_eq!(mid, Vec2Fixed::new(Fixed::from_num(5), Fixed::from_num(10)));
+    }
+
+    #[test]
+    fn test_vec2_normalize() {
+        let v = Vec2Fixed::new(Fixed::from_num(3), Fixed::from_num(4));
+        let norm = v.normalize();
+        let expected = Vec2Fixed::new(
+            Fixed::from_num(3) / Fixed::from_num(5),
+            Fixed::from_num(4) / Fixed::from_num(5),
+        );
+        assert_eq!(norm, expected);
     }
 }
