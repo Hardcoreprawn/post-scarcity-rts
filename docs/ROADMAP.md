@@ -144,7 +144,7 @@ These issues are actively tracked and mapped to the roadmap phases for clarity a
 - [Issue #13](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/13) — Resource bar/tooltips polish (duplicates: #17, #20)
 - [Issue #11](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/11) — Allow selection of enemy units ✅ (duplicates: #15, #18)
 - [Issue #14](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/14) — Input conflict on B key for build menu
-- [Issue #23](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/23) — Selection radius should use collider/size
+- [Issue #23](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/23) — Selection radius should use collider/size ✅
 - [Issue #21](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/21) — Attack commands should honor shift-queue
 - [Issue #8](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/8) — Attack-move / Stop / Hold / Patrol commands
 - [Issue #24](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/24) — Resolve simulation duplication (core authoritative)

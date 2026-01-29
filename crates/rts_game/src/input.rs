@@ -106,9 +106,15 @@ fn handle_move_command(
         ),
         (With<Selected>, With<GameCommandQueue>),
     >,
-    nodes: Query<(Entity, &GamePosition), With<GameResourceNode>>,
+    nodes: Query<(Entity, &GamePosition, Option<&Sprite>), With<GameResourceNode>>,
     potential_targets: Query<
-        (Entity, &CoreEntityId, &GamePosition, &GameFaction),
+        (
+            Entity,
+            &CoreEntityId,
+            &GamePosition,
+            &GameFaction,
+            Option<&Sprite>,
+        ),
         (With<CombatStats>, Without<Selected>),
     >,
     feedback_events: EventWriter<CommandFeedbackEvent>,
@@ -165,9 +171,15 @@ fn issue_move_commands_at(
         ),
         (With<Selected>, With<GameCommandQueue>),
     >,
-    nodes: Query<(Entity, &GamePosition), With<GameResourceNode>>,
+    nodes: Query<(Entity, &GamePosition, Option<&Sprite>), With<GameResourceNode>>,
     potential_targets: Query<
-        (Entity, &CoreEntityId, &GamePosition, &GameFaction),
+        (
+            Entity,
+            &CoreEntityId,
+            &GamePosition,
+            &GameFaction,
+            Option<&Sprite>,
+        ),
         (With<CombatStats>, Without<Selected>),
     >,
     mut feedback_events: EventWriter<CommandFeedbackEvent>,
@@ -176,23 +188,23 @@ fn issue_move_commands_at(
     const NODE_CLICK_RADIUS: f32 = 30.0;
     let clicked_node: Option<(Entity, Vec2Fixed)> = nodes
         .iter()
-        .find(|(_, node_pos)| {
+        .find(|(_, node_pos, sprite)| {
             let node_world = node_pos.as_vec2();
-            node_world.distance(world_position) < NODE_CLICK_RADIUS
+            node_world.distance(world_position) < click_radius(*sprite, NODE_CLICK_RADIUS)
         })
-        .map(|(entity, pos)| (entity, pos.value));
+        .map(|(entity, pos, _)| (entity, pos.value));
 
     // Check if we clicked on an enemy unit
     const UNIT_CLICK_RADIUS: f32 = 25.0;
     let clicked_enemy = |my_faction: &GameFaction| -> Option<(Entity, CoreEntityId)> {
         potential_targets
             .iter()
-            .filter(|(_, _, _, faction)| faction.faction != my_faction.faction)
-            .find(|(_, _, pos, _)| {
+            .filter(|(_, _, _, faction, _)| faction.faction != my_faction.faction)
+            .find(|(_, _, pos, _, sprite)| {
                 let unit_world = pos.as_vec2();
-                unit_world.distance(world_position) < UNIT_CLICK_RADIUS
+                unit_world.distance(world_position) < click_radius(*sprite, UNIT_CLICK_RADIUS)
             })
-            .map(|(entity, core_id, _, _)| (entity, *core_id))
+            .map(|(entity, core_id, _, _, _)| (entity, *core_id))
     };
 
     // Count selected units for formation spreading
@@ -270,6 +282,14 @@ fn issue_move_commands_at(
             position: world_position,
         });
     }
+}
+
+fn click_radius(sprite: Option<&Sprite>, fallback: f32) -> f32 {
+    let size = sprite
+        .and_then(|sprite| sprite.custom_size)
+        .unwrap_or(Vec2::new(fallback * 2.0, fallback * 2.0));
+    let radius = size.x.max(size.y) / 2.0;
+    radius.max(fallback)
 }
 
 /// Calculates a formation offset for unit placement.
@@ -371,9 +391,15 @@ mod tests {
             ),
             (With<Selected>, With<GameCommandQueue>),
         >,
-        nodes: Query<(Entity, &GamePosition), With<GameResourceNode>>,
+        nodes: Query<(Entity, &GamePosition, Option<&Sprite>), With<GameResourceNode>>,
         potential_targets: Query<
-            (Entity, &CoreEntityId, &GamePosition, &GameFaction),
+            (
+                Entity,
+                &CoreEntityId,
+                &GamePosition,
+                &GameFaction,
+                Option<&Sprite>,
+            ),
             (With<CombatStats>, Without<Selected>),
         >,
         feedback_events: EventWriter<CommandFeedbackEvent>,
@@ -629,5 +655,24 @@ mod tests {
             .as_ref()
             .unwrap();
         assert_eq!(queue.current(), Some(&CoreCommand::Stop));
+    }
+
+    #[test]
+    fn click_radius_uses_sprite_size() {
+        let small = Sprite {
+            custom_size: Some(Vec2::new(20.0, 20.0)),
+            ..Default::default()
+        };
+        let large = Sprite {
+            custom_size: Some(Vec2::new(80.0, 40.0)),
+            ..Default::default()
+        };
+
+        let small_radius = click_radius(Some(&small), 25.0);
+        let large_radius = click_radius(Some(&large), 25.0);
+        let fallback_radius = click_radius(None, 25.0);
+
+        assert!(large_radius > small_radius);
+        assert!(small_radius >= fallback_radius);
     }
 }

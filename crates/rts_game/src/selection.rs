@@ -81,7 +81,16 @@ fn handle_selection_input(
     mut selection_state: ResMut<SelectionState>,
     mut double_click_state: ResMut<DoubleClickState>,
     mut commands: Commands,
-    selectables: Query<(Entity, &Transform, &GameFaction, Option<&UnitDataId>), With<Selectable>>,
+    selectables: Query<
+        (
+            Entity,
+            &Transform,
+            Option<&Sprite>,
+            &GameFaction,
+            Option<&UnitDataId>,
+        ),
+        With<Selectable>,
+    >,
     selected: Query<Entity, With<Selected>>,
     placement: Res<BuildingPlacement>,
     mut egui_contexts: EguiContexts,
@@ -147,10 +156,10 @@ fn handle_selection_input(
             }
 
             // Find and select unit under cursor
-            let click_radius = 20.0;
             let mut closest: Option<(Entity, f32, Option<&UnitDataId>)> = None;
 
-            for (entity, transform, _faction, unit_data_id) in selectables.iter() {
+            for (entity, transform, sprite, _faction, unit_data_id) in selectables.iter() {
+                let click_radius = selection_radius(sprite);
                 let distance = transform.translation.truncate().distance(world_position);
                 if distance < click_radius && closest.map_or(true, |(_, d, _)| distance < d) {
                     closest = Some((entity, distance, unit_data_id));
@@ -163,7 +172,7 @@ fn handle_selection_input(
                     double_click_unit_id(&mut double_click_state, unit_data_id, now);
 
                 if let Some(unit_id) = double_click_id {
-                    for (candidate, _, _faction, candidate_id) in selectables.iter() {
+                    for (candidate, _, _sprite, _faction, candidate_id) in selectables.iter() {
                         if candidate_id.map(|id| id.as_str()) == Some(unit_id.as_str()) {
                             commands.entity(candidate).insert(Selected);
                         }
@@ -294,6 +303,15 @@ fn sync_selection_visuals(
     }
 }
 
+fn selection_radius(sprite: Option<&Sprite>) -> f32 {
+    const FALLBACK_RADIUS: f32 = 20.0;
+    let size = sprite
+        .and_then(|sprite| sprite.custom_size)
+        .unwrap_or(Vec2::new(FALLBACK_RADIUS * 2.0, FALLBACK_RADIUS * 2.0));
+    let radius = size.x.max(size.y) / 2.0;
+    radius.max(FALLBACK_RADIUS)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,5 +336,24 @@ mod tests {
         let _ = double_click_unit_id(&mut state, Some(&unit_id), 1.0);
         let second = double_click_unit_id(&mut state, Some(&unit_id), 2.0);
         assert!(second.is_none());
+    }
+
+    #[test]
+    fn selection_radius_scales_with_sprite_size() {
+        let small = Sprite {
+            custom_size: Some(Vec2::new(20.0, 20.0)),
+            ..Default::default()
+        };
+        let large = Sprite {
+            custom_size: Some(Vec2::new(80.0, 40.0)),
+            ..Default::default()
+        };
+
+        let small_radius = selection_radius(Some(&small));
+        let large_radius = selection_radius(Some(&large));
+        let fallback_radius = selection_radius(None);
+
+        assert!(large_radius > small_radius);
+        assert!(small_radius >= fallback_radius);
     }
 }
