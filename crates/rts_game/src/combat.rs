@@ -154,17 +154,13 @@ fn execute_attacks(
         ),
         Without<Dead>,
     >,
-    mut targets: Query<
-        (&GamePosition, &mut GameHealth, Option<&Armor>, &GameFaction),
-        Without<Dead>,
-    >,
+    mut targets: Query<(&GamePosition, Option<&Armor>, &GameFaction), Without<Dead>>,
 ) {
     for (attacker_entity, attacker_pos, mut stats, attack_target, attacker_faction) in
         attackers.iter_mut()
     {
         // Check if target still exists and is valid
-        let Ok((target_pos, mut target_health, target_armor, target_faction)) =
-            targets.get_mut(attack_target.target)
+        let Ok((target_pos, target_armor, target_faction)) = targets.get_mut(attack_target.target)
         else {
             // Target is gone
             commands.entity(attacker_entity).remove::<AttackTarget>();
@@ -188,8 +184,6 @@ fn execute_attacks(
             let modifier = armor_type.damage_modifier(stats.damage_type);
             let final_damage = (stats.damage as f32 * modifier).round() as u32;
 
-            // Apply damage
-            target_health.apply_damage(final_damage);
             stats.start_cooldown();
 
             // Spawn weapon fire visual

@@ -126,7 +126,7 @@ Implement core RTS mechanics with minimal assets.
 - [ ] A new player can understand combat state at a glance.
 - [ ] All standard RTS commands function reliably.
 - [x] Unit tests for command issuance logic.
-- [ ] Client visuals reflect core sim state (no sim drift).
+- [x] Client visuals reflect core sim state (no sim drift).
 - [ ] Readability baseline hit: units/teams/health identifiable in < 2 seconds.
 
 ---

@@ -504,6 +504,10 @@ impl Simulation {
                 continue;
             };
 
+            if let Some(attack_target) = entity.attack_target.as_mut() {
+                attack_target.target = Some(target_id);
+            }
+
             if command_queue.current().cloned() != Some(Command::Attack(target_id)) {
                 velocity.value = Vec2Fixed::ZERO;
                 continue;

@@ -6,11 +6,16 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use rts_core::components::{Command as CoreCommand, EntityId};
+use rts_core::components::{
+    ArmorType as CoreArmorType, CombatStats as CoreCombatStats, Command as CoreCommand,
+    DamageType as CoreDamageType, EntityId,
+};
 use rts_core::math::Fixed;
 use rts_core::simulation::{EntitySpawnParams, Simulation, TICK_RATE};
 
-use crate::components::{CoreEntityId, GamePosition, Stationary};
+use crate::components::{
+    Armor, ArmorType, CombatStats, CoreEntityId, DamageType, GameHealth, GamePosition, Stationary,
+};
 
 /// Systems that emit commands into the core simulation.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -152,6 +157,10 @@ impl Plugin for SimulationPlugin {
                 Update,
                 sync_positions_from_core.in_set(CoreSimulationSet::SyncOut),
             );
+        app.add_systems(
+            Update,
+            sync_health_from_core.in_set(CoreSimulationSet::SyncOut),
+        );
     }
 }
 
@@ -162,11 +171,44 @@ fn unit_speed_per_tick() -> Fixed {
 fn sync_spawned_entities(
     mut commands: Commands,
     mut core: ResMut<CoreSimulation>,
-    spawned: Query<(Entity, &GamePosition, Option<&Stationary>), Without<CoreEntityId>>,
+    spawned: Query<
+        (
+            Entity,
+            &GamePosition,
+            Option<&Stationary>,
+            Option<&GameHealth>,
+            Option<&CombatStats>,
+            Option<&Armor>,
+        ),
+        Without<CoreEntityId>,
+    >,
 ) {
     let speed = unit_speed_per_tick();
 
-    for (entity, position, stationary) in spawned.iter() {
+    for (entity, position, stationary, health, combat_stats, armor) in spawned.iter() {
+        let mut core_combat = None;
+        if combat_stats.is_some() || armor.is_some() {
+            let mut stats = if let Some(stats) = combat_stats {
+                let cooldown_ticks =
+                    (stats.attack_cooldown * TICK_RATE as f32).round().max(1.0) as u32;
+                let mut core_stats = CoreCombatStats::new(
+                    stats.damage,
+                    Fixed::from_num(stats.range),
+                    cooldown_ticks,
+                );
+                core_stats = core_stats.with_damage_type(map_damage_type(stats.damage_type));
+                core_stats
+            } else {
+                CoreCombatStats::new(0, Fixed::ZERO, 1)
+            };
+
+            if let Some(armor) = armor {
+                stats = stats.with_armor(map_armor_type(armor.armor_type), armor.value);
+            }
+
+            core_combat = Some(stats);
+        }
+
         let params = EntitySpawnParams {
             position: Some(position.value),
             movement: if stationary.is_some() {
@@ -174,6 +216,8 @@ fn sync_spawned_entities(
             } else {
                 Some(speed)
             },
+            health: health.map(|health| health.max),
+            combat_stats: core_combat,
             ..Default::default()
         };
 
@@ -240,6 +284,37 @@ fn sync_positions_from_core(
     }
 }
 
+fn sync_health_from_core(
+    core: Res<CoreSimulation>,
+    mut entities: Query<(&CoreEntityId, &mut GameHealth)>,
+) {
+    for (core_id, mut health) in entities.iter_mut() {
+        if let Some(entity) = core.sim.get_entity(core_id.0) {
+            if let Some(core_health) = entity.health {
+                health.current = core_health.current;
+                health.max = core_health.max;
+            }
+        }
+    }
+}
+
+fn map_damage_type(damage_type: DamageType) -> CoreDamageType {
+    match damage_type {
+        DamageType::Kinetic => CoreDamageType::Kinetic,
+        DamageType::Energy => CoreDamageType::Energy,
+        DamageType::Explosive => CoreDamageType::Explosive,
+    }
+}
+
+fn map_armor_type(armor_type: ArmorType) -> CoreArmorType {
+    match armor_type {
+        ArmorType::Unarmored => CoreArmorType::Unarmored,
+        ArmorType::Light => CoreArmorType::Light,
+        ArmorType::Heavy => CoreArmorType::Heavy,
+        ArmorType::Structure => CoreArmorType::Building,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -269,5 +344,32 @@ mod tests {
         assert_eq!(stream.records.len(), 1);
         assert_eq!(stream.records[0].entity, core_id);
         assert_eq!(stream.records[0].command, CoreCommand::Stop);
+    }
+
+    #[test]
+    fn spawned_health_syncs_to_core() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(SimulationPlugin);
+
+        let entity = app
+            .world_mut()
+            .spawn((GamePosition::ORIGIN, GameHealth::new(42)))
+            .id();
+
+        app.update();
+
+        let core_id = app.world().get::<CoreEntityId>(entity).unwrap().0;
+        let core_health = app
+            .world()
+            .resource::<CoreSimulation>()
+            .sim
+            .get_entity(core_id)
+            .unwrap()
+            .health
+            .unwrap();
+
+        assert_eq!(core_health.max, 42);
+        assert_eq!(core_health.current, 42);
     }
 }
