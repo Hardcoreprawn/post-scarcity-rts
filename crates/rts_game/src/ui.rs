@@ -742,12 +742,17 @@ fn ui_build_menu(
 
     // Toggle build menu with B key
     if keyboard.just_pressed(KeyCode::KeyB) && placement.placing.is_none() {
-        // Show build menu
+        placement.menu_open = !placement.menu_open;
     }
 
     // Cancel placement with Escape
     if keyboard.just_pressed(KeyCode::Escape) {
         placement.placing = None;
+        placement.menu_open = false;
+    }
+
+    if !placement.menu_open {
+        return;
     }
 
     // Show build menu window
@@ -786,6 +791,7 @@ fn ui_build_menu(
                             placement.placing = None;
                         } else {
                             placement.placing = Some(building_type);
+                            placement.menu_open = false;
                         }
                     }
                 });

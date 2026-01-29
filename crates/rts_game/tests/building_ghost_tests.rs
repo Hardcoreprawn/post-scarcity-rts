@@ -11,6 +11,7 @@ fn spawns_ghost_when_placing_building() {
         placing: Some(BuildingType::Barracks),
         valid_placement: true,
         preview_position: Some(Vec2::new(10.0, 20.0)),
+        ..Default::default()
     });
     app.add_plugins(PlacementGhostPlugin);
 
@@ -33,6 +34,7 @@ fn updates_ghost_color_when_invalid() {
         placing: Some(BuildingType::TechLab),
         valid_placement: false,
         preview_position: Some(Vec2::new(-5.0, 5.0)),
+        ..Default::default()
     });
     app.add_plugins(PlacementGhostPlugin);
 
@@ -52,6 +54,7 @@ fn despawns_ghost_when_not_placing() {
         placing: Some(BuildingType::SupplyDepot),
         valid_placement: true,
         preview_position: Some(Vec2::new(0.0, 0.0)),
+        ..Default::default()
     });
     app.add_plugins(PlacementGhostPlugin);
 
