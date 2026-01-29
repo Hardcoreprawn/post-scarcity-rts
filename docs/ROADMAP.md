@@ -1,6 +1,6 @@
 # Development Roadmap
 
-**Last Updated:** January 26, 2026
+**Last Updated:** January 29, 2026
 **Status:** Phase 2.7 (In Progress)
 
 ## Overview
@@ -101,18 +101,18 @@ Implement core RTS mechanics with minimal assets.
 
 ### 2.7.2 Core Controls (Priority High)
 
-- [ ] Attack-Move (A-Click)
-- [ ] Stop (S) / Hold Position (H)
-- [ ] Patrol (P)
-- [ ] Double-click to select all of type
-- [ ] Minimap interaction (click to move/pan)
-- [ ] UI feedback for issued commands (acknowledgement cues)
+- [x] Attack-Move (A-Click)
+- [x] Stop (S) / Hold Position (H)
+- [x] Patrol (P)
+- [x] Double-click to select all of type
+- [x] Minimap interaction (click to move/pan)
+- [x] UI feedback for issued commands (acknowledgement cues: ping + audio hook)
 
 ### 2.7.3 Accessibility Base
 
-- [ ] UI Scaling support
-- [ ] Rebindable keys foundation
-- [ ] Basic UI contrast mode (minimum viable for readability)
+- [x] UI Scaling support
+- [x] Rebindable keys foundation
+- [x] Basic UI contrast mode (minimum viable for readability)
 
 ### 2.7.4 Determinism & Core Wiring (Priority High)
 
@@ -125,7 +125,7 @@ Implement core RTS mechanics with minimal assets.
 
 - [ ] A new player can understand combat state at a glance.
 - [ ] All standard RTS commands function reliably.
-- [ ] Unit tests for command issuance logic.
+- [x] Unit tests for command issuance logic.
 - [ ] Client visuals reflect core sim state (no sim drift).
 - [ ] Readability baseline hit: units/teams/health identifiable in < 2 seconds.
 

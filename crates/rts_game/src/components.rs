@@ -124,6 +124,17 @@ pub struct MovementTarget {
     pub target: Vec2Fixed,
 }
 
+/// Component tracking patrol behavior between two points.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct PatrolState {
+    /// Patrol origin (starting point).
+    pub origin: Vec2Fixed,
+    /// Patrol target (destination point).
+    pub target: Vec2Fixed,
+    /// Whether the unit is heading toward the target.
+    pub heading_to_target: bool,
+}
+
 /// Marker component for entities currently selected.
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct Selected;

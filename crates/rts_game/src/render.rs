@@ -20,13 +20,29 @@ use crate::selection::SelectionHighlight;
 pub struct RenderPlugin;
 
 /// Plugin for damage flash feedback only (no gizmo dependencies).
+///
+/// Testing helper: `RenderPlugin` already registers these systems.
+/// Avoid adding both in the same app to prevent duplicate registrations.
 pub struct DamageFlashPlugin;
 
 /// Plugin for range indicator updates only (no gizmo dependencies).
+///
+/// Testing helper: `RenderPlugin` already registers these systems.
+/// Avoid adding both in the same app to prevent duplicate registrations.
 pub struct RangeIndicatorPlugin;
 
 /// Plugin for outline updates only (no gizmo dependencies).
+///
+/// Testing helper: `RenderPlugin` already registers these systems.
+/// Avoid adding both in the same app to prevent duplicate registrations.
 pub struct OutlinePlugin;
+
+/// Event emitted when a command is issued for feedback.
+#[derive(Event, Debug, Clone, Copy)]
+pub struct CommandFeedbackEvent {
+    /// World position for feedback.
+    pub position: Vec2,
+}
 
 impl Plugin for DamageFlashPlugin {
     fn build(&self, app: &mut App) {
@@ -49,7 +65,8 @@ impl Plugin for OutlinePlugin {
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, sync_transform_from_position)
+        app.add_event::<CommandFeedbackEvent>()
+            .add_systems(Update, sync_transform_from_position)
             .add_systems(Update, render_selection_highlight)
             .add_systems(Update, render_health_bars)
             .add_systems(Update, update_range_indicators)
@@ -60,8 +77,21 @@ impl Plugin for RenderPlugin {
             .add_systems(Update, update_unit_outlines)
             .add_systems(Update, render_unit_outlines.after(update_unit_outlines))
             .add_systems(Update, track_damage_flash)
-            .add_systems(Update, update_damage_flash.after(track_damage_flash));
+            .add_systems(Update, update_damage_flash.after(track_damage_flash))
+            .add_systems(Update, spawn_command_pings)
+            .add_systems(Update, update_command_pings.after(spawn_command_pings))
+            .add_systems(Update, render_command_pings);
     }
+}
+
+/// Duration of command ping feedback (seconds).
+const COMMAND_PING_DURATION: f32 = 0.45;
+
+/// Component for command ping visuals.
+#[derive(Component, Debug, Clone, Copy)]
+struct CommandPing {
+    position: Vec2,
+    timer: f32,
 }
 
 /// Duration of the damage flash effect (seconds).
@@ -311,5 +341,63 @@ fn update_damage_flash(
             sprite.color = flash.base_color;
             commands.entity(entity).remove::<DamageFlash>();
         }
+    }
+}
+
+fn spawn_command_pings(mut commands: Commands, mut events: EventReader<CommandFeedbackEvent>) {
+    for event in events.read() {
+        commands.spawn(CommandPing {
+            position: event.position,
+            timer: COMMAND_PING_DURATION,
+        });
+    }
+}
+
+fn update_command_pings(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut pings: Query<(Entity, &mut CommandPing)>,
+) {
+    let dt = time.delta_seconds();
+    for (entity, mut ping) in pings.iter_mut() {
+        ping.timer -= dt;
+        if ping.timer <= 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn render_command_pings(pings: Query<&CommandPing>, mut gizmos: Gizmos) {
+    for ping in pings.iter() {
+        let alpha = (ping.timer / COMMAND_PING_DURATION).clamp(0.0, 1.0);
+        let radius = 18.0 + (1.0 - alpha) * 10.0;
+        gizmos.circle_2d(
+            ping.position,
+            radius,
+            Color::srgba(0.1, 0.8, 1.0, 0.6 * alpha),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_ping_spawns_from_event() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_event::<CommandFeedbackEvent>();
+        app.add_systems(Update, spawn_command_pings);
+
+        app.world_mut().send_event(CommandFeedbackEvent {
+            position: Vec2::new(5.0, -3.0),
+        });
+
+        app.update();
+
+        let mut pings = app.world_mut().query::<&CommandPing>();
+        let ping = pings.single(app.world());
+        assert_eq!(ping.position, Vec2::new(5.0, -3.0));
     }
 }

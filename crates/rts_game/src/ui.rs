@@ -6,14 +6,17 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiSet};
 use rts_core::components::Command as CoreCommand;
 use rts_core::factions::FactionId;
+use rts_core::math::{Fixed, Vec2Fixed};
 
 use crate::camera::MainCamera;
 use crate::components::{
-    Building, BuildingType, GameCommandQueue, GameDepot, GameFaction, GameHealth, GamePosition,
-    GameProductionQueue, PlayerFaction, Selected, UnitType,
+    AttackTarget, Building, BuildingType, GameCommandQueue, GameDepot, GameFaction, GameHealth,
+    GamePosition, GameProductionQueue, PlayerFaction, Selected, UnitType,
 };
 use crate::construction::BuildingPlacement;
 use crate::economy::PlayerResources;
+use crate::input::{calculate_formation_offset, InputMode};
+use crate::render::CommandFeedbackEvent;
 
 /// Plugin for game UI using egui.
 ///
@@ -29,6 +32,9 @@ impl Plugin for GameUiPlugin {
         app.add_plugins(EguiPlugin)
             .init_resource::<PlayerResources>()
             .init_resource::<PlayerFaction>()
+            .init_resource::<UiSettings>()
+            .init_resource::<InputMode>()
+            .add_systems(Update, apply_ui_accessibility.after(EguiSet::InitContexts))
             .add_systems(
                 Update,
                 (
@@ -38,8 +44,76 @@ impl Plugin for GameUiPlugin {
                     ui_command_panel,
                     ui_build_menu,
                 )
-                    .after(EguiSet::InitContexts),
+                    .after(apply_ui_accessibility),
             );
+    }
+}
+
+/// UI accessibility settings.
+#[derive(Resource, Debug, Clone, Copy)]
+pub struct UiSettings {
+    /// UI scale factor applied to egui.
+    pub ui_scale: f32,
+    /// High-contrast mode toggle.
+    pub high_contrast: bool,
+    /// Minimum UI scale.
+    pub min_scale: f32,
+    /// Maximum UI scale.
+    pub max_scale: f32,
+    /// Increment for UI scale adjustments.
+    pub scale_step: f32,
+}
+
+impl Default for UiSettings {
+    fn default() -> Self {
+        Self {
+            ui_scale: 1.0,
+            high_contrast: false,
+            min_scale: 0.75,
+            max_scale: 1.5,
+            scale_step: 0.1,
+        }
+    }
+}
+
+fn apply_ui_accessibility(
+    mut contexts: EguiContexts,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut settings: ResMut<UiSettings>,
+) {
+    let Some(ctx) = contexts.try_ctx_mut() else {
+        return;
+    };
+
+    if keyboard.just_pressed(KeyCode::Equal) {
+        settings.ui_scale = (settings.ui_scale + settings.scale_step).min(settings.max_scale);
+    }
+    if keyboard.just_pressed(KeyCode::Minus) {
+        settings.ui_scale = (settings.ui_scale - settings.scale_step).max(settings.min_scale);
+    }
+    if keyboard.just_pressed(KeyCode::F9) {
+        settings.high_contrast = !settings.high_contrast;
+    }
+
+    apply_ui_settings(ctx, *settings);
+}
+
+fn apply_ui_settings(ctx: &egui::Context, settings: UiSettings) {
+    ctx.set_pixels_per_point(settings.ui_scale);
+
+    if settings.high_contrast {
+        let mut visuals = egui::Visuals::dark();
+        visuals.override_text_color = Some(egui::Color32::WHITE);
+        visuals.widgets.inactive.bg_fill = egui::Color32::BLACK;
+        visuals.widgets.hovered.bg_fill = egui::Color32::from_gray(30);
+        visuals.widgets.active.bg_fill = egui::Color32::from_gray(60);
+        visuals.window_fill = egui::Color32::BLACK;
+        visuals.panel_fill = egui::Color32::BLACK;
+        visuals.window_stroke = egui::Stroke::new(2.0, egui::Color32::WHITE);
+        visuals.faint_bg_color = egui::Color32::BLACK;
+        ctx.set_visuals(visuals);
+    } else {
+        ctx.set_visuals(egui::Visuals::dark());
     }
 }
 
@@ -131,7 +205,12 @@ fn ui_resource_bar(mut contexts: EguiContexts, resources: Res<PlayerResources>) 
 fn ui_minimap(
     mut contexts: EguiContexts,
     units: Query<(&GamePosition, &GameFaction)>,
-    camera_query: Query<&Transform, With<MainCamera>>,
+    mut camera_query: Query<&mut Transform, With<MainCamera>>,
+    mut selected_units: Query<(Entity, &mut GameCommandQueue), With<Selected>>,
+    mut commands: Commands,
+    input_mode: Res<InputMode>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut feedback_events: EventWriter<CommandFeedbackEvent>,
 ) {
     let Some(ctx) = contexts.try_ctx_mut() else {
         return;
@@ -160,14 +239,9 @@ fn ui_minimap(
             for (pos, faction) in units.iter() {
                 let world_pos = pos.as_vec2();
 
-                // Convert world position to minimap position
-                let minimap_x =
-                    rect.min.x + ((world_pos.x + WORLD_SIZE / 2.0) / WORLD_SIZE) * MINIMAP_SIZE;
-                let minimap_y =
-                    rect.max.y - ((world_pos.y + WORLD_SIZE / 2.0) / WORLD_SIZE) * MINIMAP_SIZE;
-
+                let minimap_pos = world_to_minimap(world_pos, rect, WORLD_SIZE);
                 let color = faction_to_egui_color(faction.faction);
-                painter.circle_filled(egui::Pos2::new(minimap_x, minimap_y), 3.0, color);
+                painter.circle_filled(minimap_pos, 3.0, color);
             }
 
             // Draw camera viewport
@@ -175,29 +249,80 @@ fn ui_minimap(
                 let cam_pos = camera_transform.translation.truncate();
                 let viewport_size = Vec2::new(400.0, 300.0); // Approximate viewport size
 
-                let min_x = rect.min.x
-                    + ((cam_pos.x - viewport_size.x / 2.0 + WORLD_SIZE / 2.0) / WORLD_SIZE)
-                        * MINIMAP_SIZE;
-                let min_y = rect.max.y
-                    - ((cam_pos.y + viewport_size.y / 2.0 + WORLD_SIZE / 2.0) / WORLD_SIZE)
-                        * MINIMAP_SIZE;
-                let max_x = rect.min.x
-                    + ((cam_pos.x + viewport_size.x / 2.0 + WORLD_SIZE / 2.0) / WORLD_SIZE)
-                        * MINIMAP_SIZE;
-                let max_y = rect.max.y
-                    - ((cam_pos.y - viewport_size.y / 2.0 + WORLD_SIZE / 2.0) / WORLD_SIZE)
-                        * MINIMAP_SIZE;
+                let min_pos = world_to_minimap(cam_pos - viewport_size / 2.0, rect, WORLD_SIZE);
+                let max_pos = world_to_minimap(cam_pos + viewport_size / 2.0, rect, WORLD_SIZE);
 
                 painter.rect_stroke(
                     egui::Rect::from_min_max(
-                        egui::Pos2::new(min_x, min_y),
-                        egui::Pos2::new(max_x, max_y),
+                        egui::Pos2::new(min_pos.x, min_pos.y),
+                        egui::Pos2::new(max_pos.x, max_pos.y),
                     ),
                     0.0,
                     egui::Stroke::new(1.0, egui::Color32::WHITE),
                 );
             }
+
+            if response.clicked() {
+                if let Some(pointer) = response.interact_pointer_pos() {
+                    let world_pos = minimap_to_world(pointer, rect, WORLD_SIZE);
+                    if let Ok(mut camera_transform) = camera_query.get_single_mut() {
+                        camera_transform.translation.x = world_pos.x;
+                        camera_transform.translation.y = world_pos.y;
+                    }
+
+                    let unit_count = selected_units.iter().count();
+                    if unit_count > 0 {
+                        let shift_held = keyboard.pressed(KeyCode::ShiftLeft)
+                            || keyboard.pressed(KeyCode::ShiftRight);
+
+                        for (index, (entity, mut queue)) in selected_units.iter_mut().enumerate() {
+                            let offset = if unit_count > 1 {
+                                calculate_formation_offset(index, unit_count)
+                            } else {
+                                Vec2::ZERO
+                            };
+
+                            let target = Vec2Fixed::new(
+                                Fixed::from_num(world_pos.x + offset.x),
+                                Fixed::from_num(world_pos.y + offset.y),
+                            );
+
+                            let command = match *input_mode {
+                                InputMode::Normal => CoreCommand::MoveTo(target),
+                                InputMode::AttackMove => CoreCommand::AttackMove(target),
+                                InputMode::Patrol => CoreCommand::Patrol(target),
+                            };
+
+                            if shift_held {
+                                queue.push(command);
+                            } else {
+                                queue.set(command);
+                                commands.entity(entity).remove::<AttackTarget>();
+                            }
+                        }
+
+                        feedback_events.send(CommandFeedbackEvent {
+                            position: world_pos,
+                        });
+                    }
+                }
+            }
         });
+}
+
+fn world_to_minimap(world_pos: Vec2, rect: egui::Rect, world_size: f32) -> egui::Pos2 {
+    let minimap_x = rect.min.x + ((world_pos.x + world_size / 2.0) / world_size) * rect.width();
+    let minimap_y = rect.max.y - ((world_pos.y + world_size / 2.0) / world_size) * rect.height();
+    egui::Pos2::new(minimap_x, minimap_y)
+}
+
+fn minimap_to_world(minimap_pos: egui::Pos2, rect: egui::Rect, world_size: f32) -> Vec2 {
+    let normalized_x = (minimap_pos.x - rect.min.x) / rect.width();
+    let normalized_y = (rect.max.y - minimap_pos.y) / rect.height();
+    Vec2::new(
+        normalized_x * world_size - world_size / 2.0,
+        normalized_y * world_size - world_size / 2.0,
+    )
 }
 
 /// Renders the selection panel showing selected unit info.
@@ -589,4 +714,37 @@ fn ui_build_menu(
                 );
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn minimap_world_round_trip() {
+        let rect =
+            egui::Rect::from_min_max(egui::Pos2::new(0.0, 0.0), egui::Pos2::new(200.0, 200.0));
+        let world_size = 2000.0;
+        let world_pos = Vec2::new(150.0, -250.0);
+
+        let minimap_pos = world_to_minimap(world_pos, rect, world_size);
+        let back = minimap_to_world(minimap_pos, rect, world_size);
+
+        let delta = (world_pos - back).length();
+        assert!(delta < 0.01);
+    }
+
+    #[test]
+    fn apply_ui_settings_updates_scale_and_contrast() {
+        let ctx = egui::Context::default();
+        let settings = UiSettings {
+            ui_scale: 1.25,
+            high_contrast: true,
+            ..UiSettings::default()
+        };
+
+        apply_ui_settings(&ctx, settings);
+
+        assert!(ctx.style().visuals.override_text_color.is_some());
+    }
 }

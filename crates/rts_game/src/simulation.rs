@@ -6,7 +6,9 @@ use bevy::prelude::*;
 use rts_core::components::Command as CoreCommand;
 use rts_core::math::{Fixed, Vec2Fixed};
 
-use crate::components::{Collider, GameCommandQueue, GamePosition, MovementTarget, Stationary};
+use crate::components::{
+    Collider, GameCommandQueue, GamePosition, MovementTarget, PatrolState, Stationary,
+};
 
 /// Unit movement speed (units per second).
 pub const UNIT_SPEED: f32 = 150.0;
@@ -39,10 +41,20 @@ impl Plugin for SimulationPlugin {
 /// Processes commands from unit command queues and sets movement targets.
 fn process_commands(
     mut commands: Commands,
-    mut units: Query<(Entity, &mut GameCommandQueue, Option<&MovementTarget>)>,
+    mut units: Query<(
+        Entity,
+        &mut GameCommandQueue,
+        Option<&MovementTarget>,
+        Option<&PatrolState>,
+        &GamePosition,
+    )>,
 ) {
-    for (entity, mut queue, current_target) in units.iter_mut() {
+    for (entity, mut queue, current_target, patrol_state, position) in units.iter_mut() {
         if let Some(command) = queue.current() {
+            if !matches!(command, CoreCommand::Patrol(_)) && patrol_state.is_some() {
+                commands.entity(entity).remove::<PatrolState>();
+            }
+
             match command {
                 CoreCommand::MoveTo(target) | CoreCommand::AttackMove(target) => {
                     // Set the movement target if we don't have one or it's different
@@ -52,6 +64,48 @@ fn process_commands(
                         commands
                             .entity(entity)
                             .insert(MovementTarget { target: *target });
+                    }
+                }
+                CoreCommand::Patrol(target) => {
+                    let mut origin = position.value;
+                    let mut heading_to_target = true;
+                    let mut patrol_target = *target;
+
+                    if let Some(state) = patrol_state {
+                        if state.target == *target {
+                            origin = state.origin;
+                            heading_to_target = state.heading_to_target;
+                            patrol_target = state.target;
+                        }
+                    }
+
+                    if patrol_state
+                        .map(|state| state.target != *target)
+                        .unwrap_or(true)
+                    {
+                        commands.entity(entity).insert(PatrolState {
+                            origin: position.value,
+                            target: *target,
+                            heading_to_target: true,
+                        });
+                        origin = position.value;
+                        heading_to_target = true;
+                        patrol_target = *target;
+                    }
+
+                    let desired_target = if heading_to_target {
+                        patrol_target
+                    } else {
+                        origin
+                    };
+
+                    let should_update = current_target
+                        .map(|t| t.target != desired_target)
+                        .unwrap_or(true);
+                    if should_update {
+                        commands.entity(entity).insert(MovementTarget {
+                            target: desired_target,
+                        });
                     }
                 }
                 CoreCommand::Stop => {
@@ -81,11 +135,12 @@ fn unit_movement(
         &mut GamePosition,
         &mut GameCommandQueue,
         &MovementTarget,
+        Option<&mut PatrolState>,
     )>,
 ) {
     let delta = time.delta_seconds();
 
-    for (entity, mut position, mut queue, target) in units.iter_mut() {
+    for (entity, mut position, mut queue, target, patrol_state) in units.iter_mut() {
         let current = position.value;
         let goal = target.target;
 
@@ -103,8 +158,25 @@ fn unit_movement(
         if dist_sq < ARRIVAL_THRESHOLD_SQ {
             // Arrived at destination
             position.value = goal;
-            commands.entity(entity).remove::<MovementTarget>();
-            queue.pop(); // Command completed
+            if matches!(queue.current(), Some(CoreCommand::Patrol(_))) {
+                if let Some(mut state) = patrol_state {
+                    state.heading_to_target = !state.heading_to_target;
+                    let next_target = if state.heading_to_target {
+                        state.target
+                    } else {
+                        state.origin
+                    };
+                    commands.entity(entity).insert(MovementTarget {
+                        target: next_target,
+                    });
+                } else {
+                    commands.entity(entity).remove::<MovementTarget>();
+                    queue.pop();
+                }
+            } else {
+                commands.entity(entity).remove::<MovementTarget>();
+                queue.pop(); // Command completed
+            }
         } else {
             // Move toward target
             let dist = dist_sq.sqrt();
@@ -200,5 +272,59 @@ fn building_collision(
                 break; // Only apply one collision per frame to avoid jitter
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn patrol_alternates_targets() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, (process_commands, unit_movement));
+
+        let origin = Vec2Fixed::new(Fixed::from_num(0.0), Fixed::from_num(0.0));
+        let target = Vec2Fixed::new(Fixed::from_num(100.0), Fixed::from_num(0.0));
+
+        let entity = app
+            .world_mut()
+            .spawn((GamePosition::new(origin), GameCommandQueue::new()))
+            .id();
+
+        app.world_mut()
+            .get_mut::<GameCommandQueue>(entity)
+            .unwrap()
+            .set(CoreCommand::Patrol(target));
+
+        app.update();
+
+        let state = app.world().get::<PatrolState>(entity).unwrap();
+        assert!(state.heading_to_target);
+        let movement = app.world().get::<MovementTarget>(entity).unwrap();
+        assert_eq!(movement.target, target);
+
+        app.world_mut()
+            .get_mut::<GamePosition>(entity)
+            .unwrap()
+            .value = target;
+        app.update();
+
+        let state = app.world().get::<PatrolState>(entity).unwrap();
+        assert!(!state.heading_to_target);
+        let movement = app.world().get::<MovementTarget>(entity).unwrap();
+        assert_eq!(movement.target, origin);
+
+        app.world_mut()
+            .get_mut::<GamePosition>(entity)
+            .unwrap()
+            .value = origin;
+        app.update();
+
+        let state = app.world().get::<PatrolState>(entity).unwrap();
+        assert!(state.heading_to_target);
+        let movement = app.world().get::<MovementTarget>(entity).unwrap();
+        assert_eq!(movement.target, target);
     }
 }
