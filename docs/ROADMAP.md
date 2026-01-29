@@ -116,9 +116,8 @@ Implement core RTS mechanics with minimal assets.
 
 ### 2.7.4 Determinism & Core Wiring (Priority High)
 
-- [ ] **Core Simulation Drives Client:** Bevy client renders state from `rts_core::Simulation` (no parallel float sim)
 - [x] **Core Simulation Drives Client:** Bevy client renders state from `rts_core::Simulation` (no parallel float sim)
-- [ ] **Projectile System Integrated:** `projectile_system` runs in core tick loop
+- [x] **Projectile System Integrated:** `projectile_system` runs in core tick loop
 - [x] **Determinism Hashing:** Per-tick state hash logged in dev builds
 - [ ] **Replay-Ready Command Stream:** Commands are the only sim inputs (UI/render never mutates sim state)
 

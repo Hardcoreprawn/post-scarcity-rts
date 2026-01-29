@@ -46,13 +46,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::components::{
     AttackTarget, CombatStats, Command, CommandQueue, EntityId, Health, Movement, PatrolState,
-    Position, ProductionQueue, Velocity,
+    Position, ProductionQueue, Projectile, Velocity,
 };
 use crate::error::{GameError, Result};
 use crate::math::{Fixed, Vec2Fixed};
 use crate::systems::{
-    command_processing_system, health_system, movement_system, production_system, DamageEvent,
-    PositionLookup, ProductionComplete,
+    calculate_damage, command_processing_system, health_system, movement_system, production_system,
+    CombatEvent, DamageEvent, PositionLookup, ProductionComplete,
 };
 
 /// Ticks per second for the simulation.
@@ -88,6 +88,8 @@ pub struct Entity {
     pub production_queue: Option<ProductionQueue>,
     /// Patrol state for units executing patrol commands.
     pub patrol_state: Option<PatrolState>,
+    /// Projectile data for projectile entities.
+    pub projectile: Option<Projectile>,
 }
 
 impl Entity {
@@ -105,6 +107,7 @@ impl Entity {
             combat_stats: None,
             production_queue: None,
             patrol_state: None,
+            projectile: None,
         }
     }
 }
@@ -330,6 +333,10 @@ impl Simulation {
 
         // 3. Combat System
         events.damage_events = self.run_combat_system(&entity_ids);
+
+        // 3.5 Projectile System
+        let mut projectile_damage = self.run_projectile_system(&entity_ids);
+        events.damage_events.append(&mut projectile_damage);
 
         // 4. Health System - identify and remove dead entities
         events.deaths = self.run_health_system(&entity_ids);
@@ -584,10 +591,26 @@ impl Simulation {
                     let dist_sq = position.value.distance_squared(target_pos.value);
 
                     if dist_sq <= range_sq && combat_stats.cooldown_remaining == 0 {
-                        // Apply damage to target
-                        if let Some(target_entity) = self.entities.get_mut(target_id) {
-                            if let Some(ref mut health) = target_entity.health {
-                                let damage = combat_stats.damage;
+                        if combat_stats.uses_projectiles() {
+                            let projectile = Projectile::new(
+                                attacker_id,
+                                target_id,
+                                combat_stats.damage,
+                                combat_stats.damage_type,
+                                combat_stats.projectile_speed,
+                            );
+                            self.spawn_projectile(position.value, projectile);
+                            combat_stats.cooldown_remaining = combat_stats.attack_cooldown;
+                        } else if let Some(target_entity) = self.entities.get_mut(target_id) {
+                            if let (Some(ref mut health), Some(target_stats)) =
+                                (target_entity.health.as_mut(), target_entity.combat_stats)
+                            {
+                                let damage = calculate_damage(
+                                    combat_stats.damage,
+                                    combat_stats.damage_type,
+                                    target_stats.armor_type,
+                                    target_stats.armor_value,
+                                );
                                 health.apply_damage(damage);
 
                                 all_damage_events.push(DamageEvent {
@@ -622,6 +645,90 @@ impl Simulation {
         all_damage_events
     }
 
+    /// Run the projectile system on all active projectiles.
+    fn run_projectile_system(&mut self, entity_ids: &[EntityId]) -> Vec<DamageEvent> {
+        let positions: Vec<(EntityId, Position)> = entity_ids
+            .iter()
+            .filter_map(|&id| {
+                self.entities
+                    .get(id)
+                    .and_then(|e| e.position.map(|p| (id, p)))
+            })
+            .collect();
+        let pos_lookup = PositionLookup::new(&positions);
+
+        let mut projectile_data: Vec<(EntityId, Position, Projectile)> = entity_ids
+            .iter()
+            .filter_map(|&id| {
+                self.entities
+                    .get(id)
+                    .and_then(|entity| Some((id, entity.position?, entity.projectile?)))
+            })
+            .collect();
+
+        if projectile_data.is_empty() {
+            return Vec::new();
+        }
+
+        let mut target_data: Vec<(EntityId, Health, CombatStats)> = entity_ids
+            .iter()
+            .filter_map(|&id| {
+                self.entities
+                    .get(id)
+                    .and_then(|entity| Some((id, entity.health?, entity.combat_stats?)))
+            })
+            .collect();
+
+        let mut projectile_refs: Vec<(EntityId, &mut Position, &Projectile)> = projectile_data
+            .iter_mut()
+            .map(|(id, position, projectile)| (*id, position, &*projectile))
+            .collect();
+
+        let mut target_refs: Vec<(EntityId, &mut Health, &CombatStats)> = target_data
+            .iter_mut()
+            .map(|(id, health, combat_stats)| (*id, health, &*combat_stats))
+            .collect();
+
+        let updates =
+            crate::systems::projectile_system(&mut projectile_refs, &mut target_refs, &pos_lookup);
+
+        let mut position_map: std::collections::HashMap<EntityId, Position> = projectile_data
+            .iter()
+            .map(|(id, position, _)| (*id, *position))
+            .collect();
+
+        let mut damage_events = Vec::new();
+
+        for update in updates {
+            if update.hit {
+                if let Some(CombatEvent::ProjectileHit {
+                    source,
+                    target,
+                    damage,
+                }) = update.event
+                {
+                    damage_events.push(DamageEvent {
+                        attacker: source,
+                        target,
+                        damage,
+                    });
+                    if let Some(entity) = self.entities.get_mut(target) {
+                        if let Some(health) = entity.health.as_mut() {
+                            health.apply_damage(damage);
+                        }
+                    }
+                }
+                self.entities.remove(update.projectile_id);
+            } else if let Some(new_pos) = position_map.remove(&update.projectile_id) {
+                if let Some(entity) = self.entities.get_mut(update.projectile_id) {
+                    entity.position = Some(new_pos);
+                }
+            }
+        }
+
+        damage_events
+    }
+
     /// Run the health system and return dead entity IDs.
     fn run_health_system(&self, entity_ids: &[EntityId]) -> Vec<EntityId> {
         let health_data: Vec<(EntityId, &Health)> = entity_ids
@@ -653,6 +760,14 @@ impl Simulation {
         }
 
         completions
+    }
+
+    /// Spawn a projectile entity at the given position.
+    fn spawn_projectile(&mut self, position: Vec2Fixed, projectile: Projectile) -> EntityId {
+        let mut entity = Entity::new(0);
+        entity.position = Some(Position::new(position));
+        entity.projectile = Some(projectile);
+        self.entities.insert(entity)
     }
 
     /// Spawn a new entity with the given parameters.
@@ -878,6 +993,15 @@ impl Simulation {
                     vel.value.y.to_bits().hash(&mut hasher);
                 }
 
+                // Hash projectile
+                if let Some(ref projectile) = entity.projectile {
+                    projectile.source.hash(&mut hasher);
+                    projectile.target.hash(&mut hasher);
+                    projectile.damage.hash(&mut hasher);
+                    projectile.damage_type.hash(&mut hasher);
+                    projectile.speed.to_bits().hash(&mut hasher);
+                }
+
                 // Hash patrol state
                 if let Some(ref patrol) = entity.patrol_state {
                     patrol.origin.x.to_bits().hash(&mut hasher);
@@ -1076,6 +1200,44 @@ mod tests {
 
         // Hashes must be identical
         assert_eq!(sim1.state_hash(), sim2.state_hash());
+    }
+
+    #[test]
+    fn test_projectile_hits_target() {
+        let mut sim = Simulation::new();
+        let attacker = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            health: Some(100),
+            movement: Some(Fixed::from_num(1)),
+            combat_stats: Some(
+                CombatStats::new(10, Fixed::from_num(10), 10)
+                    .with_projectile_speed(Fixed::from_num(10)),
+            ),
+            ..Default::default()
+        });
+
+        let target = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(5), Fixed::from_num(0))),
+            health: Some(5),
+            combat_stats: Some(CombatStats::default()),
+            ..Default::default()
+        });
+
+        sim.set_attack_target(attacker, target).unwrap();
+
+        sim.tick();
+        sim.tick();
+
+        if let Some(entity) = sim.get_entity(target) {
+            let target_health = entity.health.unwrap().current;
+            assert!(target_health < 5);
+        }
+
+        let has_projectiles = sim
+            .entities()
+            .iter()
+            .any(|(_, entity)| entity.projectile.is_some());
+        assert!(!has_projectiles);
     }
 
     #[test]
