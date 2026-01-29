@@ -10,9 +10,7 @@ use rts_core::components::{Command as CoreCommand, EntityId};
 use rts_core::math::Fixed;
 use rts_core::simulation::{EntitySpawnParams, Simulation, TICK_RATE};
 
-use crate::components::{
-    AttackTarget, CoreEntityId, GameCommandQueue, GamePosition, MovementTarget, Stationary,
-};
+use crate::components::{CoreEntityId, GamePosition, Stationary};
 
 /// Systems that emit commands into the core simulation.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -29,7 +27,7 @@ pub const UNIT_RADIUS: f32 = 20.0;
 
 /// Command issuance mode for the core simulation.
 #[derive(Debug, Clone, Copy)]
-enum CoreCommandMode {
+pub enum CoreCommandMode {
     /// Replace the queue with a single command.
     Replace,
     /// Add a command to the queue.
@@ -42,6 +40,26 @@ struct CoreCommandRequest {
     entity: EntityId,
     command: CoreCommand,
     mode: CoreCommandMode,
+}
+
+/// Record of a command applied to the core simulation.
+#[derive(Debug, Clone)]
+pub struct CommandRecord {
+    /// Simulation tick when the command was applied.
+    pub tick: u64,
+    /// Target core entity.
+    pub entity: EntityId,
+    /// Command issued.
+    pub command: CoreCommand,
+    /// Whether the command replaced or queued.
+    pub mode: CoreCommandMode,
+}
+
+/// Replay-ready command stream.
+#[derive(Resource, Default)]
+pub struct CommandStream {
+    /// Ordered command records.
+    pub records: Vec<CommandRecord>,
 }
 
 /// Command buffer for issuing core simulation commands from the client.
@@ -109,6 +127,7 @@ impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CoreSimulation>()
             .init_resource::<CoreCommandBuffer>()
+            .init_resource::<CommandStream>()
             .configure_sets(
                 Update,
                 (
@@ -124,14 +143,6 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(PreUpdate, sync_spawned_entities)
             .add_systems(PreUpdate, sync_removed_entities)
-            .add_systems(
-                Update,
-                sync_movement_targets.in_set(CoreSimulationSet::SyncIn),
-            )
-            .add_systems(
-                Update,
-                sync_attack_targets.in_set(CoreSimulationSet::SyncIn),
-            )
             .add_systems(
                 Update,
                 apply_command_buffer.in_set(CoreSimulationSet::SyncIn),
@@ -183,46 +194,18 @@ fn sync_removed_entities(
     }
 }
 
-fn sync_movement_targets(
-    mut core_commands: ResMut<CoreCommandBuffer>,
-    changed_targets: Query<
-        (&CoreEntityId, &MovementTarget),
-        (Changed<MovementTarget>, With<GameCommandQueue>),
-    >,
-    mut removed_targets: RemovedComponents<MovementTarget>,
-    core_ids: Query<&CoreEntityId>,
-) {
-    for (core_id, target) in changed_targets.iter() {
-        core_commands.set(core_id.0, CoreCommand::MoveTo(target.target));
-    }
-
-    for entity in removed_targets.read() {
-        if let Ok(core_id) = core_ids.get(entity) {
-            core_commands.set(core_id.0, CoreCommand::Stop);
-        }
-    }
-}
-
-fn sync_attack_targets(
-    mut core_commands: ResMut<CoreCommandBuffer>,
-    changed_targets: Query<
-        (&CoreEntityId, &AttackTarget),
-        (Changed<AttackTarget>, With<GameCommandQueue>),
-    >,
-    core_targets: Query<&CoreEntityId>,
-) {
-    for (core_id, attack_target) in changed_targets.iter() {
-        if let Ok(target_core) = core_targets.get(attack_target.target) {
-            core_commands.set(core_id.0, CoreCommand::Attack(target_core.0));
-        }
-    }
-}
-
 fn apply_command_buffer(
     mut core: ResMut<CoreSimulation>,
     mut core_commands: ResMut<CoreCommandBuffer>,
+    mut command_stream: ResMut<CommandStream>,
 ) {
     for request in core_commands.pending.drain(..) {
+        command_stream.records.push(CommandRecord {
+            tick: core.sim.get_tick(),
+            entity: request.entity,
+            command: request.command.clone(),
+            mode: request.mode,
+        });
         let result = match request.mode {
             CoreCommandMode::Replace => core.sim.apply_command(request.entity, request.command),
             CoreCommandMode::Queue => core.sim.queue_command(request.entity, request.command),
@@ -254,5 +237,37 @@ fn sync_positions_from_core(
                 position.value = core_pos.value;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::components::GameCommandQueue;
+
+    #[test]
+    fn command_stream_records_commands() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(SimulationPlugin);
+
+        let entity = app
+            .world_mut()
+            .spawn((GamePosition::ORIGIN, GameCommandQueue::new()))
+            .id();
+
+        app.update();
+
+        let core_id = app.world().get::<CoreEntityId>(entity).unwrap().0;
+        app.world_mut()
+            .resource_mut::<CoreCommandBuffer>()
+            .set(core_id, CoreCommand::Stop);
+
+        app.update();
+
+        let stream = app.world().resource::<CommandStream>();
+        assert_eq!(stream.records.len(), 1);
+        assert_eq!(stream.records[0].entity, core_id);
+        assert_eq!(stream.records[0].command, CoreCommand::Stop);
     }
 }
