@@ -334,6 +334,12 @@ impl Simulation {
         // Increment tick counter
         self.tick += 1;
 
+        #[cfg(debug_assertions)]
+        {
+            let hash = self.state_hash();
+            tracing::debug!(tick = self.tick, state_hash = hash, "Simulation state hash");
+        }
+
         events
     }
 

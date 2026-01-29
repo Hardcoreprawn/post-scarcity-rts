@@ -118,7 +118,7 @@ Implement core RTS mechanics with minimal assets.
 
 - [ ] **Core Simulation Drives Client:** Bevy client renders state from `rts_core::Simulation` (no parallel float sim)
 - [ ] **Projectile System Integrated:** `projectile_system` runs in core tick loop
-- [ ] **Determinism Hashing:** Per-tick state hash logged in dev builds
+- [x] **Determinism Hashing:** Per-tick state hash logged in dev builds
 - [ ] **Replay-Ready Command Stream:** Commands are the only sim inputs (UI/render never mutates sim state)
 
 **Exit Criteria:**
