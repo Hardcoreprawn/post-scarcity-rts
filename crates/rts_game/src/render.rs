@@ -10,6 +10,7 @@ use crate::components::{
     CombatStats, GameFaction, GameHealth, GamePosition, Selectable, Selected, UnderConstruction,
 };
 use crate::selection::SelectionHighlight;
+use crate::simulation::CoreSimulationSet;
 
 /// Plugin for basic sprite rendering.
 ///
@@ -66,7 +67,10 @@ impl Plugin for OutlinePlugin {
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CommandFeedbackEvent>()
-            .add_systems(Update, sync_transform_from_position)
+            .add_systems(
+                Update,
+                sync_transform_from_position.after(CoreSimulationSet::SyncOut),
+            )
             .add_systems(Update, render_selection_highlight)
             .add_systems(Update, render_health_bars)
             .add_systems(Update, update_range_indicators)

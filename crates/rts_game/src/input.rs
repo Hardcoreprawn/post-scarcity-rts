@@ -8,11 +8,11 @@ use rts_core::math::{Fixed, Vec2Fixed};
 
 use crate::camera::MainCamera;
 use crate::components::{
-    AttackTarget, CombatStats, GameCommandQueue, GameFaction, GameHarvester, GameHarvesterState,
-    GamePosition, GameResourceNode, MovementTarget, Selected,
+    AttackTarget, CombatStats, CoreEntityId, GameCommandQueue, GameFaction, GameHarvester,
+    GameHarvesterState, GamePosition, GameResourceNode, MovementTarget, Selected,
 };
 use crate::render::CommandFeedbackEvent;
-use crate::simulation::UNIT_RADIUS;
+use crate::simulation::{ClientCommandSet, CoreCommandBuffer, UNIT_RADIUS};
 
 /// Plugin for game input handling.
 ///
@@ -26,10 +26,10 @@ impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InputMode>()
             .init_resource::<KeyBindings>()
-            .add_systems(Update, update_input_mode)
-            .add_systems(Update, handle_move_command)
-            .add_systems(Update, handle_stop_command)
-            .add_systems(Update, handle_hold_command);
+            .add_systems(Update, update_input_mode.before(ClientCommandSet::Gather))
+            .add_systems(Update, handle_move_command.in_set(ClientCommandSet::Gather))
+            .add_systems(Update, handle_stop_command.in_set(ClientCommandSet::Gather))
+            .add_systems(Update, handle_hold_command.in_set(ClientCommandSet::Gather));
     }
 }
 
@@ -93,21 +93,22 @@ fn handle_move_command(
     mouse_button: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     input_mode: Res<InputMode>,
+    mut core_commands: ResMut<CoreCommandBuffer>,
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     selected_units: Query<
         (
             Entity,
-            &mut GameCommandQueue,
+            &CoreEntityId,
             &GameFaction,
             Option<&mut GameHarvester>,
             Option<&CombatStats>,
         ),
-        With<Selected>,
+        (With<Selected>, With<GameCommandQueue>),
     >,
     nodes: Query<(Entity, &GamePosition), With<GameResourceNode>>,
     potential_targets: Query<
-        (Entity, &GamePosition, &GameFaction),
+        (Entity, &CoreEntityId, &GamePosition, &GameFaction),
         (With<CombatStats>, Without<Selected>),
     >,
     feedback_events: EventWriter<CommandFeedbackEvent>,
@@ -140,6 +141,7 @@ fn handle_move_command(
         *input_mode,
         shift_held,
         world_position,
+        &mut core_commands,
         selected_units,
         nodes,
         potential_targets,
@@ -152,19 +154,20 @@ fn issue_move_commands_at(
     input_mode: InputMode,
     shift_held: bool,
     world_position: Vec2,
+    core_commands: &mut CoreCommandBuffer,
     mut selected_units: Query<
         (
             Entity,
-            &mut GameCommandQueue,
+            &CoreEntityId,
             &GameFaction,
             Option<&mut GameHarvester>,
             Option<&CombatStats>,
         ),
-        With<Selected>,
+        (With<Selected>, With<GameCommandQueue>),
     >,
     nodes: Query<(Entity, &GamePosition), With<GameResourceNode>>,
     potential_targets: Query<
-        (Entity, &GamePosition, &GameFaction),
+        (Entity, &CoreEntityId, &GamePosition, &GameFaction),
         (With<CombatStats>, Without<Selected>),
     >,
     mut feedback_events: EventWriter<CommandFeedbackEvent>,
@@ -181,15 +184,15 @@ fn issue_move_commands_at(
 
     // Check if we clicked on an enemy unit
     const UNIT_CLICK_RADIUS: f32 = 25.0;
-    let clicked_enemy = |my_faction: &GameFaction| -> Option<Entity> {
+    let clicked_enemy = |my_faction: &GameFaction| -> Option<(Entity, CoreEntityId)> {
         potential_targets
             .iter()
-            .filter(|(_, _, faction)| faction.faction != my_faction.faction)
-            .find(|(_, pos, _)| {
+            .filter(|(_, _, _, faction)| faction.faction != my_faction.faction)
+            .find(|(_, _, pos, _)| {
                 let unit_world = pos.as_vec2();
                 unit_world.distance(world_position) < UNIT_CLICK_RADIUS
             })
-            .map(|(entity, _, _)| entity)
+            .map(|(entity, core_id, _, _)| (entity, *core_id))
     };
 
     // Count selected units for formation spreading
@@ -198,14 +201,13 @@ fn issue_move_commands_at(
     // Calculate formation offsets for units
     // Uses a spiral pattern to spread units around the clicked point
     let mut issued_command = false;
-    for (index, (entity, mut queue, my_faction, harvester_opt, combat_opt)) in
+    for (index, (entity, core_id, my_faction, harvester_opt, combat_opt)) in
         selected_units.iter_mut().enumerate()
     {
         // If we clicked on a node and this is a harvester, send it to harvest
         if let (Some((node_entity, node_pos)), Some(mut harvester)) = (clicked_node, harvester_opt)
         {
             // Clear current commands and set harvester to target this node
-            queue.commands.clear();
             harvester.state = GameHarvesterState::MovingToNode(node_entity);
             harvester.assigned_node = Some(node_entity); // Remember this node
             commands
@@ -217,14 +219,18 @@ fn issue_move_commands_at(
 
         // If we clicked on an enemy and this unit can attack, attack it
         if combat_opt.is_some() {
-            if let Some(target_entity) = clicked_enemy(my_faction) {
-                queue.commands.clear();
+            if let Some((target_entity, target_core)) = clicked_enemy(my_faction) {
                 commands
                     .entity(entity)
                     .insert(AttackTarget {
                         target: target_entity,
                     })
                     .remove::<MovementTarget>();
+                if shift_held {
+                    core_commands.queue(core_id.0, CoreCommand::Attack(target_core.0));
+                } else {
+                    core_commands.set(core_id.0, CoreCommand::Attack(target_core.0));
+                }
                 issued_command = true;
                 continue;
             }
@@ -249,10 +255,10 @@ fn issue_move_commands_at(
 
         if shift_held {
             // Queue the command
-            queue.push(command);
+            core_commands.queue(core_id.0, command);
         } else {
             // Replace existing commands
-            queue.set(command);
+            core_commands.set(core_id.0, command);
             // Clear attack target when issuing move command
             commands.entity(entity).remove::<AttackTarget>();
         }
@@ -315,11 +321,12 @@ pub fn calculate_formation_offset(index: usize, total: usize) -> Vec2 {
 fn handle_stop_command(
     keyboard: Res<ButtonInput<KeyCode>>,
     bindings: Res<KeyBindings>,
-    mut selected_units: Query<&mut GameCommandQueue, With<Selected>>,
+    mut core_commands: ResMut<CoreCommandBuffer>,
+    selected_units: Query<&CoreEntityId, (With<Selected>, With<GameCommandQueue>)>,
 ) {
     if keyboard.just_pressed(bindings.stop) {
-        for mut queue in selected_units.iter_mut() {
-            queue.set(CoreCommand::Stop);
+        for core_id in selected_units.iter() {
+            core_commands.set(core_id.0, CoreCommand::Stop);
         }
     }
 }
@@ -328,11 +335,12 @@ fn handle_stop_command(
 fn handle_hold_command(
     keyboard: Res<ButtonInput<KeyCode>>,
     bindings: Res<KeyBindings>,
-    mut selected_units: Query<&mut GameCommandQueue, With<Selected>>,
+    mut core_commands: ResMut<CoreCommandBuffer>,
+    selected_units: Query<&CoreEntityId, (With<Selected>, With<GameCommandQueue>)>,
 ) {
     if keyboard.just_pressed(bindings.hold_position) {
-        for mut queue in selected_units.iter_mut() {
-            queue.set(CoreCommand::HoldPosition);
+        for core_id in selected_units.iter() {
+            core_commands.set(core_id.0, CoreCommand::HoldPosition);
         }
     }
 }
@@ -340,6 +348,7 @@ fn handle_hold_command(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::simulation::{ClientCommandSet, CoreSimulation, SimulationPlugin};
 
     #[derive(Resource, Debug, Clone, Copy)]
     struct PendingCommand {
@@ -351,19 +360,20 @@ mod tests {
         commands: Commands,
         input_mode: Res<InputMode>,
         pending: Res<PendingCommand>,
+        mut core_commands: ResMut<CoreCommandBuffer>,
         selected_units: Query<
             (
                 Entity,
-                &mut GameCommandQueue,
+                &CoreEntityId,
                 &GameFaction,
                 Option<&mut GameHarvester>,
                 Option<&CombatStats>,
             ),
-            With<Selected>,
+            (With<Selected>, With<GameCommandQueue>),
         >,
         nodes: Query<(Entity, &GamePosition), With<GameResourceNode>>,
         potential_targets: Query<
-            (Entity, &GamePosition, &GameFaction),
+            (Entity, &CoreEntityId, &GamePosition, &GameFaction),
             (With<CombatStats>, Without<Selected>),
         >,
         feedback_events: EventWriter<CommandFeedbackEvent>,
@@ -373,6 +383,7 @@ mod tests {
             *input_mode,
             pending.shift_held,
             pending.position,
+            &mut core_commands,
             selected_units,
             nodes,
             potential_targets,
@@ -383,6 +394,7 @@ mod tests {
     fn setup_basic_app() -> App {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
+        app.add_plugins(SimulationPlugin);
         app.insert_resource(ButtonInput::<KeyCode>::default());
         app.insert_resource(ButtonInput::<MouseButton>::default());
         app.insert_resource(KeyBindings::default());
@@ -393,11 +405,13 @@ mod tests {
     #[test]
     fn stop_command_sets_queue() {
         let mut app = setup_basic_app();
-        app.add_systems(Update, handle_stop_command);
+        app.add_systems(Update, handle_stop_command.in_set(ClientCommandSet::Gather));
         let entity = app
             .world_mut()
-            .spawn((Selected, GameCommandQueue::new()))
+            .spawn((Selected, GameCommandQueue::new(), GamePosition::ORIGIN))
             .id();
+
+        app.update();
 
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
@@ -405,18 +419,27 @@ mod tests {
 
         app.update();
 
-        let queue = app.world().get::<GameCommandQueue>(entity).unwrap();
+        let core_id = app.world().get::<CoreEntityId>(entity).unwrap().0;
+        let sim = &app.world().resource::<CoreSimulation>().sim;
+        let queue = sim
+            .get_entity(core_id)
+            .unwrap()
+            .command_queue
+            .as_ref()
+            .unwrap();
         assert_eq!(queue.current(), Some(&CoreCommand::Stop));
     }
 
     #[test]
     fn hold_command_sets_queue() {
         let mut app = setup_basic_app();
-        app.add_systems(Update, handle_hold_command);
+        app.add_systems(Update, handle_hold_command.in_set(ClientCommandSet::Gather));
         let entity = app
             .world_mut()
-            .spawn((Selected, GameCommandQueue::new()))
+            .spawn((Selected, GameCommandQueue::new(), GamePosition::ORIGIN))
             .id();
+
+        app.update();
 
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
@@ -424,7 +447,14 @@ mod tests {
 
         app.update();
 
-        let queue = app.world().get::<GameCommandQueue>(entity).unwrap();
+        let core_id = app.world().get::<CoreEntityId>(entity).unwrap().0;
+        let sim = &app.world().resource::<CoreSimulation>().sim;
+        let queue = sim
+            .get_entity(core_id)
+            .unwrap()
+            .command_queue
+            .as_ref()
+            .unwrap();
         assert_eq!(queue.current(), Some(&CoreCommand::HoldPosition));
     }
 
@@ -432,7 +462,10 @@ mod tests {
     fn patrol_mode_issues_patrol_command() {
         let mut app = setup_basic_app();
         app.insert_resource(InputMode::Patrol);
-        app.add_systems(Update, issue_pending_command);
+        app.add_systems(
+            Update,
+            issue_pending_command.in_set(ClientCommandSet::Gather),
+        );
         app.insert_resource(PendingCommand {
             position: Vec2::new(100.0, 80.0),
             shift_held: false,
@@ -443,6 +476,7 @@ mod tests {
             .spawn((
                 Selected,
                 GameCommandQueue::new(),
+                GamePosition::ORIGIN,
                 GameFaction {
                     faction: rts_core::factions::FactionId::Continuity,
                 },
@@ -453,7 +487,14 @@ mod tests {
 
         app.update();
 
-        let queue = app.world().get::<GameCommandQueue>(unit).unwrap();
+        let core_id = app.world().get::<CoreEntityId>(unit).unwrap().0;
+        let sim = &app.world().resource::<CoreSimulation>().sim;
+        let queue = sim
+            .get_entity(core_id)
+            .unwrap()
+            .command_queue
+            .as_ref()
+            .unwrap();
         match queue.current().cloned() {
             Some(CoreCommand::Patrol(target)) => {
                 assert_eq!(target, expected);
@@ -469,12 +510,14 @@ mod tests {
             stop: KeyCode::KeyZ,
             ..KeyBindings::default()
         });
-        app.add_systems(Update, handle_stop_command);
+        app.add_systems(Update, handle_stop_command.in_set(ClientCommandSet::Gather));
 
         let entity = app
             .world_mut()
-            .spawn((Selected, GameCommandQueue::new()))
+            .spawn((Selected, GameCommandQueue::new(), GamePosition::ORIGIN))
             .id();
+
+        app.update();
 
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
@@ -482,7 +525,14 @@ mod tests {
 
         app.update();
 
-        let queue = app.world().get::<GameCommandQueue>(entity).unwrap();
+        let core_id = app.world().get::<CoreEntityId>(entity).unwrap().0;
+        let sim = &app.world().resource::<CoreSimulation>().sim;
+        let queue = sim
+            .get_entity(core_id)
+            .unwrap()
+            .command_queue
+            .as_ref()
+            .unwrap();
         assert_eq!(queue.current(), Some(&CoreCommand::Stop));
     }
 }

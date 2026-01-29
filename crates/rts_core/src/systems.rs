@@ -659,7 +659,7 @@ pub fn production_system(
 /// operations while maintaining determinism.
 ///
 /// Returns zero vector if input has zero length.
-fn normalize_vec2(v: Vec2Fixed) -> Vec2Fixed {
+pub(crate) fn normalize_vec2(v: Vec2Fixed) -> Vec2Fixed {
     let len_sq = v.x * v.x + v.y * v.y;
 
     if len_sq == Fixed::ZERO {

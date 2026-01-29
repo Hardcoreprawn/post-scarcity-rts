@@ -1,330 +1,258 @@
-//! Simulation plugin for processing game commands and unit movement.
+//! Core simulation driver for the client.
 //!
-//! Handles command processing, unit movement, and separation behavior.
+//! This module advances the deterministic core simulation and
+//! syncs positions back into Bevy for rendering.
+
+use std::collections::HashMap;
 
 use bevy::prelude::*;
-use rts_core::components::Command as CoreCommand;
-use rts_core::math::{Fixed, Vec2Fixed};
+use rts_core::components::{Command as CoreCommand, EntityId};
+use rts_core::math::Fixed;
+use rts_core::simulation::{EntitySpawnParams, Simulation, TICK_RATE};
 
 use crate::components::{
-    Collider, GameCommandQueue, GamePosition, MovementTarget, PatrolState, Stationary,
+    AttackTarget, CoreEntityId, GameCommandQueue, GamePosition, MovementTarget, Stationary,
 };
+
+/// Systems that emit commands into the core simulation.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum ClientCommandSet {
+    /// Command gathering from input/UI.
+    Gather,
+}
 
 /// Unit movement speed (units per second).
 pub const UNIT_SPEED: f32 = 150.0;
 
-/// Unit collision radius for separation.
+/// Unit collision radius for selection/formation spacing.
 pub const UNIT_RADIUS: f32 = 20.0;
 
-/// Separation force strength - how strongly units push apart.
-pub const SEPARATION_FORCE: f32 = 200.0;
+/// Command issuance mode for the core simulation.
+#[derive(Debug, Clone, Copy)]
+enum CoreCommandMode {
+    /// Replace the queue with a single command.
+    Replace,
+    /// Add a command to the queue.
+    Queue,
+}
 
-/// Minimum distance before separation kicks in.
-pub const SEPARATION_DISTANCE: f32 = UNIT_RADIUS * 2.0;
+/// Buffered command request targeting the core simulation.
+#[derive(Debug, Clone)]
+struct CoreCommandRequest {
+    entity: EntityId,
+    command: CoreCommand,
+    mode: CoreCommandMode,
+}
 
-/// Plugin for processing game commands and unit movement.
-///
-/// This handles:
-/// - Processing commands from unit command queues
-/// - Moving units toward their targets
+/// Command buffer for issuing core simulation commands from the client.
+#[derive(Resource, Default)]
+pub struct CoreCommandBuffer {
+    pending: Vec<CoreCommandRequest>,
+}
+
+impl CoreCommandBuffer {
+    /// Replace the command queue for an entity.
+    pub fn set(&mut self, entity: EntityId, command: CoreCommand) {
+        self.pending.push(CoreCommandRequest {
+            entity,
+            command,
+            mode: CoreCommandMode::Replace,
+        });
+    }
+
+    /// Queue a command for an entity.
+    pub fn queue(&mut self, entity: EntityId, command: CoreCommand) {
+        self.pending.push(CoreCommandRequest {
+            entity,
+            command,
+            mode: CoreCommandMode::Queue,
+        });
+    }
+}
+
+/// Core simulation state and entity mapping.
+#[derive(Resource, Default)]
+pub struct CoreSimulation {
+    /// Core deterministic simulation state.
+    pub sim: Simulation,
+    /// Accumulator for fixed-step ticking.
+    accumulator: f32,
+    /// Map of Bevy entities to core entity IDs.
+    entity_map: HashMap<Entity, EntityId>,
+}
+
+impl CoreSimulation {
+    fn register_entity(&mut self, entity: Entity, id: EntityId) {
+        self.entity_map.insert(entity, id);
+    }
+
+    fn unregister_entity(&mut self, entity: Entity) -> Option<EntityId> {
+        self.entity_map.remove(&entity)
+    }
+}
+
+/// Core simulation ordering.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum CoreSimulationSet {
+    /// Sync inputs from Bevy into the core simulation.
+    SyncIn,
+    /// Advance the core simulation.
+    Tick,
+    /// Sync core simulation output back to Bevy.
+    SyncOut,
+}
+
+/// Plugin that advances the core simulation and mirrors positions into Bevy.
 pub struct SimulationPlugin;
 
 impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, process_commands)
-            .add_systems(Update, unit_movement.after(process_commands))
-            .add_systems(Update, unit_separation.after(unit_movement))
-            .add_systems(Update, building_collision.after(unit_separation));
-    }
-}
-
-/// Processes commands from unit command queues and sets movement targets.
-fn process_commands(
-    mut commands: Commands,
-    mut units: Query<(
-        Entity,
-        &mut GameCommandQueue,
-        Option<&MovementTarget>,
-        Option<&PatrolState>,
-        &GamePosition,
-    )>,
-) {
-    for (entity, mut queue, current_target, patrol_state, position) in units.iter_mut() {
-        if let Some(command) = queue.current() {
-            if !matches!(command, CoreCommand::Patrol(_)) && patrol_state.is_some() {
-                commands.entity(entity).remove::<PatrolState>();
-            }
-
-            match command {
-                CoreCommand::MoveTo(target) | CoreCommand::AttackMove(target) => {
-                    // Set the movement target if we don't have one or it's different
-                    let should_update = current_target.map(|t| t.target != *target).unwrap_or(true);
-
-                    if should_update {
-                        commands
-                            .entity(entity)
-                            .insert(MovementTarget { target: *target });
-                    }
-                }
-                CoreCommand::Patrol(target) => {
-                    let mut origin = position.value;
-                    let mut heading_to_target = true;
-                    let mut patrol_target = *target;
-
-                    if let Some(state) = patrol_state {
-                        if state.target == *target {
-                            origin = state.origin;
-                            heading_to_target = state.heading_to_target;
-                            patrol_target = state.target;
-                        }
-                    }
-
-                    if patrol_state
-                        .map(|state| state.target != *target)
-                        .unwrap_or(true)
-                    {
-                        commands.entity(entity).insert(PatrolState {
-                            origin: position.value,
-                            target: *target,
-                            heading_to_target: true,
-                        });
-                        origin = position.value;
-                        heading_to_target = true;
-                        patrol_target = *target;
-                    }
-
-                    let desired_target = if heading_to_target {
-                        patrol_target
-                    } else {
-                        origin
-                    };
-
-                    let should_update = current_target
-                        .map(|t| t.target != desired_target)
-                        .unwrap_or(true);
-                    if should_update {
-                        commands.entity(entity).insert(MovementTarget {
-                            target: desired_target,
-                        });
-                    }
-                }
-                CoreCommand::Stop => {
-                    // Remove movement target and clear commands
-                    commands.entity(entity).remove::<MovementTarget>();
-                    queue.pop();
-                }
-                CoreCommand::HoldPosition => {
-                    // Remove movement target but keep the command
-                    commands.entity(entity).remove::<MovementTarget>();
-                }
-                _ => {
-                    // For other commands, just pop and continue
-                    queue.pop();
-                }
-            }
-        }
-    }
-}
-
-/// Moves units toward their movement targets.
-fn unit_movement(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut units: Query<(
-        Entity,
-        &mut GamePosition,
-        &mut GameCommandQueue,
-        &MovementTarget,
-        Option<&mut PatrolState>,
-    )>,
-) {
-    let delta = time.delta_seconds();
-
-    for (entity, mut position, mut queue, target, patrol_state) in units.iter_mut() {
-        let current = position.value;
-        let goal = target.target;
-
-        // Calculate direction to target
-        let dx = goal.x - current.x;
-        let dy = goal.y - current.y;
-
-        // Calculate distance squared (avoid sqrt when possible)
-        let dist_sq: f32 = (dx * dx + dy * dy).to_num();
-
-        // Arrival threshold
-        const ARRIVAL_THRESHOLD: f32 = 5.0;
-        const ARRIVAL_THRESHOLD_SQ: f32 = ARRIVAL_THRESHOLD * ARRIVAL_THRESHOLD;
-
-        if dist_sq < ARRIVAL_THRESHOLD_SQ {
-            // Arrived at destination
-            position.value = goal;
-            if matches!(queue.current(), Some(CoreCommand::Patrol(_))) {
-                if let Some(mut state) = patrol_state {
-                    state.heading_to_target = !state.heading_to_target;
-                    let next_target = if state.heading_to_target {
-                        state.target
-                    } else {
-                        state.origin
-                    };
-                    commands.entity(entity).insert(MovementTarget {
-                        target: next_target,
-                    });
-                } else {
-                    commands.entity(entity).remove::<MovementTarget>();
-                    queue.pop();
-                }
-            } else {
-                commands.entity(entity).remove::<MovementTarget>();
-                queue.pop(); // Command completed
-            }
-        } else {
-            // Move toward target
-            let dist = dist_sq.sqrt();
-            let move_dist = UNIT_SPEED * delta;
-
-            if move_dist >= dist {
-                // Will arrive this frame
-                position.value = goal;
-            } else {
-                // Normalize direction and move
-                let nx = Fixed::from_num(dx.to_num::<f32>() / dist * move_dist);
-                let ny = Fixed::from_num(dy.to_num::<f32>() / dist * move_dist);
-                position.value = Vec2Fixed::new(current.x + nx, current.y + ny);
-            }
-        }
-    }
-}
-
-/// Separates overlapping units by pushing them apart.
-///
-/// This creates natural clustering behavior where units don't stack
-/// on top of each other but instead spread out around their destinations.
-fn unit_separation(
-    time: Res<Time>,
-    mut units: Query<(Entity, &mut GamePosition), Without<Stationary>>,
-) {
-    let delta = time.delta_seconds();
-
-    // Collect all positions first to avoid borrow issues
-    let positions: Vec<(Entity, Vec2)> = units
-        .iter()
-        .map(|(e, p)| (e, Vec2::new(p.value.x.to_num(), p.value.y.to_num())))
-        .collect();
-
-    // For each unit, calculate separation force from nearby units
-    for (entity, mut position) in units.iter_mut() {
-        let my_pos = Vec2::new(position.value.x.to_num(), position.value.y.to_num());
-        let mut separation = Vec2::ZERO;
-        let mut neighbor_count = 0;
-
-        for (other_entity, other_pos) in &positions {
-            if entity == *other_entity {
-                continue;
-            }
-
-            let diff = my_pos - *other_pos;
-            let dist_sq = diff.length_squared();
-
-            if dist_sq > 0.0 && dist_sq < SEPARATION_DISTANCE * SEPARATION_DISTANCE {
-                let dist = dist_sq.sqrt();
-                // Stronger push when closer (inverse relationship)
-                let strength = 1.0 - (dist / SEPARATION_DISTANCE);
-                separation += diff.normalize() * strength;
-                neighbor_count += 1;
-            }
-        }
-
-        if neighbor_count > 0 {
-            // Average and apply separation
-            separation /= neighbor_count as f32;
-            let push = separation * SEPARATION_FORCE * delta;
-
-            position.value = Vec2Fixed::new(
-                Fixed::from_num(my_pos.x + push.x),
-                Fixed::from_num(my_pos.y + push.y),
+        app.init_resource::<CoreSimulation>()
+            .init_resource::<CoreCommandBuffer>()
+            .configure_sets(
+                Update,
+                (
+                    CoreSimulationSet::SyncIn,
+                    CoreSimulationSet::Tick,
+                    CoreSimulationSet::SyncOut,
+                )
+                    .chain(),
+            )
+            .configure_sets(
+                Update,
+                ClientCommandSet::Gather.before(CoreSimulationSet::SyncIn),
+            )
+            .add_systems(PreUpdate, sync_spawned_entities)
+            .add_systems(PreUpdate, sync_removed_entities)
+            .add_systems(
+                Update,
+                sync_movement_targets.in_set(CoreSimulationSet::SyncIn),
+            )
+            .add_systems(
+                Update,
+                sync_attack_targets.in_set(CoreSimulationSet::SyncIn),
+            )
+            .add_systems(
+                Update,
+                apply_command_buffer.in_set(CoreSimulationSet::SyncIn),
+            )
+            .add_systems(Update, tick_core_simulation.in_set(CoreSimulationSet::Tick))
+            .add_systems(
+                Update,
+                sync_positions_from_core.in_set(CoreSimulationSet::SyncOut),
             );
+    }
+}
+
+fn unit_speed_per_tick() -> Fixed {
+    Fixed::from_num(UNIT_SPEED / TICK_RATE as f32)
+}
+
+fn sync_spawned_entities(
+    mut commands: Commands,
+    mut core: ResMut<CoreSimulation>,
+    spawned: Query<(Entity, &GamePosition, Option<&Stationary>), Without<CoreEntityId>>,
+) {
+    let speed = unit_speed_per_tick();
+
+    for (entity, position, stationary) in spawned.iter() {
+        let params = EntitySpawnParams {
+            position: Some(position.value),
+            movement: if stationary.is_some() {
+                None
+            } else {
+                Some(speed)
+            },
+            ..Default::default()
+        };
+
+        let core_id = core.sim.spawn_entity(params);
+        core.register_entity(entity, core_id);
+        commands.entity(entity).insert(CoreEntityId(core_id));
+    }
+}
+
+fn sync_removed_entities(
+    mut removed: RemovedComponents<CoreEntityId>,
+    mut core: ResMut<CoreSimulation>,
+) {
+    for entity in removed.read() {
+        if let Some(core_id) = core.unregister_entity(entity) {
+            let _ = core.sim.despawn_entity(core_id);
         }
     }
 }
 
-/// Pushes units out of building and terrain colliders.
-fn building_collision(
-    mut units: Query<&mut GamePosition, Without<Stationary>>,
-    colliders: Query<(&GamePosition, &Collider), With<Stationary>>,
+fn sync_movement_targets(
+    mut core_commands: ResMut<CoreCommandBuffer>,
+    changed_targets: Query<
+        (&CoreEntityId, &MovementTarget),
+        (Changed<MovementTarget>, With<GameCommandQueue>),
+    >,
+    mut removed_targets: RemovedComponents<MovementTarget>,
+    core_ids: Query<&CoreEntityId>,
 ) {
-    // Small margin (5.0) so units stop at edge but stay in attack/harvest range
-    const COLLISION_MARGIN: f32 = 5.0;
+    for (core_id, target) in changed_targets.iter() {
+        core_commands.set(core_id.0, CoreCommand::MoveTo(target.target));
+    }
 
-    for mut unit_pos in units.iter_mut() {
-        let my_pos = Vec2::new(unit_pos.value.x.to_num(), unit_pos.value.y.to_num());
+    for entity in removed_targets.read() {
+        if let Ok(core_id) = core_ids.get(entity) {
+            core_commands.set(core_id.0, CoreCommand::Stop);
+        }
+    }
+}
 
-        for (coll_game_pos, collider) in colliders.iter() {
-            let coll_pos = Vec2::new(
-                coll_game_pos.value.x.to_num(),
-                coll_game_pos.value.y.to_num(),
-            );
+fn sync_attack_targets(
+    mut core_commands: ResMut<CoreCommandBuffer>,
+    changed_targets: Query<
+        (&CoreEntityId, &AttackTarget),
+        (Changed<AttackTarget>, With<GameCommandQueue>),
+    >,
+    core_targets: Query<&CoreEntityId>,
+) {
+    for (core_id, attack_target) in changed_targets.iter() {
+        if let Ok(target_core) = core_targets.get(attack_target.target) {
+            core_commands.set(core_id.0, CoreCommand::Attack(target_core.0));
+        }
+    }
+}
 
-            if let Some(push) = collider.push_out(my_pos, coll_pos, COLLISION_MARGIN) {
-                unit_pos.value = Vec2Fixed::new(
-                    Fixed::from_num(my_pos.x + push.x),
-                    Fixed::from_num(my_pos.y + push.y),
-                );
-                break; // Only apply one collision per frame to avoid jitter
+fn apply_command_buffer(
+    mut core: ResMut<CoreSimulation>,
+    mut core_commands: ResMut<CoreCommandBuffer>,
+) {
+    for request in core_commands.pending.drain(..) {
+        let result = match request.mode {
+            CoreCommandMode::Replace => core.sim.apply_command(request.entity, request.command),
+            CoreCommandMode::Queue => core.sim.queue_command(request.entity, request.command),
+        };
+
+        if result.is_err() {
+            tracing::debug!("Failed to apply core command");
+        }
+    }
+}
+
+fn tick_core_simulation(time: Res<Time>, mut core: ResMut<CoreSimulation>) {
+    core.accumulator += time.delta_seconds();
+    let step = 1.0 / TICK_RATE as f32;
+
+    while core.accumulator >= step {
+        core.sim.tick();
+        core.accumulator -= step;
+    }
+}
+
+fn sync_positions_from_core(
+    core: Res<CoreSimulation>,
+    mut entities: Query<(&CoreEntityId, &mut GamePosition)>,
+) {
+    for (core_id, mut position) in entities.iter_mut() {
+        if let Some(entity) = core.sim.get_entity(core_id.0) {
+            if let Some(core_pos) = entity.position {
+                position.value = core_pos.value;
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn patrol_alternates_targets() {
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_systems(Update, (process_commands, unit_movement));
-
-        let origin = Vec2Fixed::new(Fixed::from_num(0.0), Fixed::from_num(0.0));
-        let target = Vec2Fixed::new(Fixed::from_num(100.0), Fixed::from_num(0.0));
-
-        let entity = app
-            .world_mut()
-            .spawn((GamePosition::new(origin), GameCommandQueue::new()))
-            .id();
-
-        app.world_mut()
-            .get_mut::<GameCommandQueue>(entity)
-            .unwrap()
-            .set(CoreCommand::Patrol(target));
-
-        app.update();
-
-        let state = app.world().get::<PatrolState>(entity).unwrap();
-        assert!(state.heading_to_target);
-        let movement = app.world().get::<MovementTarget>(entity).unwrap();
-        assert_eq!(movement.target, target);
-
-        app.world_mut()
-            .get_mut::<GamePosition>(entity)
-            .unwrap()
-            .value = target;
-        app.update();
-
-        let state = app.world().get::<PatrolState>(entity).unwrap();
-        assert!(!state.heading_to_target);
-        let movement = app.world().get::<MovementTarget>(entity).unwrap();
-        assert_eq!(movement.target, origin);
-
-        app.world_mut()
-            .get_mut::<GamePosition>(entity)
-            .unwrap()
-            .value = origin;
-        app.update();
-
-        let state = app.world().get::<PatrolState>(entity).unwrap();
-        assert!(state.heading_to_target);
-        let movement = app.world().get::<MovementTarget>(entity).unwrap();
-        assert_eq!(movement.target, target);
     }
 }

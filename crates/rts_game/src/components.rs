@@ -6,6 +6,7 @@
 
 use bevy::prelude::*;
 use rts_core::components::Command as CoreCommand;
+use rts_core::components::EntityId;
 use rts_core::factions::FactionId;
 use rts_core::math::Vec2Fixed;
 use rts_core::unit_kind::{UnitKindId, UnitRole};
@@ -13,6 +14,10 @@ use rts_core::unit_kind::{UnitKindId, UnitRole};
 // ============================================================================
 // Core Component Wrappers
 // ============================================================================
+
+/// Maps a Bevy entity to a core simulation entity ID.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CoreEntityId(pub EntityId);
 
 /// Wrapper for rts_core::Position that implements Bevy Component.
 ///

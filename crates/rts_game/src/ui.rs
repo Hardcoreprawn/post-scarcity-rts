@@ -10,13 +10,14 @@ use rts_core::math::{Fixed, Vec2Fixed};
 
 use crate::camera::MainCamera;
 use crate::components::{
-    AttackTarget, Building, BuildingType, GameCommandQueue, GameDepot, GameFaction, GameHealth,
-    GamePosition, GameProductionQueue, PlayerFaction, Selected, UnitType,
+    AttackTarget, Building, BuildingType, CoreEntityId, GameCommandQueue, GameDepot, GameFaction,
+    GameHealth, GamePosition, GameProductionQueue, PlayerFaction, Selected, UnitType,
 };
 use crate::construction::BuildingPlacement;
 use crate::economy::PlayerResources;
 use crate::input::{calculate_formation_offset, InputMode};
 use crate::render::CommandFeedbackEvent;
+use crate::simulation::{ClientCommandSet, CoreCommandBuffer};
 
 /// Plugin for game UI using egui.
 ///
@@ -39,9 +40,9 @@ impl Plugin for GameUiPlugin {
                 Update,
                 (
                     ui_resource_bar,
-                    ui_minimap,
+                    ui_minimap.in_set(ClientCommandSet::Gather),
                     ui_selection_panel,
-                    ui_command_panel,
+                    ui_command_panel.in_set(ClientCommandSet::Gather),
                     ui_build_menu,
                 )
                     .after(apply_ui_accessibility),
@@ -206,7 +207,8 @@ fn ui_minimap(
     mut contexts: EguiContexts,
     units: Query<(&GamePosition, &GameFaction)>,
     mut camera_query: Query<&mut Transform, With<MainCamera>>,
-    mut selected_units: Query<(Entity, &mut GameCommandQueue), With<Selected>>,
+    mut core_commands: ResMut<CoreCommandBuffer>,
+    selected_units: Query<(Entity, &CoreEntityId), (With<Selected>, With<GameCommandQueue>)>,
     mut commands: Commands,
     input_mode: Res<InputMode>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -275,7 +277,7 @@ fn ui_minimap(
                         let shift_held = keyboard.pressed(KeyCode::ShiftLeft)
                             || keyboard.pressed(KeyCode::ShiftRight);
 
-                        for (index, (entity, mut queue)) in selected_units.iter_mut().enumerate() {
+                        for (index, (entity, core_id)) in selected_units.iter().enumerate() {
                             let offset = if unit_count > 1 {
                                 calculate_formation_offset(index, unit_count)
                             } else {
@@ -294,9 +296,9 @@ fn ui_minimap(
                             };
 
                             if shift_held {
-                                queue.push(command);
+                                core_commands.queue(core_id.0, command);
                             } else {
-                                queue.set(command);
+                                core_commands.set(core_id.0, command);
                                 commands.entity(entity).remove::<AttackTarget>();
                             }
                         }
@@ -429,7 +431,8 @@ fn ui_selection_panel(
 fn ui_command_panel(
     mut contexts: EguiContexts,
     selected: Query<Entity, With<Selected>>,
-    mut command_queues: Query<&mut GameCommandQueue>,
+    mut core_commands: ResMut<CoreCommandBuffer>,
+    core_ids: Query<&CoreEntityId>,
     mut depot_production: Query<
         (&GameFaction, &mut GameProductionQueue),
         (With<GameDepot>, Without<Building>),
@@ -563,8 +566,8 @@ fn ui_command_panel(
                     .clicked()
                 {
                     for entity in selected.iter() {
-                        if let Ok(mut queue) = command_queues.get_mut(entity) {
-                            queue.set(CoreCommand::Stop);
+                        if let Ok(core_id) = core_ids.get(entity) {
+                            core_commands.set(core_id.0, CoreCommand::Stop);
                         }
                     }
                 }
@@ -575,8 +578,8 @@ fn ui_command_panel(
                     .clicked()
                 {
                     for entity in selected.iter() {
-                        if let Ok(mut queue) = command_queues.get_mut(entity) {
-                            queue.set(CoreCommand::HoldPosition);
+                        if let Ok(core_id) = core_ids.get(entity) {
+                            core_commands.set(core_id.0, CoreCommand::HoldPosition);
                         }
                     }
                 }

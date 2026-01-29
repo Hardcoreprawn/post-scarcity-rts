@@ -45,8 +45,8 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{
-    AttackTarget, CombatStats, Command, CommandQueue, EntityId, Health, Movement, Position,
-    ProductionQueue, Velocity,
+    AttackTarget, CombatStats, Command, CommandQueue, EntityId, Health, Movement, PatrolState,
+    Position, ProductionQueue, Velocity,
 };
 use crate::error::{GameError, Result};
 use crate::math::{Fixed, Vec2Fixed};
@@ -86,6 +86,8 @@ pub struct Entity {
     pub combat_stats: Option<CombatStats>,
     /// Production queue for buildings.
     pub production_queue: Option<ProductionQueue>,
+    /// Patrol state for units executing patrol commands.
+    pub patrol_state: Option<PatrolState>,
 }
 
 impl Entity {
@@ -102,6 +104,7 @@ impl Entity {
             attack_target: None,
             combat_stats: None,
             production_queue: None,
+            patrol_state: None,
         }
     }
 }
@@ -316,6 +319,12 @@ impl Simulation {
         // 1. Command Processing System
         self.run_command_processing_system(&entity_ids);
 
+        // 1.5 Patrol System
+        self.run_patrol_system(&entity_ids);
+
+        // 1.6 Attack Chase System
+        self.run_attack_chase_system(&entity_ids);
+
         // 2. Movement System
         self.run_movement_system(&entity_ids);
 
@@ -364,6 +373,143 @@ impl Simulation {
                     let mut single = vec![(id, command_queue, position, velocity, movement)];
                     command_processing_system(&mut single);
                 }
+            }
+        }
+    }
+
+    /// Run patrol movement logic for entities with patrol commands.
+    fn run_patrol_system(&mut self, entity_ids: &[EntityId]) {
+        let arrival_threshold_sq = Fixed::from_num(1);
+
+        for &id in entity_ids {
+            let Some(entity) = self.entities.get_mut(id) else {
+                continue;
+            };
+
+            let Some(command_queue) = entity.command_queue.as_mut() else {
+                continue;
+            };
+
+            let Some(position) = entity.position.as_ref() else {
+                continue;
+            };
+
+            let Some(velocity) = entity.velocity.as_mut() else {
+                continue;
+            };
+
+            let Some(movement) = entity.movement.as_ref() else {
+                continue;
+            };
+
+            match command_queue.current() {
+                Some(Command::Patrol(target)) => {
+                    let target = *target;
+                    let mut state = entity.patrol_state.unwrap_or(PatrolState {
+                        origin: position.value,
+                        target,
+                        heading_to_target: true,
+                    });
+
+                    if state.target != target {
+                        state = PatrolState {
+                            origin: position.value,
+                            target,
+                            heading_to_target: true,
+                        };
+                    }
+
+                    let desired = if state.heading_to_target {
+                        state.target
+                    } else {
+                        state.origin
+                    };
+
+                    let dist_sq = position.value.distance_squared(desired);
+                    if dist_sq <= arrival_threshold_sq {
+                        state.heading_to_target = !state.heading_to_target;
+                        velocity.value = Vec2Fixed::ZERO;
+                    } else {
+                        let diff = desired - position.value;
+                        let direction = crate::systems::normalize_vec2(diff);
+                        velocity.value = Vec2Fixed::new(
+                            direction.x * movement.speed,
+                            direction.y * movement.speed,
+                        );
+                    }
+
+                    entity.patrol_state = Some(state);
+                }
+                _ => {
+                    entity.patrol_state = None;
+                }
+            }
+        }
+    }
+
+    /// Run attack chase logic for entities with attack commands.
+    fn run_attack_chase_system(&mut self, entity_ids: &[EntityId]) {
+        let arrival_threshold_sq = Fixed::from_num(1);
+
+        for &id in entity_ids {
+            let Some(Command::Attack(target_id)) = self
+                .entities
+                .get(id)
+                .and_then(|entity| entity.command_queue.as_ref())
+                .and_then(|queue| queue.current().cloned())
+            else {
+                continue;
+            };
+
+            let Some(target_pos) = self
+                .entities
+                .get(target_id)
+                .and_then(|target| target.position.map(|pos| pos.value))
+            else {
+                if let Some(entity) = self.entities.get_mut(id) {
+                    if let Some(command_queue) = entity.command_queue.as_mut() {
+                        command_queue.pop();
+                    }
+                    if let Some(velocity) = entity.velocity.as_mut() {
+                        velocity.value = Vec2Fixed::ZERO;
+                    }
+                }
+                continue;
+            };
+
+            let Some(entity) = self.entities.get_mut(id) else {
+                continue;
+            };
+
+            let Some(command_queue) = entity.command_queue.as_mut() else {
+                continue;
+            };
+
+            let Some(position) = entity.position.as_ref() else {
+                continue;
+            };
+
+            let Some(velocity) = entity.velocity.as_mut() else {
+                continue;
+            };
+
+            let Some(movement) = entity.movement.as_ref() else {
+                continue;
+            };
+
+            if command_queue.current().cloned() != Some(Command::Attack(target_id)) {
+                velocity.value = Vec2Fixed::ZERO;
+                continue;
+            };
+
+            let dist_sq = position.value.distance_squared(target_pos);
+            if dist_sq <= arrival_threshold_sq {
+                velocity.value = Vec2Fixed::ZERO;
+            } else {
+                let diff = target_pos - position.value;
+                let direction = crate::systems::normalize_vec2(diff);
+                velocity.value =
+                    Vec2Fixed::new(direction.x * movement.speed, direction.y * movement.speed);
             }
         }
     }
@@ -731,6 +877,15 @@ impl Simulation {
                     vel.value.x.to_bits().hash(&mut hasher);
                     vel.value.y.to_bits().hash(&mut hasher);
                 }
+
+                // Hash patrol state
+                if let Some(ref patrol) = entity.patrol_state {
+                    patrol.origin.x.to_bits().hash(&mut hasher);
+                    patrol.origin.y.to_bits().hash(&mut hasher);
+                    patrol.target.x.to_bits().hash(&mut hasher);
+                    patrol.target.y.to_bits().hash(&mut hasher);
+                    patrol.heading_to_target.hash(&mut hasher);
+                }
             }
         }
 
@@ -834,6 +989,54 @@ mod tests {
 
         // Entity should have moved
         let entity = sim.get_entity(id).unwrap();
+        let pos = entity.position.unwrap();
+        assert!(pos.value.x > Fixed::from_num(0));
+    }
+
+    #[test]
+    fn test_patrol_toggles_heading() {
+        let mut sim = Simulation::new();
+        let id = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            movement: Some(Fixed::from_num(2)),
+            ..Default::default()
+        });
+
+        let target = Vec2Fixed::new(Fixed::from_num(10), Fixed::from_num(0));
+        sim.apply_command(id, Command::Patrol(target)).unwrap();
+
+        sim.tick();
+        let state = sim.get_entity(id).unwrap().patrol_state.unwrap();
+        assert!(state.heading_to_target);
+
+        if let Some(entity) = sim.entities.get_mut(id) {
+            entity.position = Some(Position::new(target));
+        }
+
+        sim.tick();
+        let state = sim.get_entity(id).unwrap().patrol_state.unwrap();
+        assert!(!state.heading_to_target);
+    }
+
+    #[test]
+    fn test_attack_command_chases_target() {
+        let mut sim = Simulation::new();
+        let attacker = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            movement: Some(Fixed::from_num(3)),
+            ..Default::default()
+        });
+
+        let target = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(20), Fixed::from_num(0))),
+            ..Default::default()
+        });
+
+        sim.apply_command(attacker, Command::Attack(target))
+            .unwrap();
+        sim.tick();
+
+        let entity = sim.get_entity(attacker).unwrap();
         let pos = entity.position.unwrap();
         assert!(pos.value.x > Fixed::from_num(0));
     }

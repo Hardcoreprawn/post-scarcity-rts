@@ -7,7 +7,6 @@ use crate::components::{
     GamePosition, MovementTarget, PlayerFaction, Regeneration, Unit,
 };
 use crate::economy::PlayerResources;
-use rts_core::math::{Fixed, Vec2Fixed};
 
 /// Range at which units will auto-acquire targets.
 pub const AUTO_ATTACK_RANGE: f32 = 200.0;
@@ -49,7 +48,6 @@ impl Plugin for CombatPlugin {
                 update_attack_cooldowns,
                 regenerate_health,
                 acquire_attack_targets,
-                chase_attack_targets,
                 execute_attacks,
                 process_deaths,
                 cleanup_dead_entities,
@@ -139,41 +137,6 @@ fn acquire_attack_targets(
             commands
                 .entity(attacker_entity)
                 .insert(AttackTarget { target });
-        }
-    }
-}
-
-/// Moves units toward their attack targets if out of range.
-fn chase_attack_targets(
-    mut commands: Commands,
-    mut attackers: Query<(Entity, &GamePosition, &CombatStats, &AttackTarget), Without<Dead>>,
-    targets: Query<&GamePosition, Without<Dead>>,
-) {
-    for (attacker_entity, attacker_pos, stats, attack_target) in attackers.iter_mut() {
-        // Check if target still exists
-        let Ok(target_pos) = targets.get(attack_target.target) else {
-            // Target is gone, remove attack target
-            commands.entity(attacker_entity).remove::<AttackTarget>();
-            continue;
-        };
-
-        let my_pos = attacker_pos.as_vec2();
-        let target_world = target_pos.as_vec2();
-        let dist = my_pos.distance(target_world);
-
-        // If out of range, move toward target
-        if dist > stats.range {
-            // Stop a bit inside weapon range
-            let approach_dist = dist - stats.range * 0.8;
-            let direction = (target_world - my_pos).normalize();
-            let move_to = my_pos + direction * approach_dist;
-
-            commands.entity(attacker_entity).insert(MovementTarget {
-                target: Vec2Fixed::new(Fixed::from_num(move_to.x), Fixed::from_num(move_to.y)),
-            });
-        } else {
-            // In range - stop moving
-            commands.entity(attacker_entity).remove::<MovementTarget>();
         }
     }
 }

@@ -382,6 +382,17 @@ pub struct Movement {
     pub target: Option<Vec2Fixed>,
 }
 
+/// Component tracking patrol behavior between two points.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PatrolState {
+    /// Patrol origin (starting point).
+    pub origin: Vec2Fixed,
+    /// Patrol target (destination point).
+    pub target: Vec2Fixed,
+    /// Whether the unit is heading toward the target.
+    pub heading_to_target: bool,
+}
+
 /// Health component for damageable entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Health {
