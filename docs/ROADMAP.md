@@ -141,7 +141,7 @@ These issues are actively tracked and mapped to the roadmap phases for clarity a
 - [Issue #6](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/6) — Health bars (combat readability) ✅
 - [Issue #22](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/22) — Death feedback (delay despawn / effect)
 - [Issue #12](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/12) — Build placement ghost visuals ✅ (duplicates: #16, #19)
-- [Issue #13](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/13) — Resource bar/tooltips polish (duplicates: #17, #20)
+- [Issue #13](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/13) — Resource bar/tooltips polish ✅ (duplicates: #17, #20)
 - [Issue #11](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/11) — Allow selection of enemy units ✅ (duplicates: #15, #18)
 - [Issue #14](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/14) — Input conflict on B key for build menu ✅
 - [Issue #23](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/23) — Selection radius should use collider/size ✅

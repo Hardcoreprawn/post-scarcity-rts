@@ -223,11 +223,12 @@ fn ui_resource_bar(mut contexts: EguiContexts, resources: Res<PlayerResources>) 
 
             // Feedstock
             ui.horizontal(|ui| {
-                ui.label(
+                let response = ui.label(
                     egui::RichText::new("⛏")
                         .size(18.0)
                         .color(egui::Color32::from_rgb(100, 200, 255)),
                 );
+                response.on_hover_text("Feedstock: used for units and buildings.");
                 ui.label(
                     egui::RichText::new(format!(
                         "{} / {}",
@@ -242,11 +243,12 @@ fn ui_resource_bar(mut contexts: EguiContexts, resources: Res<PlayerResources>) 
 
             // Supply
             ui.horizontal(|ui| {
-                ui.label(
+                let response = ui.label(
                     egui::RichText::new("👥")
                         .size(18.0)
                         .color(egui::Color32::from_rgb(100, 255, 100)),
                 );
+                response.on_hover_text("Supply: limits total population.");
                 let supply_color = if resources.supply_used >= resources.supply_cap {
                     egui::Color32::RED
                 } else if resources.supply_used as f32 >= resources.supply_cap as f32 * 0.8 {
@@ -559,13 +561,13 @@ fn ui_command_panel(
                                 && resources.supply_used + harv_supply <= resources.supply_cap
                                 && production.can_queue();
                             ui.add_enabled_ui(can_afford_harv, |ui| {
-                                if ui
+                                let response = ui
                                     .button(format!(
                                         "🔧 Harvester\n{} ⚡{}",
                                         harv_cost, harv_supply
                                     ))
-                                    .clicked()
-                                {
+                                    .on_hover_text(unit_tooltip(UnitType::Harvester));
+                                if response.clicked() {
                                     resources.feedstock -= harv_cost;
                                     resources.supply_used += harv_supply;
                                     production.enqueue(UnitType::Harvester);
@@ -596,10 +598,10 @@ fn ui_command_panel(
                                 && resources.supply_used + inf_supply <= resources.supply_cap
                                 && production.can_queue();
                             ui.add_enabled_ui(can_afford_inf, |ui| {
-                                if ui
+                                let response = ui
                                     .button(format!("🗡 Infantry\n{} ⚡{}", inf_cost, inf_supply))
-                                    .clicked()
-                                {
+                                    .on_hover_text(unit_tooltip(UnitType::Infantry));
+                                if response.clicked() {
                                     resources.feedstock -= inf_cost;
                                     resources.supply_used += inf_supply;
                                     production.enqueue(UnitType::Infantry);
@@ -613,10 +615,10 @@ fn ui_command_panel(
                                 && resources.supply_used + rang_supply <= resources.supply_cap
                                 && production.can_queue();
                             ui.add_enabled_ui(can_afford_rang, |ui| {
-                                if ui
+                                let response = ui
                                     .button(format!("🏹 Ranger\n{} ⚡{}", rang_cost, rang_supply))
-                                    .clicked()
-                                {
+                                    .on_hover_text(unit_tooltip(UnitType::Ranger));
+                                if response.clicked() {
                                     resources.feedstock -= rang_cost;
                                     resources.supply_used += rang_supply;
                                     production.enqueue(UnitType::Ranger);
@@ -633,10 +635,10 @@ fn ui_command_panel(
             // Standard unit commands
             ui.horizontal(|ui| {
                 // Stop button
-                if ui
+                let response = ui
                     .button(egui::RichText::new("⏹ Stop").size(14.0))
-                    .clicked()
-                {
+                    .on_hover_text("Stop selected units and clear their queue.");
+                if response.clicked() {
                     for entity in owned_entities.iter().copied() {
                         if let Ok(core_id) = core_ids.get(entity) {
                             core_commands.set(core_id.0, CoreCommand::Stop);
@@ -645,10 +647,10 @@ fn ui_command_panel(
                 }
 
                 // Hold Position button
-                if ui
+                let response = ui
                     .button(egui::RichText::new("🛡 Hold").size(14.0))
-                    .clicked()
-                {
+                    .on_hover_text("Hold position and attack in range.");
+                if response.clicked() {
                     for entity in owned_entities.iter().copied() {
                         if let Ok(core_id) = core_ids.get(entity) {
                             core_commands.set(core_id.0, CoreCommand::HoldPosition);
@@ -729,6 +731,23 @@ fn player_owned_entities<'a>(
         .collect()
 }
 
+fn building_tooltip(building_type: BuildingType) -> String {
+    format!(
+        "{}\nCost: {} feedstock",
+        building_type.name(),
+        building_type.cost()
+    )
+}
+
+fn unit_tooltip(unit_type: UnitType) -> String {
+    format!(
+        "{}\nCost: {} feedstock\nSupply: {}",
+        unit_type.name(),
+        unit_type.cost(),
+        unit_type.supply()
+    )
+}
+
 /// Renders the build menu for placing new buildings.
 fn ui_build_menu(
     mut contexts: EguiContexts,
@@ -783,9 +802,12 @@ fn ui_build_menu(
                 };
 
                 let label = format!("{} {} ({})", icon, building_type.name(), cost);
+                let tooltip = building_tooltip(building_type);
 
                 ui.add_enabled_ui(can_afford, |ui| {
-                    let button = ui.selectable_label(is_placing, label);
+                    let button = ui
+                        .selectable_label(is_placing, label)
+                        .on_hover_text(tooltip);
                     if button.clicked() {
                         if is_placing {
                             placement.placing = None;
@@ -870,5 +892,15 @@ mod tests {
 
         let result = player_owned_entities(entities.into_iter(), FactionId::Continuity);
         assert_eq!(result, vec![Entity::from_raw(1)]);
+    }
+
+    #[test]
+    fn tooltips_include_cost_and_supply() {
+        let tooltip = unit_tooltip(UnitType::Ranger);
+        assert!(tooltip.contains("Cost:"));
+        assert!(tooltip.contains("Supply:"));
+
+        let tooltip = building_tooltip(BuildingType::Turret);
+        assert!(tooltip.contains("Cost:"));
     }
 }
