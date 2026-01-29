@@ -504,6 +504,101 @@ mod tests {
     }
 
     #[test]
+    fn attack_move_mode_issues_attack_move_command() {
+        let mut app = setup_basic_app();
+        app.insert_resource(InputMode::AttackMove);
+        app.add_systems(
+            Update,
+            issue_pending_command.in_set(ClientCommandSet::Gather),
+        );
+        app.insert_resource(PendingCommand {
+            position: Vec2::new(120.0, 60.0),
+            shift_held: false,
+        });
+
+        let unit = app
+            .world_mut()
+            .spawn((
+                Selected,
+                GameCommandQueue::new(),
+                GamePosition::ORIGIN,
+                GameFaction {
+                    faction: rts_core::factions::FactionId::Continuity,
+                },
+            ))
+            .id();
+
+        let expected = Vec2Fixed::new(Fixed::from_num(120.0), Fixed::from_num(60.0));
+
+        app.update();
+
+        let core_id = app.world().get::<CoreEntityId>(unit).unwrap().0;
+        let sim = &app.world().resource::<CoreSimulation>().sim;
+        let queue = sim
+            .get_entity(core_id)
+            .unwrap()
+            .command_queue
+            .as_ref()
+            .unwrap();
+        match queue.current().cloned() {
+            Some(CoreCommand::AttackMove(target)) => {
+                assert_eq!(target, expected);
+            }
+            other => panic!("Expected attack-move command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn shift_queue_appends_commands() {
+        let mut app = setup_basic_app();
+        app.insert_resource(InputMode::Normal);
+        app.add_systems(
+            Update,
+            issue_pending_command.in_set(ClientCommandSet::Gather),
+        );
+
+        let unit = app
+            .world_mut()
+            .spawn((
+                Selected,
+                GameCommandQueue::new(),
+                GamePosition::ORIGIN,
+                GameFaction {
+                    faction: rts_core::factions::FactionId::Continuity,
+                },
+            ))
+            .id();
+
+        app.insert_resource(PendingCommand {
+            position: Vec2::new(50.0, 20.0),
+            shift_held: false,
+        });
+        app.update();
+
+        app.insert_resource(PendingCommand {
+            position: Vec2::new(80.0, 40.0),
+            shift_held: true,
+        });
+        app.update();
+
+        let core_id = app.world().get::<CoreEntityId>(unit).unwrap().0;
+        let sim = &app.world().resource::<CoreSimulation>().sim;
+        let queue = sim
+            .get_entity(core_id)
+            .unwrap()
+            .command_queue
+            .as_ref()
+            .unwrap();
+
+        let first = Vec2Fixed::new(Fixed::from_num(50.0), Fixed::from_num(20.0));
+        let second = Vec2Fixed::new(Fixed::from_num(80.0), Fixed::from_num(40.0));
+        let commands: Vec<_> = queue.commands.iter().cloned().collect();
+        assert_eq!(commands.len(), 2);
+        assert_eq!(commands[0], CoreCommand::MoveTo(first));
+        assert_eq!(commands[1], CoreCommand::MoveTo(second));
+    }
+
+    #[test]
     fn custom_keybindings_drive_stop_command() {
         let mut app = setup_basic_app();
         app.insert_resource(KeyBindings {

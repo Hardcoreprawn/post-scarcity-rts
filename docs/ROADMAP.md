@@ -124,7 +124,7 @@ Implement core RTS mechanics with minimal assets.
 **Exit Criteria:**
 
 - [ ] A new player can understand combat state at a glance.
-- [ ] All standard RTS commands function reliably.
+- [x] All standard RTS commands function reliably.
 - [x] Unit tests for command issuance logic.
 - [x] Client visuals reflect core sim state (no sim drift).
 - [ ] Readability baseline hit: units/teams/health identifiable in < 2 seconds.
