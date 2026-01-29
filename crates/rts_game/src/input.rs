@@ -232,15 +232,15 @@ fn issue_move_commands_at(
         // If we clicked on an enemy and this unit can attack, attack it
         if combat_opt.is_some() {
             if let Some((target_entity, target_core)) = clicked_enemy(my_faction) {
-                commands
-                    .entity(entity)
-                    .insert(AttackTarget {
-                        target: target_entity,
-                    })
-                    .remove::<MovementTarget>();
                 if shift_held {
                     core_commands.queue(core_id.0, CoreCommand::Attack(target_core.0));
                 } else {
+                    commands
+                        .entity(entity)
+                        .insert(AttackTarget {
+                            target: target_entity,
+                        })
+                        .remove::<MovementTarget>();
                     core_commands.set(core_id.0, CoreCommand::Attack(target_core.0));
                 }
                 issued_command = true;
@@ -368,6 +368,7 @@ fn handle_hold_command(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::components::DamageType;
     use crate::simulation::{ClientCommandSet, CoreSimulation, SimulationPlugin};
 
     #[derive(Resource, Debug, Clone, Copy)]
@@ -674,5 +675,52 @@ mod tests {
 
         assert!(large_radius > small_radius);
         assert!(small_radius >= fallback_radius);
+    }
+
+    #[test]
+    fn shift_attack_does_not_set_attack_target() {
+        let mut app = setup_basic_app();
+        app.add_systems(
+            Update,
+            issue_pending_command.in_set(ClientCommandSet::Gather),
+        );
+
+        let enemy_position = Vec2Fixed::new(Fixed::from_num(50.0), Fixed::from_num(10.0));
+        let _enemy = app
+            .world_mut()
+            .spawn((
+                GamePosition::new(enemy_position),
+                GameFaction {
+                    faction: rts_core::factions::FactionId::Collegium,
+                },
+                CombatStats::new(10, DamageType::Kinetic, 60.0, 0.5),
+            ))
+            .id();
+
+        let selected = app
+            .world_mut()
+            .spawn((
+                Selected,
+                GameCommandQueue::new(),
+                GamePosition::ORIGIN,
+                GameFaction {
+                    faction: rts_core::factions::FactionId::Continuity,
+                },
+                CombatStats::new(8, DamageType::Kinetic, 60.0, 0.5),
+            ))
+            .id();
+
+        app.insert_resource(PendingCommand {
+            position: Vec2::new(50.0, 10.0),
+            shift_held: true,
+        });
+
+        app.update();
+
+        let selected_has_target = app.world().get::<AttackTarget>(selected).is_some();
+        assert!(
+            !selected_has_target,
+            "Shift-queued attacks should not set AttackTarget."
+        );
     }
 }
