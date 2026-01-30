@@ -8,13 +8,14 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use rts_core::components::{
     ArmorType as CoreArmorType, CombatStats as CoreCombatStats, Command as CoreCommand,
-    DamageType as CoreDamageType, EntityId,
+    DamageType as CoreDamageType, EntityId, FactionMember,
 };
 use rts_core::math::Fixed;
-use rts_core::simulation::{EntitySpawnParams, Simulation, TICK_RATE};
+use rts_core::simulation::{EntitySpawnParams, Simulation, TickEvents, TICK_RATE};
 
 use crate::components::{
-    Armor, ArmorType, CombatStats, CoreEntityId, DamageType, GameHealth, GamePosition, Stationary,
+    Armor, ArmorType, CombatStats, CoreEntityId, DamageType, GameDepot, GameFaction, GameHealth,
+    GamePosition, Stationary,
 };
 
 /// Systems that emit commands into the core simulation.
@@ -102,6 +103,8 @@ pub struct CoreSimulation {
     accumulator: f32,
     /// Map of Bevy entities to core entity IDs.
     entity_map: HashMap<Entity, EntityId>,
+    /// Latest core tick events.
+    pub last_events: TickEvents,
 }
 
 impl CoreSimulation {
@@ -179,13 +182,17 @@ fn sync_spawned_entities(
             Option<&GameHealth>,
             Option<&CombatStats>,
             Option<&Armor>,
+            Option<&GameFaction>,
+            Option<&GameDepot>,
         ),
         Without<CoreEntityId>,
     >,
 ) {
     let speed = unit_speed_per_tick();
 
-    for (entity, position, stationary, health, combat_stats, armor) in spawned.iter() {
+    for (entity, position, stationary, health, combat_stats, armor, faction, depot) in
+        spawned.iter()
+    {
         let mut core_combat = None;
         if combat_stats.is_some() || armor.is_some() {
             let mut stats = if let Some(stats) = combat_stats {
@@ -218,6 +225,8 @@ fn sync_spawned_entities(
             },
             health: health.map(|health| health.max),
             combat_stats: core_combat,
+            faction: faction.map(|faction| FactionMember::new(faction.faction, 0)),
+            is_depot: depot.is_some(),
             ..Default::default()
         };
 
@@ -266,7 +275,7 @@ fn tick_core_simulation(time: Res<Time>, mut core: ResMut<CoreSimulation>) {
     let step = 1.0 / TICK_RATE as f32;
 
     while core.accumulator >= step {
-        core.sim.tick();
+        core.last_events = core.sim.tick();
         core.accumulator -= step;
     }
 }

@@ -45,10 +45,12 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{
-    AttackTarget, CombatStats, Command, CommandQueue, EntityId, Health, Movement, PatrolState,
-    Position, ProductionQueue, Projectile, Velocity,
+    AttackTarget, CombatStats, Command, CommandQueue, EntityId, FactionMember, Health, Movement,
+    PatrolState, Position, ProductionQueue, Projectile, Velocity,
 };
+use crate::economy::Depot;
 use crate::error::{GameError, Result};
+use crate::factions::FactionId;
 use crate::math::{Fixed, Vec2Fixed};
 use crate::systems::{
     calculate_damage, command_processing_system, health_system, movement_system, production_system,
@@ -90,6 +92,10 @@ pub struct Entity {
     pub patrol_state: Option<PatrolState>,
     /// Projectile data for projectile entities.
     pub projectile: Option<Projectile>,
+    /// Faction membership for ownership.
+    pub faction: Option<FactionMember>,
+    /// Marker for depot buildings.
+    pub depot: Option<Depot>,
 }
 
 impl Entity {
@@ -108,6 +114,8 @@ impl Entity {
             production_queue: None,
             patrol_state: None,
             projectile: None,
+            faction: None,
+            depot: None,
         }
     }
 }
@@ -130,6 +138,10 @@ pub struct EntitySpawnParams {
     pub combat_stats: Option<CombatStats>,
     /// Whether this entity has a production queue.
     pub has_production_queue: bool,
+    /// Faction membership for the entity.
+    pub faction: Option<FactionMember>,
+    /// Whether this entity is a depot.
+    pub is_depot: bool,
 }
 
 /// Storage for all entities in the simulation.
@@ -230,6 +242,8 @@ pub struct TickEvents {
     pub production_complete: Vec<ProductionComplete>,
     /// Entities spawned this tick.
     pub spawned: Vec<EntityId>,
+    /// Winning faction if the match ended.
+    pub game_end: Option<FactionId>,
 }
 
 /// The core game simulation.
@@ -344,6 +358,8 @@ impl Simulation {
             self.entities.remove(*dead_id);
         }
 
+        events.game_end = self.determine_winner();
+
         // 5. Production System
         events.production_complete = self.run_production_system(&entity_ids);
 
@@ -357,6 +373,26 @@ impl Simulation {
         }
 
         events
+    }
+
+    fn determine_winner(&self) -> Option<FactionId> {
+        let mut factions = std::collections::HashSet::new();
+
+        for (_, entity) in self.entities.iter() {
+            if entity.depot.is_some() {
+                if let (Some(health), Some(faction)) = (&entity.health, &entity.faction) {
+                    if health.current > 0 {
+                        factions.insert(faction.faction);
+                    }
+                }
+            }
+        }
+
+        if factions.len() == 1 {
+            factions.iter().copied().next()
+        } else {
+            None
+        }
     }
 
     /// Run the command processing system on all applicable entities.
@@ -830,6 +866,14 @@ impl Simulation {
 
         if params.has_production_queue {
             entity.production_queue = Some(ProductionQueue::new());
+        }
+
+        if let Some(faction) = params.faction {
+            entity.faction = Some(faction);
+        }
+
+        if params.is_depot {
+            entity.depot = Some(Depot);
         }
 
         self.entities.insert(entity)

@@ -150,7 +150,7 @@ These issues are actively tracked and mapped to the roadmap phases for clarity a
 - [Issue #24](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/24) — Resolve simulation duplication (core authoritative) ✅
 - [Issue #29](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/29) — Determinism leak in `Vec2Fixed` ✅
 - [Issue #26](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/26) — Consolidate component definitions (core ↔ view mirroring) ✅
-- [Issue #30](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/30) — Decouple victory logic from view layer
+- [Issue #30](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/30) — Decouple victory logic from view layer ✅
 
 ### Phase 3.4 (Infrastructure Catch-up)
 
