@@ -680,6 +680,7 @@ mod tests {
     #[test]
     fn shift_attack_does_not_set_attack_target() {
         let mut app = setup_basic_app();
+        app.insert_resource(InputMode::default());
         app.add_systems(
             Update,
             issue_pending_command.in_set(ClientCommandSet::Gather),

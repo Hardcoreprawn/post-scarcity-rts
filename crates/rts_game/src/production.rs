@@ -8,7 +8,7 @@ use crate::bundles::{HarvesterBundle, UnitBundle};
 use crate::components::{
     GameFaction, GamePosition, GameProductionQueue, PlayerFaction, Unit, UnitType,
 };
-use crate::data_loader::FactionRegistry;
+use crate::data_loader::{BevyUnitKindRegistry, FactionRegistry};
 use crate::economy::PlayerResources;
 
 /// Plugin that handles unit production from buildings.
@@ -38,6 +38,7 @@ fn production_system(
     mut buildings: Query<(&GamePosition, &GameFaction, &mut GameProductionQueue)>,
     mut resources: ResMut<PlayerResources>,
     faction_registry: Res<FactionRegistry>,
+    unit_kind_registry: Res<BevyUnitKindRegistry>,
     player_faction: Res<PlayerFaction>,
 ) {
     let dt = time.delta_seconds();
@@ -74,8 +75,18 @@ fn production_system(
                     (Some(data), _) => {
                         // Combat units use data-driven stats
                         if let Some(unit_data) = data.get_unit(unit_id) {
+                            // Look up the UnitKindId from the registry
+                            let unit_kind_id = unit_kind_registry
+                                .find(faction.faction, unit_id)
+                                .unwrap_or(rts_core::unit_kind::UnitKindId::NONE);
+
                             commands
-                                .spawn(UnitBundle::from_data(spawn_pos, faction.faction, unit_data))
+                                .spawn(UnitBundle::from_data(
+                                    spawn_pos,
+                                    faction.faction,
+                                    unit_data,
+                                    unit_kind_id,
+                                ))
                                 .insert(Unit::new(unit_type));
                             // Supply was already reserved at queue time
                         } else {

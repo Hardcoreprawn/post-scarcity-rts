@@ -217,10 +217,26 @@ mod tests {
     fn test_vec2_normalize() {
         let v = Vec2Fixed::new(Fixed::from_num(3), Fixed::from_num(4));
         let norm = v.normalize();
-        let expected = Vec2Fixed::new(
-            Fixed::from_num(3) / Fixed::from_num(5),
-            Fixed::from_num(4) / Fixed::from_num(5),
+
+        // Verify normalization produces unit length (within fixed_sqrt precision)
+        // Length squared should be very close to 1
+        let len_sq = norm.dot(norm);
+        let one = Fixed::from_num(1);
+        // Allow tiny epsilon: 1/10000 in fixed-point (no floats!)
+        let epsilon = one / Fixed::from_num(10000);
+        assert!(
+            (len_sq - one).abs() < epsilon,
+            "normalized vector length² should be ~1, got {:?}",
+            len_sq
         );
-        assert_eq!(norm, expected);
+
+        // Verify direction is preserved (x/y ratio matches original 3/4)
+        // norm.x * 4 should equal norm.y * 3
+        let ratio_diff = (norm.x * Fixed::from_num(4)) - (norm.y * Fixed::from_num(3));
+        assert!(
+            ratio_diff.abs() < epsilon,
+            "direction not preserved: {:?}",
+            ratio_diff
+        );
     }
 }

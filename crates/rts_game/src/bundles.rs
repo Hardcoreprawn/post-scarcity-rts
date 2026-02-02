@@ -9,7 +9,8 @@ use rts_core::math::{Fixed, Vec2Fixed};
 use crate::components::{
     Armor, ArmorType, Building, BuildingType, Collider, CombatStats, DamageType, GameCommandQueue,
     GameDepot, GameFaction, GameHarvester, GameHealth, GamePosition, GameProductionQueue,
-    GameResourceNode, Regeneration, Selectable, Stationary, UnderConstruction, UnitDataId,
+    GameResourceNode, GameUnitKind, Regeneration, Selectable, Stationary, UnderConstruction,
+    UnitDataId,
 };
 
 /// Returns the faction color for rendering.
@@ -46,8 +47,10 @@ pub struct UnitBundle {
     pub combat: CombatStats,
     /// Armor for damage reduction.
     pub armor: Armor,
-    /// The unit type ID from RON data.
+    /// The unit type ID from RON data (deprecated, use unit_kind).
     pub unit_data_id: UnitDataId,
+    /// The unified unit identity (id + cached role flags).
+    pub unit_kind: GameUnitKind,
 }
 
 impl UnitBundle {
@@ -77,18 +80,23 @@ impl UnitBundle {
             combat: CombatStats::new(15, DamageType::Kinetic, 50.0, 1.0),
             armor: Armor::new(ArmorType::Light),
             unit_data_id: UnitDataId::new("unknown"),
+            unit_kind: GameUnitKind::default(),
         }
     }
 
     /// Creates a unit bundle from RON `UnitData`.
     ///
     /// Uses the data-driven stats from faction configuration files.
+    /// The `unit_kind_id` should be looked up from `BevyUnitKindRegistry` before calling.
     #[must_use]
     pub fn from_data(
         position: Vec2,
         faction: FactionId,
         unit_data: &rts_core::data::UnitData,
+        unit_kind_id: rts_core::unit_kind::UnitKindId,
     ) -> Self {
+        use rts_core::unit_kind::UnitRole;
+
         // Convert combat stats from RON data
         let (damage, range, cooldown, armor_value) = if let Some(combat) = &unit_data.combat {
             (
@@ -123,6 +131,9 @@ impl UnitBundle {
             Vec2::new(28.0, 28.0) // Slightly smaller square for infantry
         };
 
+        // Compute role flags from tags
+        let role = UnitRole::from_tags(&unit_data.tags, unit_data.tier, unit_data.combat.is_some());
+
         Self {
             sprite: SpriteBundle {
                 sprite: Sprite {
@@ -144,6 +155,7 @@ impl UnitBundle {
             combat: CombatStats::new(damage, DamageType::Kinetic, range, cooldown),
             armor: Armor::new_with_value(armor_type, armor_value),
             unit_data_id: UnitDataId::new(&unit_data.id),
+            unit_kind: GameUnitKind::new(unit_kind_id, role),
         }
     }
 }
