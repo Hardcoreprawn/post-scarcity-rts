@@ -14,8 +14,8 @@ use rts_core::math::Fixed;
 use rts_core::simulation::{EntitySpawnParams, Simulation, TickEvents, TICK_RATE};
 
 use crate::components::{
-    Armor, ArmorType, CombatStats, CoreEntityId, DamageType, GameDepot, GameFaction, GameHealth,
-    GamePosition, Stationary,
+    Armor, ArmorType, AttackTarget, CombatStats, CoreEntityId, DamageType, GameDepot, GameFaction,
+    GameHealth, GamePosition, Stationary,
 };
 
 /// Systems that emit commands into the core simulation.
@@ -164,6 +164,14 @@ impl Plugin for SimulationPlugin {
             Update,
             sync_health_from_core.in_set(CoreSimulationSet::SyncOut),
         );
+        app.add_systems(
+            Update,
+            sync_attack_targets_to_core.in_set(CoreSimulationSet::SyncIn),
+        );
+        app.add_systems(
+            Update,
+            clear_removed_attack_targets.in_set(CoreSimulationSet::SyncIn),
+        );
     }
 }
 
@@ -303,6 +311,41 @@ fn sync_health_from_core(
                 health.current = core_health.current;
                 health.max = core_health.max;
             }
+        }
+    }
+}
+
+/// Sync Bevy AttackTarget components to the core simulation.
+///
+/// This ensures that when Bevy assigns a target (via acquire_attack_targets in combat.rs),
+/// the core simulation knows about it and can apply damage.
+fn sync_attack_targets_to_core(
+    mut core: ResMut<CoreSimulation>,
+    attackers: Query<(&CoreEntityId, &AttackTarget), Changed<AttackTarget>>,
+    targets: Query<&CoreEntityId>,
+) {
+    for (attacker_core_id, attack_target) in attackers.iter() {
+        // Look up the target's core entity ID
+        if let Ok(target_core_id) = targets.get(attack_target.target) {
+            if let Err(e) = core
+                .sim
+                .set_attack_target(attacker_core_id.0, target_core_id.0)
+            {
+                tracing::debug!("Failed to sync attack target to core: {}", e);
+            }
+        }
+    }
+}
+
+/// Clear attack targets in core when Bevy AttackTarget component is removed.
+fn clear_removed_attack_targets(
+    mut core: ResMut<CoreSimulation>,
+    mut removed: RemovedComponents<AttackTarget>,
+    entities: Query<&CoreEntityId>,
+) {
+    for entity in removed.read() {
+        if let Ok(core_id) = entities.get(entity) {
+            let _ = core.sim.clear_attack_target(core_id.0);
         }
     }
 }

@@ -52,6 +52,7 @@ use crate::economy::Depot;
 use crate::error::{GameError, Result};
 use crate::factions::FactionId;
 use crate::math::{Fixed, Vec2Fixed};
+use crate::pathfinding::{find_path, NavGrid};
 use crate::systems::{
     calculate_damage, command_processing_system, health_system, movement_system, production_system,
     CombatEvent, DamageEvent, PositionLookup, ProductionComplete,
@@ -96,6 +97,8 @@ pub struct Entity {
     pub faction: Option<FactionMember>,
     /// Marker for depot buildings.
     pub depot: Option<Depot>,
+    /// Waypoints for path-following movement.
+    pub path_waypoints: Option<Vec<Vec2Fixed>>,
 }
 
 impl Entity {
@@ -116,6 +119,7 @@ impl Entity {
             projectile: None,
             faction: None,
             depot: None,
+            path_waypoints: None,
         }
     }
 }
@@ -267,6 +271,9 @@ pub struct Simulation {
     tick: u64,
     /// All entities in the simulation.
     entities: EntityStorage,
+    /// Navigation grid for pathfinding.
+    #[serde(skip)]
+    nav_grid: NavGrid,
 }
 
 impl Simulation {
@@ -284,10 +291,41 @@ impl Simulation {
     /// ```
     #[must_use]
     pub fn new() -> Self {
+        // Create a default nav grid (2000x2000 world units, 32 unit cells)
+        // All cells start as walkable; buildings will block cells when placed
+        let nav_grid = NavGrid::new(64, 64, Fixed::from_num(32));
         Self {
             tick: 0,
             entities: EntityStorage::new(),
+            nav_grid,
         }
+    }
+
+    /// Create a new simulation with a custom nav grid size.
+    ///
+    /// # Arguments
+    /// * `grid_width` - Width of nav grid in cells
+    /// * `grid_height` - Height of nav grid in cells  
+    /// * `cell_size` - Size of each cell in world units
+    #[must_use]
+    pub fn with_nav_grid(grid_width: u32, grid_height: u32, cell_size: Fixed) -> Self {
+        let nav_grid = NavGrid::new(grid_width, grid_height, cell_size);
+        Self {
+            tick: 0,
+            entities: EntityStorage::new(),
+            nav_grid,
+        }
+    }
+
+    /// Get a reference to the navigation grid.
+    #[must_use]
+    pub fn nav_grid(&self) -> &NavGrid {
+        &self.nav_grid
+    }
+
+    /// Get a mutable reference to the navigation grid.
+    pub fn nav_grid_mut(&mut self) -> &mut NavGrid {
+        &mut self.nav_grid
     }
 
     /// Get the current tick number.
@@ -412,8 +450,16 @@ impl Simulation {
                     let position = entity.position.as_ref().unwrap();
                     let velocity = entity.velocity.as_mut().unwrap();
                     let movement = entity.movement.as_ref().unwrap();
+                    let path_waypoints = &mut entity.path_waypoints;
 
-                    let mut single = vec![(id, command_queue, position, velocity, movement)];
+                    let mut single = vec![(
+                        id,
+                        command_queue,
+                        position,
+                        velocity,
+                        movement,
+                        path_waypoints,
+                    )];
                     command_processing_system(&mut single);
                 }
             }
@@ -943,6 +989,37 @@ impl Simulation {
     /// ))).unwrap();
     /// ```
     pub fn apply_command(&mut self, entity: EntityId, command: Command) -> Result<()> {
+        // For MoveTo commands, calculate path and store waypoints
+        if let Command::MoveTo(target) = &command {
+            if let Some(ent) = self.entities.get(entity) {
+                if let Some(pos) = &ent.position {
+                    // Try to find a path; if pathfinding fails, fall back to direct movement
+                    if let Ok(path) = find_path(&self.nav_grid, pos.value, *target) {
+                        // Store path (skip first waypoint if it's the start position)
+                        let waypoints: Vec<Vec2Fixed> = if path.len() > 1 {
+                            path.into_iter().skip(1).collect()
+                        } else {
+                            path
+                        };
+
+                        if let Some(ent_mut) = self.entities.get_mut(entity) {
+                            ent_mut.path_waypoints = Some(waypoints);
+                        }
+                    } else {
+                        // Clear waypoints if path fails - will move directly
+                        if let Some(ent_mut) = self.entities.get_mut(entity) {
+                            ent_mut.path_waypoints = None;
+                        }
+                    }
+                }
+            }
+        } else {
+            // For non-MoveTo commands, clear any existing path
+            if let Some(ent) = self.entities.get_mut(entity) {
+                ent.path_waypoints = None;
+            }
+        }
+
         let ent = self
             .entities
             .get_mut(entity)
@@ -995,6 +1072,26 @@ impl Simulation {
             .ok_or_else(|| GameError::InvalidState(format!("Entity {} cannot attack", entity)))?;
 
         attack_target.target = Some(target);
+        Ok(())
+    }
+
+    /// Clear an entity's attack target.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity doesn't exist or has no combat capability.
+    pub fn clear_attack_target(&mut self, entity: EntityId) -> Result<()> {
+        let ent = self
+            .entities
+            .get_mut(entity)
+            .ok_or(GameError::EntityNotFound(entity))?;
+
+        let attack_target = ent
+            .attack_target
+            .as_mut()
+            .ok_or_else(|| GameError::InvalidState(format!("Entity {} cannot attack", entity)))?;
+
+        attack_target.clear();
         Ok(())
     }
 

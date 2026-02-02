@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Last Updated:** January 29, 2026
-**Status:** Phase 3 (In Progress)
+**Last Updated:** February 2, 2026
+**Status:** Phase 2.8 (In Progress)
 
 ## Overview
 
@@ -132,6 +132,38 @@ Implement core RTS mechanics with minimal assets.
 
 ---
 
+## Phase 2.8: Critical Gameplay Fixes (Weeks 15-16) 📅 IN PROGRESS
+
+**Goal:** Fix game-breaking bugs discovered in playtesting. These block the Vertical Slice gate.
+
+### 2.8.1 Pathfinding Integration (Priority Critical)
+
+- [ ] Add `path_waypoints` field to core Entity for multi-step movement
+- [ ] Store NavGrid in Simulation; initialize from map data
+- [ ] Modify `Command::MoveTo` to call `find_path()` and store waypoints
+- [ ] Path-following: move toward first waypoint, pop on arrival
+- [ ] Integrate `mark_building_in_navgrid()` when buildings placed/destroyed
+- [ ] Unit tests for obstacle avoidance
+
+### 2.8.2 Combat Damage Sync (Priority Critical)
+
+- [ ] Add `sync_attack_targets_to_core` system (Bevy AttackTarget → core attack_target)
+- [ ] Verify damage flows: core combat → damage_events → health sync → death
+- [ ] Unit tests for damage application and death trigger
+
+### 2.8.3 Economy Flow Polish
+
+- [ ] Player harvester auto-return to last resource node after deposit
+- [ ] Visual feedback when harvester assigned to node (line or icon)
+
+**Exit Criteria:**
+
+- [ ] Units pathfind around obstacles (no terrain clipping)
+- [ ] Units die when health reaches 0
+- [ ] Harvesters complete full gather→deposit→return loops without manual intervention
+
+---
+
 ## Backlog Alignment (GitHub Issues)
 
 These issues are actively tracked and mapped to the roadmap phases for clarity and prioritization.
@@ -152,17 +184,26 @@ These issues are actively tracked and mapped to the roadmap phases for clarity a
 - [Issue #26](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/26) — Consolidate component definitions (core ↔ view mirroring) ✅
 - [Issue #30](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/30) — Decouple victory logic from view layer ✅
 
-### Phase 3.4 (Infrastructure Catch-up)
+### Phase 2.8 (Critical Gameplay Fixes) — NEW
+
+- **NEW** — Pathfinding integration (connect A* to movement system)
+- **NEW** — Combat damage sync (Bevy AttackTarget → core attack_target)
+- **NEW** — Harvester auto-return after deposit
+
+### Phase 3.0 (Testing Infrastructure) — NEW
 
 - [Issue #34](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/34) — Headless runner & fixed timestep for AI/CI
 - [Issue #7](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/7) — CI determinism validation
+- **NEW** — In-game debug console
+- **NEW** — Scenario system (RON format)
+- **NEW** — Replay save/load system
 
 ### Phase 3.1 (Data Wiring / Combat Depth)
 
 - [Issue #25](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/25) — Replace legacy `UnitType` with data-driven `UnitKindId`
 - [Issue #1](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/1) — Projectiles & splash damage (combat depth)
 
-### Quality & Process (Immediate)
+### Quality & Process (Ongoing)
 
 - [Issue #32](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/32) — Replace mock simulation tests with real engine tests
 - [Issue #33](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/33) — Enforce determinism testing standards in CONTRIBUTING
@@ -171,13 +212,13 @@ These issues are actively tracked and mapped to the roadmap phases for clarity a
 ### Hygiene / Maintenance
 
 - [Issue #27](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/27) — Stub/unused crates cleanup
-- [Issue #28](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/28) — Externalize AI parameters into config
 - [Issue #35](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/35) — Windows clippy incremental access warning
 - [Issue #3](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/3) — Component duplication audit (post-Phase 3)
 
-### Phase 4 (AI Depth)
+### Phase 4.2 (AI Architecture)
 
 - [Issue #9](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/9) — AI improvements beyond thresholds
+- [Issue #28](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/28) — Externalize AI parameters into config (expanded: multi-trigger AI)
 
 ### Phase 5 (Pathfinding Scale)
 
@@ -194,10 +235,48 @@ This is the hard ship gate for any external demo or publisher review.
 - [ ] Visual readability baseline met (health bars, selection, hit feedback)
 - [ ] Determinism checks in CI (hash divergence fails build)
 - [ ] One polished 2-player map with resource flow and expansions
+- [ ] **Phase 2.8 complete:** Pathfinding works, combat kills units, harvesters loop
+- [ ] **Testing infrastructure operational:** Debug console, replay, headless runner
 
 ---
 
-## Phase 3: The Vertical Slice (Weeks 16-22) 📅 PLANNED
+## Phase 3.0: Testing Infrastructure (Weeks 17-18) 📅 PLANNED
+
+**Goal:** Enable automated and assisted testing so bugs can be caught without manual playthroughs.
+
+### 3.0.1 In-Game Debug Console
+
+- [ ] Backtick toggle, egui window
+- [ ] Commands: `spawn`, `kill`, `teleport`, `god_mode`, `resources`, `speed`, `win`, `lose`
+- [ ] Gated behind `#[cfg(feature = "dev-tools")]`
+
+### 3.0.2 Scenario System
+
+- [ ] Define RON scenario format: entities, initial commands, win conditions
+- [ ] ScenarioLoader populates Simulation from file
+- [ ] At least 3 scenarios: empty, skirmish, stress-test
+
+### 3.0.3 Replay System
+
+- [ ] `save_replay(path)` serializes CommandStream + scenario ID
+- [ ] `load_replay(path)` recreates simulation and plays back commands
+- [ ] Replay viewer mode (read-only spectate)
+
+### 3.0.4 Headless Runner & CI Integration
+
+- [ ] Binary target: `rts_headless` that loads scenario, runs N ticks, reports state
+- [ ] Determinism CI: run replays twice, diff state hashes
+- [ ] Performance CI: track tick time regression
+
+**Exit Criteria:**
+
+- [ ] Debug console works in dev builds
+- [ ] `cargo run --bin rts_headless -- scenario.ron` completes without graphics
+- [ ] CI blocks on determinism divergence
+
+---
+
+## Phase 3: The Vertical Slice (Weeks 19-24) 📅 PLANNED
 
 **Goal:** A fully playable, polished single-player experience with **one faction** (Continuity Authority). This is our proof-of-concept for publishers/players.
 
@@ -223,14 +302,12 @@ This is the hard ship gate for any external demo or publisher review.
 
 - [ ] **Map:** One polished 2-player map with distinct terrain functionality.
 - [ ] **Faction:** Continuity Authority fully playable (Tier 1-3).
-- [ ] **AI:** "Standard" AI personality that uses the full tech tree.
+- [ ] **AI:** "Standard" AI personality that uses the full tech tree (see Phase 4.2 for architecture).
 - [ ] **Tutorial:** A 5-minute onboarding flow (text/triggers).
 
-### 3.4 Infrastructure Catch-up
+### 3.4 Performance & Pipeline
 
-- [ ] **Headless Simulation Runner:** Run games without graphics (critical for balance).
 - [ ] **Performance:** Benchmark suite (1k pathfinding, UI redraw).
-- [ ] **Determinism CI:** Fail builds if simulation diverges on replay.
 - [ ] **Asset Pipeline:** Hot-reloading watcher for textures/data ([Details](design/systems/ai-testing-and-toolchain.md)).
 
 **Exit Criteria:**
@@ -256,13 +333,31 @@ This is the hard ship gate for any external demo or publisher review.
 - [ ] Asset rollout for Batch A.
 - [ ] Balance pass: 3-way matchup.
 
-### 4.2 Faction Batch B: Sculptors & Zephyr Guild
+### 4.2 Advanced AI (Multi-Trigger Architecture)
+
+**Replaces legacy "60-second grace period" with proper AI decision-making.**
+
+**AI Trigger System:**
+
+- [ ] **Economic Trigger:** Attack when resource income exceeds player by 20%+ for 30s
+- [ ] **Scout Trigger:** Send initial scout; attack after discovering player base location
+- [ ] **Wave Trigger:** Periodic attack waves that scale with game time (first at 2min, then every 90s)
+- [ ] **Build-Order Trigger:** Configurable attack timings per AI personality
+- [ ] **Threat Response:** Defend when attacked; counterattack after repelling
+
+**AI Personality Profiles (config-driven):**
+
+- [ ] **Aggressor:** Scout early, attack frequently, favor military production
+- [ ] **Turtle:** Defend until tech advantage, heavy wave at 10min
+- [ ] **Adaptive:** Mix triggers based on what works (simple learning)
+
+### 4.3 Faction Batch B: Sculptors & Zephyr Guild
 
 - [ ] Implement unique mechanics (Regeneration / Flight).
 - [ ] Asset rollout for Batch B.
 - [ ] Balance pass: 5-way matchup.
 
-### 4.3 Automated Balance Tuning
+### 4.4 Automated Balance Tuning
 
 - [ ] Time-to-Kill (TTK) Matrix validation.
 - [ ] Regression testing using Headless Runner.

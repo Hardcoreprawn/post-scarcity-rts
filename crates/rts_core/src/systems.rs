@@ -45,7 +45,7 @@ pub fn movement_system(entities: &mut [(EntityId, &mut Position, &Velocity)]) {
 /// the command is popped from the queue.
 ///
 /// # Arguments
-/// * `entities` - Slice of entities with their command queues, positions, velocities, and movement stats
+/// * `entities` - Slice of entities with their command queues, positions, velocities, movement stats, and path waypoints
 pub fn command_processing_system(
     entities: &mut [(
         EntityId,
@@ -53,25 +53,57 @@ pub fn command_processing_system(
         &Position,
         &mut Velocity,
         &Movement,
+        &mut Option<Vec<Vec2Fixed>>,
     )],
 ) {
     // Threshold for considering arrival at destination (squared distance)
     let arrival_threshold_sq = Fixed::from_num(1);
 
-    for (_entity_id, command_queue, position, velocity, movement) in entities.iter_mut() {
+    for (_entity_id, command_queue, position, velocity, movement, path_waypoints) in
+        entities.iter_mut()
+    {
         match command_queue.current() {
             Some(Command::MoveTo(target)) => {
-                let target = *target;
-                let diff = target - position.value;
-                let dist_sq = position.value.distance_squared(target);
+                // If we have waypoints, follow them; otherwise go directly to target
+                let next_target = if let Some(waypoints) = path_waypoints.as_mut() {
+                    if let Some(first) = waypoints.first() {
+                        *first
+                    } else {
+                        // No waypoints left, go to final target
+                        *target
+                    }
+                } else {
+                    *target
+                };
 
-                // Check if we've arrived
+                let diff = next_target - position.value;
+                let dist_sq = position.value.distance_squared(next_target);
+
+                // Check if we've arrived at current waypoint/target
                 if dist_sq <= arrival_threshold_sq {
+                    // Check if we have more waypoints
+                    if let Some(waypoints) = path_waypoints.as_mut() {
+                        if !waypoints.is_empty() {
+                            // Remove first waypoint, continue to next
+                            waypoints.remove(0);
+                            if waypoints.is_empty() {
+                                // No more waypoints, check if at final target
+                                let final_dist_sq = position.value.distance_squared(*target);
+                                if final_dist_sq <= arrival_threshold_sq {
+                                    velocity.value = Vec2Fixed::ZERO;
+                                    command_queue.pop();
+                                    **path_waypoints = None;
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                    // Arrived at final destination
                     velocity.value = Vec2Fixed::ZERO;
                     command_queue.pop();
+                    **path_waypoints = None;
                 } else {
                     // Calculate direction and set velocity
-                    // Using fast inverse sqrt approximation via fixed-point
                     let direction = normalize_vec2(diff);
                     velocity.value =
                         Vec2Fixed::new(direction.x * movement.speed, direction.y * movement.speed);
@@ -79,14 +111,17 @@ pub fn command_processing_system(
             }
             Some(Command::Stop) => {
                 velocity.value = Vec2Fixed::ZERO;
+                **path_waypoints = None;
                 command_queue.pop();
             }
             Some(Command::HoldPosition) => {
                 velocity.value = Vec2Fixed::ZERO;
+                **path_waypoints = None;
                 // HoldPosition stays active (don't pop)
             }
             Some(Command::AttackMove(target)) => {
                 // Move toward position (attack logic handled by combat system)
+                // TODO: Implement pathfinding for AttackMove
                 let target = *target;
                 let diff = target - position.value;
                 let dist_sq = position.value.distance_squared(target);
