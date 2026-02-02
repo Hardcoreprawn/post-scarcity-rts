@@ -15,7 +15,7 @@ use rts_core::simulation::{EntitySpawnParams, Simulation, TickEvents, TICK_RATE}
 
 use crate::components::{
     Armor, ArmorType, AttackTarget, CombatStats, CoreEntityId, DamageType, GameDepot, GameFaction,
-    GameHealth, GamePosition, Stationary,
+    GameHealth, GamePosition, MovementTarget, Stationary,
 };
 
 /// Systems that emit commands into the core simulation.
@@ -171,6 +171,12 @@ impl Plugin for SimulationPlugin {
         app.add_systems(
             Update,
             clear_removed_attack_targets.in_set(CoreSimulationSet::SyncIn),
+        );
+        app.add_systems(
+            Update,
+            sync_movement_targets_to_core
+                .in_set(CoreSimulationSet::SyncIn)
+                .before(apply_command_buffer),
         );
     }
 }
@@ -347,6 +353,19 @@ fn clear_removed_attack_targets(
         if let Ok(core_id) = entities.get(entity) {
             let _ = core.sim.clear_attack_target(core_id.0);
         }
+    }
+}
+
+/// Sync Bevy MovementTarget components to core simulation MoveTo commands.
+///
+/// This ensures that when Bevy systems (like harvester AI) set a MovementTarget,
+/// the core simulation receives a MoveTo command to actually move the entity.
+fn sync_movement_targets_to_core(
+    mut core_commands: ResMut<CoreCommandBuffer>,
+    targets: Query<(&CoreEntityId, &MovementTarget), Changed<MovementTarget>>,
+) {
+    for (core_id, movement_target) in targets.iter() {
+        core_commands.set(core_id.0, CoreCommand::MoveTo(movement_target.target));
     }
 }
 
