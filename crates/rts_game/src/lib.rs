@@ -34,6 +34,10 @@ pub mod sprites;
 pub mod ui;
 pub mod victory;
 
+// Development tools (only compiled with dev-tools feature)
+#[cfg(feature = "dev-tools")]
+pub mod debug_console;
+
 use components::UnderConstruction;
 pub use data_loader::{BevyUnitKindRegistry, FactionDataPlugin, FactionRegistry};
 pub use plugins::HeadlessGamePlugins;
@@ -74,7 +78,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "dev-tools")]
     {
         // Add development tools
-        tracing::info!("Development tools enabled");
+        app.add_plugins(debug_console::DebugConsolePlugin);
+        tracing::info!("Development tools enabled - Press ` to open debug console");
     }
 
     app.run();
