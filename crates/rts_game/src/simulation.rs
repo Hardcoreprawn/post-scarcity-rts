@@ -11,11 +11,12 @@ use rts_core::components::{
     DamageType as CoreDamageType, EntityId, FactionMember,
 };
 use rts_core::math::Fixed;
+use rts_core::pathfinding::CellType;
 use rts_core::simulation::{EntitySpawnParams, Simulation, TickEvents, TICK_RATE};
 
 use crate::components::{
-    Armor, ArmorType, AttackTarget, CombatStats, CoreEntityId, DamageType, GameDepot, GameFaction,
-    GameHealth, GamePosition, MovementTarget, Stationary,
+    Armor, ArmorType, AttackTarget, Building, CombatStats, CoreEntityId, DamageType, GameDepot,
+    GameFaction, GameHealth, GamePosition, MovementTarget, Stationary,
 };
 
 /// Systems that emit commands into the core simulation.
@@ -136,6 +137,7 @@ impl Plugin for SimulationPlugin {
         app.init_resource::<CoreSimulation>()
             .init_resource::<CoreCommandBuffer>()
             .init_resource::<CommandStream>()
+            .init_resource::<BuildingFootprints>()
             .configure_sets(
                 Update,
                 (
@@ -178,6 +180,12 @@ impl Plugin for SimulationPlugin {
                 .in_set(CoreSimulationSet::SyncIn)
                 .before(apply_command_buffer),
         );
+        // Building NavGrid integration
+        app.add_systems(
+            PreUpdate,
+            sync_building_to_navgrid.after(sync_spawned_entities),
+        );
+        app.add_systems(PreUpdate, clear_building_from_navgrid_on_despawn);
     }
 }
 
@@ -366,6 +374,102 @@ fn sync_movement_targets_to_core(
 ) {
     for (core_id, movement_target) in targets.iter() {
         core_commands.set(core_id.0, CoreCommand::MoveTo(movement_target.target));
+    }
+}
+
+/// Marker component indicating this building has been synced to the NavGrid.
+#[derive(Component)]
+struct NavGridSynced;
+
+/// Resource to track building footprints for cleanup on despawn.
+#[derive(Resource, Default)]
+pub struct BuildingFootprints {
+    /// Map from entity to (position, (cells_x, cells_y))
+    footprints: HashMap<Entity, (rts_core::math::Vec2Fixed, (u32, u32))>,
+}
+
+/// Sync newly spawned buildings to the NavGrid by marking their cells as blocked.
+fn sync_building_to_navgrid(
+    mut commands: Commands,
+    mut core: ResMut<CoreSimulation>,
+    mut footprints: ResMut<BuildingFootprints>,
+    buildings: Query<(Entity, &GamePosition, &Building), (Added<Building>, Without<NavGridSynced>)>,
+) {
+    for (entity, position, building) in buildings.iter() {
+        let (width, height) = building.building_type.size();
+        let nav_grid = core.sim.nav_grid_mut();
+        let cell_size: f32 = nav_grid.cell_size().to_num();
+
+        // Calculate how many cells this building covers
+        let cells_x = ((width / cell_size).ceil() as u32).max(1);
+        let cells_y = ((height / cell_size).ceil() as u32).max(1);
+
+        // Get the grid cell for the building position (center-aligned)
+        if let Some((center_x, center_y)) = nav_grid.world_to_grid(position.value) {
+            // Calculate the top-left cell of the building footprint
+            let half_x = cells_x / 2;
+            let half_y = cells_y / 2;
+            let start_x = center_x.saturating_sub(half_x);
+            let start_y = center_y.saturating_sub(half_y);
+
+            // Mark all cells covered by the building as blocked
+            for dy in 0..cells_y {
+                for dx in 0..cells_x {
+                    nav_grid.set_cell(start_x + dx, start_y + dy, CellType::Blocked);
+                }
+            }
+
+            tracing::debug!(
+                "Synced building {:?} at {:?} to NavGrid: {}x{} cells starting at ({}, {})",
+                building.building_type,
+                position.value,
+                cells_x,
+                cells_y,
+                start_x,
+                start_y
+            );
+        }
+
+        // Track footprint for cleanup on despawn
+        footprints
+            .footprints
+            .insert(entity, (position.value, (cells_x, cells_y)));
+
+        // Mark as synced so we don't process it again
+        commands.entity(entity).insert(NavGridSynced);
+    }
+}
+
+/// Clear building cells from NavGrid when buildings are despawned.
+fn clear_building_from_navgrid_on_despawn(
+    mut core: ResMut<CoreSimulation>,
+    mut removed: RemovedComponents<Building>,
+    mut footprints: ResMut<BuildingFootprints>,
+) {
+    for entity in removed.read() {
+        if let Some((position, (cells_x, cells_y))) = footprints.footprints.remove(&entity) {
+            let nav_grid = core.sim.nav_grid_mut();
+
+            if let Some((center_x, center_y)) = nav_grid.world_to_grid(position) {
+                let half_x = cells_x / 2;
+                let half_y = cells_y / 2;
+                let start_x = center_x.saturating_sub(half_x);
+                let start_y = center_y.saturating_sub(half_y);
+
+                for dy in 0..cells_y {
+                    for dx in 0..cells_x {
+                        nav_grid.set_cell(start_x + dx, start_y + dy, CellType::Walkable);
+                    }
+                }
+
+                tracing::debug!(
+                    "Cleared building at {:?} from NavGrid: {}x{} cells",
+                    position,
+                    cells_x,
+                    cells_y
+                );
+            }
+        }
     }
 }
 
