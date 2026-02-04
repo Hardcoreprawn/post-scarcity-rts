@@ -105,6 +105,53 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --all-features
 
+  determinism:
+    name: Determinism Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev libxkbcommon-dev
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build headless runner
+        run: cargo build --release -p rts_headless
+
+      - name: Run determinism validation (batch 1)
+        run: |
+          ./target/release/rts_headless batch --games 10 --seed 12345 --output run1.json
+
+      - name: Run determinism validation (batch 2)
+        run: |
+          ./target/release/rts_headless batch --games 10 --seed 12345 --output run2.json
+
+      - name: Compare hashes
+        run: |
+          HASH1=$(jq -r '.games | map(.final_hash) | sort | join(",")' run1.json)
+          HASH2=$(jq -r '.games | map(.final_hash) | sort | join(",")' run2.json)
+          if [ "$HASH1" != "$HASH2" ]; then
+            echo "❌ DETERMINISM FAILURE: Hashes differ between runs"
+            echo "Run 1: $HASH1"
+            echo "Run 2: $HASH2"
+            exit 1
+          fi
+          echo "✅ Determinism check passed: all hashes match"
+
   security:
     name: Security Audit
     if: github.event_name != 'pull_request'
