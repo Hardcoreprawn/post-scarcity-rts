@@ -27,6 +27,10 @@ Thumbs.db
 /replays/
 /logs/
 
+# Simulation test outputs (generated, not tracked)
+/results/
+check_output.txt
+
 # Asset generation
 *.generated.*
 
