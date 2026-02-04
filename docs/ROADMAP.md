@@ -75,7 +75,7 @@ To avoid random phase switching, we will **follow the roadmap** unless it is exp
   - New resistance: `calculate_resistance_damage()` in combat.rs + `ExtendedDamageType`
   - **Action:** Complete migration to resistance system (Phase 3.2), then remove old flat armor code
 
-- [ ] **Remove duplicate `calculate_resistance_based_damage()`** at `systems.rs` line 822 — duplicates `combat.rs` line 296
+- [x] **Remove duplicate `calculate_resistance_based_damage()`** — removed unused wrapper function and `ResistanceCombatStats` struct from systems.rs (dead code)
 
 ### Minor Cleanup
 
@@ -93,7 +93,7 @@ cargo clippy --workspace -- -W clippy::all
 
 - [x] `src/` directory deleted
 - [x] Single `ProductionQueue` definition in `rts_core`
-- [ ] No duplicate damage calculation functions
+- [x] No duplicate damage calculation functions
 - [ ] All tests passing
 
 ---
