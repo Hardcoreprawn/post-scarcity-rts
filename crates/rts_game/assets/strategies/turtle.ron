@@ -1,0 +1,31 @@
+// Turtle Strategy
+// Defensive play with turrets and slow expansion
+Strategy(
+    name: "Turtle",
+    description: "Defensive play - build turrets and wait for opponent to attack",
+    build_order: [
+        Unit("harvester"),
+        Building("barracks"),
+        Building("turret"),
+        Unit("infantry"),
+        Building("turret"),
+        Unit("harvester"),
+        Building("supply_depot"),
+        Building("turret"),
+        WaitForResources(1500),
+        Building("tech_lab"),
+    ],
+    attack_timing: 24000,  // 400 seconds at 60 tps
+    attack_interval: 9000, // 150 seconds between attacks
+    composition: {
+        "infantry": 0.4,
+        "ranger": 0.4,
+        "harvester": 0.2,
+    },
+    economy: EconomyTargets(
+        target_harvesters: 3,
+        target_supply_depots: 1,
+        expand_at_resources: 3000,
+    ),
+    aggression: 0.1,
+)
