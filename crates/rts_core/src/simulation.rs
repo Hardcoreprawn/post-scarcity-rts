@@ -45,8 +45,8 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{
-    ArmorType, AttackTarget, CombatStats, Command, CommandQueue, EntityId, FactionMember, Health,
-    Movement, PatrolState, Position, Projectile, Velocity,
+    AttackTarget, CombatStats, Command, CommandQueue, EntityId, FactionMember, Health, Movement,
+    PatrolState, Position, Projectile, Velocity,
 };
 use crate::economy::Depot;
 use crate::error::{GameError, Result};
@@ -57,9 +57,35 @@ use crate::production::{
     production_system, Building as ProductionBuilding, ProductionEvent, ProductionQueue,
 };
 use crate::systems::{
-    calculate_damage, command_processing_system, health_system, movement_system, CombatEvent,
-    DamageEvent, PositionLookup,
+    command_processing_system, health_system, movement_system, CombatEvent, DamageEvent,
+    PositionLookup,
 };
+
+/// Serde support for Option<Fixed>.
+mod option_fixed_serde {
+    use crate::math::Fixed;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Serialize an optional fixed-point number.
+    pub fn serialize<S>(value: &Option<Fixed>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(v) => v.to_bits().serialize(serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    /// Deserialize an optional fixed-point number.
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Fixed>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt = Option::<i64>::deserialize(deserializer)?;
+        Ok(opt.map(Fixed::from_bits))
+    }
+}
 
 /// Ticks per second for the simulation.
 pub const TICK_RATE: u32 = 20;
@@ -104,6 +130,9 @@ pub struct Entity {
     pub depot: Option<Depot>,
     /// Waypoints for path-following movement.
     pub path_waypoints: Option<Vec<Vec2Fixed>>,
+    /// Vision range for visibility calculations. If None, uses 2× attack range.
+    #[serde(default, with = "option_fixed_serde")]
+    pub vision_range: Option<Fixed>,
 }
 
 impl Entity {
@@ -126,6 +155,7 @@ impl Entity {
             faction: None,
             depot: None,
             path_waypoints: None,
+            vision_range: None,
         }
     }
 }
@@ -152,6 +182,8 @@ pub struct EntitySpawnParams {
     pub faction: Option<FactionMember>,
     /// Whether this entity is a depot.
     pub is_depot: bool,
+    /// Vision range for visibility calculations.
+    pub vision_range: Option<Fixed>,
 }
 
 /// Storage for all entities in the simulation.
@@ -695,17 +727,16 @@ impl Simulation {
                             combat_stats.cooldown_remaining = combat_stats.attack_cooldown;
                         } else if let Some(target_entity) = self.entities.get_mut(target_id) {
                             if let Some(ref mut health) = target_entity.health.as_mut() {
-                                // Get target's armor, defaulting to unarmored for buildings
-                                let (armor_type, armor_value) = target_entity
+                                // Use resistance-based damage calculation
+                                let weapon_stats = combat_stats.to_weapon_stats();
+                                let target_stats = target_entity
                                     .combat_stats
-                                    .map(|s| (s.armor_type, s.armor_value))
-                                    .unwrap_or((ArmorType::Unarmored, 0));
+                                    .map(|s| s.to_resistance_stats())
+                                    .unwrap_or_default();
 
-                                let damage = calculate_damage(
-                                    combat_stats.damage,
-                                    combat_stats.damage_type,
-                                    armor_type,
-                                    armor_value,
+                                let damage = crate::combat::calculate_resistance_damage(
+                                    &weapon_stats,
+                                    &target_stats,
                                 );
                                 health.apply_damage(damage);
 
@@ -957,6 +988,8 @@ impl Simulation {
         if params.is_depot {
             entity.depot = Some(Depot);
         }
+
+        entity.vision_range = params.vision_range;
 
         self.entities.insert(entity)
     }

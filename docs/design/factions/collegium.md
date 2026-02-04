@@ -83,8 +83,12 @@ The Collegium wins through expansion, adaptation, and numerical superiority. The
 #### Scout Drone
 
 - Fastest unit in game
-- Cloaked when stationary
-- No weapons
+- Cloaked when stationary (breaks when moving)
+- No weapons — pure vision platform
+- **Sight range: 16** (vs typical 8-10 for combat units)
+- Cheap (25) and expendable — losing scouts is expected
+
+**Strategic Role:** Scout Drones are not harassers or fighters. They exist to provide vision for long-range fire support. Keep them alive, keep them hidden, and your Hover Tanks and Beam Arrays can snipe from safety.
 
 #### Constructor Bot
 
@@ -117,8 +121,11 @@ The Collegium wins through expansion, adaptation, and numerical superiority. The
 #### Hover Tank
 
 - Hover propulsion ignores terrain penalties
-- Long-range energy weapons
+- Long-range energy weapons (**attack range: 14, sight range: 8**)
 - Glass cannon — high damage, low survivability
+- **Needs spotters to reach max range** — pair with Scout Drones
+
+**Sniper Doctrine:** Hover Tanks are the Collegium's long-range killers, but they can only see 8 units and shoot 14. Without Scout Drones providing vision, they're expensive short-range fighters. With scouts, they delete targets before the enemy can respond.
 
 ### Tier 3 — Knowledge Ascendant
 

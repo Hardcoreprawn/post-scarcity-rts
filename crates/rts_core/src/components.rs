@@ -7,6 +7,7 @@ use std::collections::VecDeque;
 
 use serde::{Deserialize, Serialize};
 
+use crate::combat::{ArmorClass, ExtendedDamageType, ResistanceStats, WeaponSize, WeaponStats};
 use crate::factions::FactionId;
 use crate::math::{fixed_serde, Fixed, Vec2Fixed};
 
@@ -459,15 +460,26 @@ pub struct Owned {
 }
 
 /// Combat stats component.
+///
+/// This component uses the resistance-based damage system:
+/// - `resistance` is a percentage (0-75%) damage reduction
+/// - `armor_penetration` ignores a percentage of target resistance
+/// - `weapon_size` affects tracking modifiers vs different armor classes
+/// - `armor_class` determines base resistance ranges and damage type effectiveness
+///
+/// Legacy `armor_type` and `armor_value` fields are deprecated. Use `armor_class`
+/// and `resistance` instead. The legacy fields will be converted automatically.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CombatStats {
     /// Base attack damage.
     pub damage: u32,
-    /// Type of damage this unit deals.
+    /// Type of damage this unit deals (use extended damage type internally).
     pub damage_type: DamageType,
-    /// Type of armor this unit has.
+    /// Type of armor this unit has (legacy - use armor_class instead).
+    #[deprecated(note = "Use armor_class and resistance instead")]
     pub armor_type: ArmorType,
-    /// Flat armor reduction (applied after multipliers).
+    /// Flat armor reduction (legacy - use resistance instead).
+    #[deprecated(note = "Use resistance instead")]
     pub armor_value: u32,
     /// Attack range in world units.
     #[serde(with = "fixed_serde")]
@@ -479,11 +491,24 @@ pub struct CombatStats {
     /// Projectile speed (0 = instant/hitscan).
     #[serde(with = "fixed_serde")]
     pub projectile_speed: Fixed,
+    /// Armor class for resistance-based damage (new system).
+    #[serde(default)]
+    pub armor_class: ArmorClass,
+    /// Resistance percentage (0-75) for damage reduction.
+    #[serde(default)]
+    pub resistance: u8,
+    /// Armor penetration percentage (0-100) ignores target resistance.
+    #[serde(default)]
+    pub armor_penetration: u8,
+    /// Weapon size class affects tracking vs different armor classes.
+    #[serde(default)]
+    pub weapon_size: WeaponSize,
 }
 
 impl CombatStats {
     /// Create new combat stats with default types.
     #[must_use]
+    #[allow(deprecated)]
     pub fn new(damage: u32, range: Fixed, attack_cooldown: u32) -> Self {
         Self {
             damage,
@@ -494,6 +519,10 @@ impl CombatStats {
             attack_cooldown,
             cooldown_remaining: 0,
             projectile_speed: Fixed::ZERO,
+            armor_class: ArmorClass::Light,
+            resistance: 0,
+            armor_penetration: 0,
+            weapon_size: WeaponSize::Medium,
         }
     }
 
@@ -504,8 +533,10 @@ impl CombatStats {
         self
     }
 
-    /// Builder method to set armor type and value.
+    /// Builder method to set armor type and value (legacy - prefer with_resistance).
     #[must_use]
+    #[deprecated(note = "Use with_resistance instead")]
+    #[allow(deprecated)]
     pub const fn with_armor(mut self, armor_type: ArmorType, armor_value: u32) -> Self {
         self.armor_type = armor_type;
         self.armor_value = armor_value;
@@ -516,6 +547,35 @@ impl CombatStats {
     #[must_use]
     pub fn with_projectile_speed(mut self, speed: Fixed) -> Self {
         self.projectile_speed = speed;
+        self
+    }
+
+    /// Builder method to set armor class and resistance (new system).
+    #[must_use]
+    pub const fn with_resistance(mut self, armor_class: ArmorClass, resistance: u8) -> Self {
+        self.armor_class = armor_class;
+        self.resistance = if resistance > 75 { 75 } else { resistance };
+        self
+    }
+
+    /// Builder method to set armor penetration.
+    #[must_use]
+    pub const fn with_armor_penetration(mut self, penetration: u8) -> Self {
+        self.armor_penetration = if penetration > 100 { 100 } else { penetration };
+        self
+    }
+
+    /// Builder method to set weapon size.
+    #[must_use]
+    pub const fn with_weapon_size(mut self, size: WeaponSize) -> Self {
+        self.weapon_size = size;
+        self
+    }
+
+    /// Builder method to set armor class.
+    #[must_use]
+    pub const fn with_armor_class(mut self, armor_class: ArmorClass) -> Self {
+        self.armor_class = armor_class;
         self
     }
 
@@ -542,9 +602,39 @@ impl CombatStats {
             self.cooldown_remaining -= 1;
         }
     }
+
+    /// Convert to WeaponStats for resistance-based damage calculation.
+    #[must_use]
+    pub fn to_weapon_stats(&self) -> WeaponStats {
+        WeaponStats::new(
+            self.damage,
+            ExtendedDamageType::from_damage_type(self.damage_type),
+        )
+        .with_size(self.weapon_size)
+        .with_penetration(self.armor_penetration)
+    }
+
+    /// Convert to ResistanceStats for resistance-based damage calculation.
+    ///
+    /// If resistance is 0 and legacy armor_value is set, automatically converts
+    /// using the flat armor to resistance formula.
+    #[must_use]
+    #[allow(deprecated)]
+    pub fn to_resistance_stats(&self) -> ResistanceStats {
+        let effective_resistance = if self.resistance > 0 {
+            self.resistance
+        } else if self.armor_value > 0 {
+            // Convert legacy flat armor to resistance
+            crate::combat::convert_flat_armor_to_resistance(self.armor_value, self.armor_class)
+        } else {
+            0
+        };
+        ResistanceStats::new(self.armor_class, effective_resistance)
+    }
 }
 
 impl Default for CombatStats {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             damage: 10,
@@ -555,6 +645,10 @@ impl Default for CombatStats {
             attack_cooldown: 30,
             cooldown_remaining: 0,
             projectile_speed: Fixed::ZERO,
+            armor_class: ArmorClass::Light,
+            resistance: 0,
+            armor_penetration: 0,
+            weapon_size: WeaponSize::Medium,
         }
     }
 }

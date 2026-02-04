@@ -6,9 +6,10 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use rts_core::combat::ArmorClass;
 use rts_core::components::{
-    ArmorType as CoreArmorType, CombatStats as CoreCombatStats, Command as CoreCommand,
-    DamageType as CoreDamageType, EntityId, FactionMember,
+    CombatStats as CoreCombatStats, Command as CoreCommand, DamageType as CoreDamageType, EntityId,
+    FactionMember,
 };
 use rts_core::math::Fixed;
 use rts_core::pathfinding::CellType;
@@ -232,7 +233,8 @@ fn sync_spawned_entities(
             };
 
             if let Some(armor) = armor {
-                stats = stats.with_armor(map_armor_type(armor.armor_type), armor.value);
+                stats = stats
+                    .with_resistance(map_armor_type_to_class(armor.armor_type), armor.value as u8);
             }
 
             core_combat = Some(stats);
@@ -481,12 +483,13 @@ fn map_damage_type(damage_type: DamageType) -> CoreDamageType {
     }
 }
 
-fn map_armor_type(armor_type: ArmorType) -> CoreArmorType {
+/// Map client armor type to core armor class for resistance-based damage.
+fn map_armor_type_to_class(armor_type: ArmorType) -> ArmorClass {
     match armor_type {
-        ArmorType::Unarmored => CoreArmorType::Unarmored,
-        ArmorType::Light => CoreArmorType::Light,
-        ArmorType::Heavy => CoreArmorType::Heavy,
-        ArmorType::Structure => CoreArmorType::Building,
+        ArmorType::Unarmored => ArmorClass::Light,
+        ArmorType::Light => ArmorClass::Light,
+        ArmorType::Heavy => ArmorClass::Heavy,
+        ArmorType::Structure => ArmorClass::Building,
     }
 }
 

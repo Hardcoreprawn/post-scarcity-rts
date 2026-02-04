@@ -35,6 +35,7 @@ pub mod factions;
 pub mod map_generation;
 pub mod math;
 pub mod pathfinding;
+pub mod player_facade;
 pub mod production;
 pub mod replay;
 pub mod simulation;

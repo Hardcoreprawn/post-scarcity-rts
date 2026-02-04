@@ -164,11 +164,25 @@ DPS = (Base Damage) / (Attack Cooldown)
 | Long | 9-12 |
 | Artillery | 13+ |
 
-### Line of Sight
+### Line of Sight & Vision
 
-- Units need vision to attack
-- Some units have indirect fire (can attack without direct LoS)
+- Units need vision to attack (either their own or shared vision from allies)
+- **Sight range ≠ attack range** — this is critical for faction design
+- Some units have indirect fire (can attack targets visible to allies)
 - Fog of war blocks targeting
+
+**Scout/Artillery Dynamic:**
+
+| Unit Type | Sight Range | Attack Range | Design Intent |
+| --------- | ----------- | ------------ | ------------- |
+| Scout | 14-18 | 0-2 | Provides vision, doesn't fight |
+| Infantry | 8-10 | 5-7 | Self-sufficient |
+| Sniper | 6-8 | 12-14 | Needs spotters for max range |
+| Artillery | 4-6 | 16-20 | Totally dependent on spotters |
+
+This creates meaningful combined arms: killing enemy scouts blinds their artillery.
+
+*See [Vision & Intelligence System](./vision-and-intel.md) for full details.*
 
 ---
 
@@ -511,4 +525,5 @@ This allows time for micro while keeping battles dynamic.
 - [Main GDD](../gdd.md)
 - [Economy System](./economy.md)
 - [Tech Trees](./tech-trees.md)
+- [Vision & Intelligence](./vision-and-intel.md)
 - [Faction Documents](../factions/)

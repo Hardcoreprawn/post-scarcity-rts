@@ -70,10 +70,13 @@ To avoid random phase switching, we will **follow the roadmap** unless it is exp
   - Entity now has `building: Option<ProductionBuilding>` for production state
   - `TickEvents` now uses `Vec<ProductionEvent>` instead of `Vec<ProductionComplete>`
 
-- [ ] **Consolidate damage calculation** — three systems coexist:
-  - Old flat armor: `calculate_damage()` in systems.rs + `DamageType::effectiveness_vs()` in components.rs
-  - New resistance: `calculate_resistance_damage()` in combat.rs + `ExtendedDamageType`
-  - **Action:** Complete migration to resistance system (Phase 3.2), then remove old flat armor code
+- [x] **Consolidate damage calculation** — migration to resistance system in progress:
+  - ✅ Core formula implemented: `calculate_resistance_damage()` in combat.rs
+  - ✅ Schema updated: `CombatStats` now has `resistance`, `armor_penetration`, `armor_class`, `weapon_size`
+  - ✅ Combat/projectile systems updated to use resistance damage
+  - [ ] Update `data_loader.rs` to parse new fields
+  - [ ] Migrate faction RON data (convert armor → resistance)
+  - [ ] Remove deprecated `armor_type`, `armor_value` fields
 
 - [x] **Remove duplicate `calculate_resistance_based_damage()`** — removed unused wrapper function and `ResistanceCombatStats` struct from systems.rs (dead code)
 
@@ -291,7 +294,12 @@ This is the hard ship gate for any external demo or publisher review.
 - [x] Visual readability baseline met (health bars, selection, hit feedback)
 - [x] Determinism checks operational (hash comparison working, CI integration pending)
 - [ ] One polished 2-player map with resource flow and expansions
-- [ ] **Phase 2.8 complete:** Pathfinding works, combat kills units, harvesters loop
+- [x] **Phase 2.8 complete:** Pathfinding works, combat kills units, harvesters loop
+
+**Architecture Requirements:**
+
+- [ ] **Unified Player Interface:** PlayerFacade implemented, AI uses same APIs as player
+- [ ] **Fair AI Testing:** AI cannot see or target non-visible enemies
 
 **Development Tooling:**
 
@@ -408,6 +416,57 @@ Build the tools needed for rapid iteration on gameplay and visuals.
 - [ ] Side-by-side comparison (original vs modified)
 - [ ] Quick balance presets (+10% HP, -10% cost, etc.)
 
+### 3.1.5 Unified Player Interface (PlayerFacade)
+
+**Why:** Currently, headless AI and GUI player use different code paths to interact with the simulation. AI has global vision (cheating), and attack targeting bypasses the Command system in some places. This breaks the principle that AI should be a fair, representative opponent.
+
+**Architecture Goal:** Both human players and AI use identical interfaces — same commands, same visibility, same information access. The only difference is who makes the decisions.
+
+#### 3.1.5.1 PlayerFacade Trait (rts_core)
+
+- [ ] Create `player_facade.rs` module in `rts_core`
+- [ ] Define `PlayerFacade` trait:
+  - `issue_command(unit: EntityId, cmd: Command)` — single unit control
+  - `issue_commands(units: &[EntityId], cmd: Command)` — group control
+  - `get_visible_entities(faction: FactionId) -> Vec<EntityId>` — only what player can see
+  - `get_own_entities(faction: FactionId) -> Vec<EntityId>` — player's units/buildings
+  - `query_unit_info(id: EntityId) -> Option<UnitInfo>` — basic info (if visible)
+  - `get_resources(faction: FactionId) -> PlayerResources` — economy state
+- [ ] Export in `rts_core::prelude`
+
+#### 3.1.5.2 Core Visibility System
+
+- [ ] Add `vision_range: Option<Fixed>` to `Entity` struct
+- [ ] Add `vision_range: Option<Fixed>` to `UnitData` struct
+- [ ] Add `is_visible_to(viewer_faction, target_id) -> bool` method to `Simulation`
+- [ ] Add `get_visible_enemies(faction) -> Vec<(EntityId, Position)>` helper
+- [ ] Default vision range = 2× attack range when not specified
+
+#### 3.1.5.3 Unify Attack Targeting
+
+- [ ] Remove or make `set_attack_target()` private (`pub(crate)`)
+- [ ] Update GUI `acquire_attack_targets()` to issue `Command::Attack` via command buffer
+- [ ] Update `auto_attack_system` to respect visibility
+- [ ] Remove direct `set_attack_target()` calls in sync systems
+
+#### 3.1.5.4 Implement Facades for Both Frontends
+
+- [ ] Create `SimulationPlayerFacade` struct (wraps `&mut Simulation` + `FactionId`)
+- [ ] Update `game_runner.rs` headless batch:
+  - Replace `sim.entities().sorted_ids()` with `facade.get_visible_enemies()`
+  - Replace `sim.apply_command()` with `facade.issue_command()`
+- [ ] Update `ai.rs` GUI AI:
+  - Filter enemy queries through visibility
+  - Route commands through `CoreCommandBuffer`
+
+**Exit Criteria:**
+
+- [ ] `PlayerFacade` trait defined and implemented
+- [ ] AI cannot target units outside vision range
+- [ ] All unit commands flow through `Command` enum (no direct state mutation)
+- [ ] Headless batch runner uses same interface as GUI AI
+- [ ] Unit tests verify AI cannot "cheat"
+
 ### 3.2 Combat System Migration (Resistance-Based)
 
 Migrate from flat armor subtraction to percentage-based damage reduction. See [combat.md](design/systems/combat.md) for full design.
@@ -502,8 +561,9 @@ Define the 8-tier structure for both factions.
 - [ ] **Data Wiring:** Connect FactionData RON files to actual Unit/Building spawning.
 - [x] **Headless Integration:** Faction RON loads in `rts_headless` for balance testing.
 - [ ] **No Hardcoded Spawns:** All scenario/unit spawns are driven by data definitions.
-- [ ] **Fog of War (Prototype):** Basic explored/unexplored/visible states.
-- [ ] **Line of Sight:** Units cannot shoot what they cannot see.
+- [ ] **Visibility System:** Core visibility via `is_visible_to()` (see Phase 3.1.5)
+- [ ] **Fog of War (Full):** Explored/unexplored terrain states (depends on 3.1.5)
+- [ ] **Line of Sight:** Units cannot shoot what they cannot see (depends on 3.1.5)
 
 ### 3.5 Procedural Map Generation
 
@@ -740,3 +800,79 @@ Identified fundamental balance issue with flat armor creating non-linear "cliffs
 - **Counter-play:** Armor penetration stat, size class modifiers, damage types
 - **Document Updated:** [combat.md](design/systems/combat.md) revised with full design
 - **Migration Added:** Phase 3.2 in roadmap tracks implementation steps
+
+### Unified Player Interface Architecture (February 4, 2026)
+
+Identified architectural divergence between headless AI and GUI player:
+
+**Problems Found:**
+
+- AI has global vision (iterates ALL entities, no visibility check)
+- Attack targeting uses `set_attack_target()` directly, bypassing `Command::Attack`
+- Headless batch runner and GUI use different code paths
+
+### Solution: PlayerFacade Architecture
+
+- Create `PlayerFacade` trait defining "what can a player do"
+- Add `is_visible_to()` visibility check to core `Simulation`
+- Add `vision_range` to units (defaults to 2× attack range)
+- Route ALL targeting through `Command::Attack`
+- Both AI and human use identical interface — only decision-making differs
+
+**Benefits:**
+
+- Fair AI opponents (same information as player)
+- Representative testing (AI behavior matches player capabilities)
+- Fast batch testing (direct facade calls, no Bevy overhead)
+- Multiplayer-ready (same visibility for all clients)
+
+**Files to create/modify:**
+
+- ✅ NEW: `crates/rts_core/src/player_facade.rs` — Created with PlayerFacade trait, SimulationPlayerFacade impl, 6 tests
+- ✅ MOD: `crates/rts_core/src/simulation.rs` — Added `vision_range` to Entity, `is_visible_to()`, `get_visible_enemies_for()`, `get_faction_entities()`
+- ✅ MOD: `crates/rts_core/src/lib.rs` — Registered player_facade module
+- ✅ MOD: `crates/rts_core/src/components.rs` — Added `with_armor_class()` builder
+- MOD: `crates/rts_core/src/data/unit_data.rs` (add vision_range parsing)
+- MOD: `crates/rts_headless/src/game_runner.rs` (use facade)
+- MOD: `crates/rts_game/src/ai.rs` (filter through visibility)
+- MOD: `crates/rts_game/src/combat.rs` (route auto-attack through commands)
+
+### Vision & Intelligence System Design (February 4, 2026)
+
+Created comprehensive vision system design to enable genuine faction asymmetry:
+
+**Core Design Principles:**
+
+- **Sight range ≠ attack range** — Artillery can't see what it's shooting
+- **Scout/spotter synergy** — Scouts provide vision, artillery provides firepower
+- **Faction identity through vision** — Each faction finds intel differently
+
+**Key Mechanics:**
+
+| Unit Type | Sight Range | Attack Range | Role |
+| --------- | ----------- | ------------ | ---- |
+| Scout | 14-18 | 0-2 | Vision platform, expendable |
+| Infantry | 8-10 | 5-7 | Self-sufficient |
+| Sniper | 6-8 | 12-14 | Needs spotters |
+| Artillery | 4-6 | 16-20 | Totally blind without spotters |
+
+**Faction Vision Doctrines:**
+
+- **Continuity Authority:** Panopticon — sensor network, Watcher drones (tethered)
+- **Collegium:** Distributed Awareness — fast cheap scouts, network bonuses, sniper doctrine
+- **Tinkers' Union:** Sensor Improvisation — placeable beacons, armed scouts, smoke
+- **Sculptors:** Organic Senses — bonding to enemies, bio-sensors, spore vision
+- **Zephyr Guild:** Air Superiority — altitude advantage, massive range from air scouts
+
+**Collegium Sniper Doctrine (Example):**
+
+1. Scout Drones maintain vision (cloaked, expendable, sight 16)
+2. Hover Tanks fire from max range (attack 14, sight 8)
+3. Shield Drones protect the snipers
+4. Enemy must kill invisible scouts OR close distance under fire
+
+**Documents Created/Updated:**
+
+- NEW: [Vision & Intelligence System](design/systems/vision-and-intel.md)
+- MOD: [Combat System](design/systems/combat.md) — Added vision integration section
+- MOD: [Collegium Faction](design/factions/collegium.md) — Expanded Scout Drone and Hover Tank with explicit sniper doctrine

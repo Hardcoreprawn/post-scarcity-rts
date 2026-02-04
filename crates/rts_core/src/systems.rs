@@ -6,6 +6,7 @@
 //! All systems are pure functions that operate on component data.
 //! They use fixed-point math for deterministic simulation.
 
+use crate::combat::calculate_resistance_damage;
 use crate::components::{
     ArmorType, AttackTarget, CombatStats, Command, CommandQueue, DamageType, EntityId, Health,
     Movement, Position, Projectile, Velocity,
@@ -418,14 +419,11 @@ pub fn combat_system(
             });
             combat_stats.reset_cooldown();
         } else {
-            // Hitscan weapon - apply damage immediately
+            // Hitscan weapon - apply damage immediately using resistance-based system
             let base_damage = combat_stats.damage;
-            let final_damage = calculate_damage(
-                base_damage,
-                combat_stats.damage_type,
-                target_combat.armor_type,
-                target_combat.armor_value,
-            );
+            let weapon_stats = combat_stats.to_weapon_stats();
+            let target_stats = target_combat.to_resistance_stats();
+            let final_damage = calculate_resistance_damage(&weapon_stats, &target_stats);
 
             target_health.apply_damage(final_damage);
 
@@ -517,12 +515,14 @@ pub fn projectile_system(
                 .iter_mut()
                 .find(|(id, _, _)| *id == projectile.target)
             {
-                let final_damage = calculate_damage(
+                // Create weapon stats from projectile data using resistance-based system
+                use crate::combat::{ExtendedDamageType, WeaponStats};
+                let weapon_stats = WeaponStats::new(
                     projectile.damage,
-                    projectile.damage_type,
-                    target_combat.armor_type,
-                    target_combat.armor_value,
+                    ExtendedDamageType::from_damage_type(projectile.damage_type),
                 );
+                let target_stats = target_combat.to_resistance_stats();
+                let final_damage = calculate_resistance_damage(&weapon_stats, &target_stats);
 
                 target_health.apply_damage(final_damage);
 
@@ -882,11 +882,15 @@ mod tests {
         let target_pos = Position::new(Vec2Fixed::new(Fixed::from_num(3), Fixed::from_num(0)));
 
         let mut attack_target = AttackTarget::with_target(2);
-        let mut attacker_stats =
-            CombatStats::new(100, Fixed::from_num(10), 30).with_damage_type(DamageType::Explosive);
+        // Use the new resistance-based system: Explosive damage with Heavy weapon (bonus vs buildings)
+        let mut attacker_stats = CombatStats::new(100, Fixed::from_num(10), 30)
+            .with_damage_type(DamageType::Explosive)
+            .with_weapon_size(crate::combat::WeaponSize::Heavy);
 
         let mut target_health = Health::new(200);
-        let target_stats = CombatStats::default().with_armor(ArmorType::Building, 0);
+        // Use new armor_class field instead of legacy armor_type
+        let target_stats =
+            CombatStats::default().with_armor_class(crate::combat::ArmorClass::Building);
 
         let positions = [(2u64, target_pos)];
         let position_lookup = PositionLookup::new(&positions);
@@ -897,9 +901,10 @@ mod tests {
         let (damage_events, combat_events) =
             combat_system(&mut attackers, &mut targets, &position_lookup);
 
-        // Explosive vs Building = 150%
+        // New resistance-based system: Explosive vs Building = 150%, Heavy weapon vs Building = 150%
+        // 100 * 1.5 * 1.5 = 225 damage
         assert_eq!(damage_events.len(), 1);
-        assert_eq!(damage_events[0].damage, 150);
+        assert_eq!(damage_events[0].damage, 225);
 
         // Should have AttackStarted and DamageDealt events
         assert!(combat_events
@@ -908,7 +913,7 @@ mod tests {
         assert!(combat_events.iter().any(|e| matches!(
             e,
             CombatEvent::DamageDealt {
-                final_damage: 150,
+                final_damage: 225,
                 ..
             }
         )));
@@ -1023,15 +1028,17 @@ mod tests {
 
     #[test]
     fn test_combat_stats_builder() {
+        use crate::combat::{ArmorClass, WeaponSize};
         let stats = CombatStats::new(50, Fixed::from_num(8), 20)
             .with_damage_type(DamageType::Energy)
-            .with_armor(ArmorType::Heavy, 15)
+            .with_resistance(ArmorClass::Heavy, 45)
+            .with_weapon_size(WeaponSize::Medium)
             .with_projectile_speed(Fixed::from_num(2));
 
         assert_eq!(stats.damage, 50);
         assert_eq!(stats.damage_type, DamageType::Energy);
-        assert_eq!(stats.armor_type, ArmorType::Heavy);
-        assert_eq!(stats.armor_value, 15);
+        assert_eq!(stats.armor_class, ArmorClass::Heavy);
+        assert_eq!(stats.resistance, 45);
         assert_eq!(stats.range, Fixed::from_num(8));
         assert_eq!(stats.attack_cooldown, 20);
         assert_eq!(stats.projectile_speed, Fixed::from_num(2));
