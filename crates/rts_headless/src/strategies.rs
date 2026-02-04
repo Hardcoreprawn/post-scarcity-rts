@@ -550,9 +550,11 @@ mod tests {
 
     #[test]
     fn test_executor_should_attack() {
-        let mut strategy = Strategy::default();
-        strategy.attack_timing = 100;
-        strategy.attack_interval = 50;
+        let strategy = Strategy {
+            attack_timing: 100,
+            attack_interval: 50,
+            ..Default::default()
+        };
 
         let mut executor = StrategyExecutor::new(strategy);
 

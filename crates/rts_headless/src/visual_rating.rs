@@ -715,7 +715,7 @@ impl BatchVisualScore {
         let mut priorities = Vec::new();
 
         let dims = &self.average_dimensions;
-        let mut dim_scores = vec![
+        let mut dim_scores = [
             ("Unit Clarity", dims.unit_clarity),
             ("Faction Distinction", dims.faction_distinction),
             ("Battle Readability", dims.battle_readability),
@@ -749,7 +749,7 @@ pub fn analyze_screenshots_in_dir(path: &Path) -> std::io::Result<BatchVisualSco
                 let entry = entry?;
                 collect_screenshots(&entry.path(), screenshots)?;
             }
-        } else if path.extension().map_or(false, |e| e == "json") {
+        } else if path.extension().is_some_and(|e| e == "json") {
             if let Ok(state) = ScreenshotState::load(path) {
                 screenshots.push(state);
             }

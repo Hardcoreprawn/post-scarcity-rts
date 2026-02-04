@@ -197,8 +197,7 @@ impl VisualState {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let json = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
         fs::write(path, json)
     }
 }
@@ -250,15 +249,14 @@ impl ScreenshotManifest {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let json = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
         fs::write(path, json)
     }
 
     /// Load manifest from JSON file
     pub fn load(path: &Path) -> std::io::Result<Self> {
         let json = fs::read_to_string(path)?;
-        serde_json::from_str(&json).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        serde_json::from_str(&json).map_err(std::io::Error::other)
     }
 }
 
@@ -325,8 +323,7 @@ pub struct ScreenshotManager {
 impl ScreenshotManager {
     /// Create a new screenshot manager.
     pub fn new(config: ScreenshotConfig) -> Self {
-        let manifest =
-            ScreenshotManifest::new(&config.game_id, &config.output_dir, config.mode.clone());
+        let manifest = ScreenshotManifest::new(&config.game_id, &config.output_dir, config.mode);
         Self {
             config,
             manifest,

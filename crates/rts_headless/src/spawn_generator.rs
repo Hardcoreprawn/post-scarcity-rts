@@ -67,6 +67,7 @@ impl SpawnRng {
     }
 
     /// Get next random value.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> u64 {
         self.state = self.state.wrapping_mul(0x5DEECE66D).wrapping_add(11);
         self.state
@@ -119,7 +120,7 @@ fn generate_corner_spawns(
     rng: &mut SpawnRng,
     config: &SpawnConfig,
 ) -> Vec<(i32, i32)> {
-    let corners = vec![
+    let corners = [
         (padding, padding),                 // Top-left
         (map_w - padding, padding),         // Top-right
         (padding, map_h - padding),         // Bottom-left
@@ -279,7 +280,7 @@ fn generate_cross_spawns(
     rng: &mut SpawnRng,
     config: &SpawnConfig,
 ) -> Vec<(i32, i32)> {
-    let cross_points = vec![
+    let cross_points = [
         (map_w / 2, padding),         // Top
         (map_w - padding, map_h / 2), // Right
         (map_w / 2, map_h - padding), // Bottom

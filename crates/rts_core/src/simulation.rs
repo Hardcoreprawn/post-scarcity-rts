@@ -46,16 +46,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::components::{
     ArmorType, AttackTarget, CombatStats, Command, CommandQueue, EntityId, FactionMember, Health,
-    Movement, PatrolState, Position, ProductionQueue, Projectile, Velocity,
+    Movement, PatrolState, Position, Projectile, Velocity,
 };
 use crate::economy::Depot;
 use crate::error::{GameError, Result};
 use crate::factions::FactionId;
 use crate::math::{Fixed, Vec2Fixed};
 use crate::pathfinding::{find_path, NavGrid};
+use crate::production::{
+    production_system, Building as ProductionBuilding, ProductionEvent, ProductionQueue,
+};
 use crate::systems::{
-    calculate_damage, command_processing_system, health_system, movement_system, production_system,
-    CombatEvent, DamageEvent, PositionLookup, ProductionComplete,
+    calculate_damage, command_processing_system, health_system, movement_system, CombatEvent,
+    DamageEvent, PositionLookup,
 };
 
 /// Ticks per second for the simulation.
@@ -91,6 +94,8 @@ pub struct Entity {
     pub production_queue: Option<ProductionQueue>,
     /// Patrol state for units executing patrol commands.
     pub patrol_state: Option<PatrolState>,
+    /// Building component with construction state.
+    pub building: Option<ProductionBuilding>,
     /// Projectile data for projectile entities.
     pub projectile: Option<Projectile>,
     /// Faction membership for ownership.
@@ -116,6 +121,7 @@ impl Entity {
             combat_stats: None,
             production_queue: None,
             patrol_state: None,
+            building: None,
             projectile: None,
             faction: None,
             depot: None,
@@ -242,8 +248,8 @@ pub struct TickEvents {
     pub damage_events: Vec<DamageEvent>,
     /// Entities that died this tick.
     pub deaths: Vec<EntityId>,
-    /// Production completions.
-    pub production_complete: Vec<ProductionComplete>,
+    /// Production events this tick.
+    pub production_events: Vec<ProductionEvent>,
     /// Entities spawned this tick.
     pub spawned: Vec<EntityId>,
     /// Winning faction if the match ended.
@@ -399,7 +405,7 @@ impl Simulation {
         events.game_end = self.determine_winner();
 
         // 5. Production System
-        events.production_complete = self.run_production_system(&entity_ids);
+        events.production_events = self.run_production_system(&entity_ids);
 
         // Increment tick counter
         self.tick += 1;
@@ -833,23 +839,49 @@ impl Simulation {
         health_system(&health_data)
     }
 
-    /// Run the production system and return completed productions.
-    fn run_production_system(&mut self, entity_ids: &[EntityId]) -> Vec<ProductionComplete> {
-        let mut completions = Vec::new();
+    /// Run the production system and return production events.
+    fn run_production_system(&mut self, entity_ids: &[EntityId]) -> Vec<ProductionEvent> {
+        use crate::production::BlueprintRegistry;
+
+        // Collect buildings with production queues
+        let mut buildings_data: Vec<(EntityId, ProductionQueue, ProductionBuilding, Position)> =
+            Vec::new();
 
         for &id in entity_ids {
-            if let Some(entity) = self.entities.get_mut(id) {
-                if let (Some(position), Some(queue)) =
-                    (entity.position.as_ref(), entity.production_queue.as_mut())
-                {
-                    let mut single = vec![(id, position, queue)];
-                    let mut results = production_system(&mut single);
-                    completions.append(&mut results);
+            if let Some(entity) = self.entities.get(id) {
+                if let (Some(position), Some(queue), Some(building)) = (
+                    entity.position.as_ref(),
+                    entity.production_queue.as_ref(),
+                    entity.building.as_ref(),
+                ) {
+                    buildings_data.push((id, queue.clone(), building.clone(), *position));
                 }
             }
         }
 
-        completions
+        // Build mutable reference slice
+        let mut buildings_refs: Vec<(
+            EntityId,
+            &mut ProductionQueue,
+            &ProductionBuilding,
+            &Position,
+        )> = buildings_data
+            .iter_mut()
+            .map(|(id, q, b, p)| (*id, q, b as &ProductionBuilding, p as &Position))
+            .collect();
+
+        // Run the production system
+        let blueprints = BlueprintRegistry::new();
+        let events = production_system(&mut buildings_refs, &blueprints, self.tick);
+
+        // Write back updated queues
+        for (id, queue, _, _) in buildings_data {
+            if let Some(entity) = self.entities.get_mut(id) {
+                entity.production_queue = Some(queue);
+            }
+        }
+
+        events
     }
 
     /// Spawn a projectile entity at the given position.

@@ -241,7 +241,7 @@ pub fn render_ascii(state: &ScreenshotState, config: &AsciiConfig) -> String {
     ));
 
     // Top border
-    output.push_str("║");
+    output.push('║');
     for _ in 0..config.width {
         output.push('═');
     }
@@ -249,7 +249,7 @@ pub fn render_ascii(state: &ScreenshotState, config: &AsciiConfig) -> String {
 
     // Grid
     for row in &grid {
-        output.push_str("║");
+        output.push('║');
         for (ch, color) in row {
             if config.use_color && !color.is_empty() {
                 output.push_str(color);
@@ -263,7 +263,7 @@ pub fn render_ascii(state: &ScreenshotState, config: &AsciiConfig) -> String {
     }
 
     // Bottom border
-    output.push_str("║");
+    output.push('║');
     for _ in 0..config.width {
         output.push('═');
     }
@@ -318,7 +318,7 @@ pub fn render_ascii(state: &ScreenshotState, config: &AsciiConfig) -> String {
     }
 
     // Footer
-    output.push_str("╚");
+    output.push('╚');
     for _ in 0..config.width {
         output.push('═');
     }
@@ -414,7 +414,7 @@ pub fn visualize_game_folder(path: &Path, config: &AsciiConfig) -> std::io::Resu
         let entry = entry?;
         let file_path = entry.path();
 
-        if file_path.extension().map_or(false, |e| e == "json") {
+        if file_path.extension().is_some_and(|e| e == "json") {
             if let Ok(state) = ScreenshotState::load(&file_path) {
                 snapshots.push((state.tick, state));
             }

@@ -8,7 +8,7 @@
 
 use crate::components::{
     ArmorType, AttackTarget, CombatStats, Command, CommandQueue, DamageType, EntityId, Health,
-    Movement, Position, ProductionItem, ProductionQueue, Projectile, Velocity,
+    Movement, Position, Projectile, Velocity,
 };
 use crate::math::{Fixed, Vec2Fixed};
 
@@ -637,57 +637,6 @@ where
     targets_acquired
 }
 
-/// Result of production completion.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProductionComplete {
-    /// The building that completed production.
-    pub producer: EntityId,
-    /// The produced item details.
-    pub item: ProductionItem,
-    /// Position where the unit should spawn (producer position).
-    pub spawn_position: Position,
-    /// Rally point for the new unit (if set).
-    pub rally_point: Option<Vec2Fixed>,
-}
-
-/// Handles building production queues.
-///
-/// For each building with a production queue:
-/// 1. Advances production progress by one tick
-/// 2. If production is complete, removes the item from queue and returns it
-///
-/// # Arguments
-/// * `producers` - Buildings with production queues (mutable for progress updates)
-///
-/// # Returns
-/// Vector of completed production events with spawner entity and produced unit info
-pub fn production_system(
-    producers: &mut [(EntityId, &Position, &mut ProductionQueue)],
-) -> Vec<ProductionComplete> {
-    let mut completions = Vec::new();
-
-    for (producer_id, position, queue) in producers.iter_mut() {
-        if queue.is_empty() {
-            continue;
-        }
-
-        // Advance production
-        queue.tick();
-
-        // Check if complete
-        if let Some(completed_item) = queue.complete() {
-            completions.push(ProductionComplete {
-                producer: *producer_id,
-                item: completed_item,
-                spawn_position: **position,
-                rally_point: queue.rally_point,
-            });
-        }
-    }
-
-    completions
-}
-
 /// Normalizes a 2D vector using fixed-point math.
 ///
 /// Uses integer square root approximation to avoid floating-point
@@ -862,24 +811,6 @@ mod tests {
         assert!(dead_list.contains(&2u64));
         assert!(dead_list.contains(&3u64));
         assert!(!dead_list.contains(&1u64));
-    }
-
-    #[test]
-    fn test_production_system_completes_item() {
-        let pos = Position::new(Vec2Fixed::new(Fixed::from_num(50), Fixed::from_num(50)));
-        let mut queue = ProductionQueue::new();
-        queue.enqueue("infantry".to_string(), 3);
-
-        // Tick 1-2: still building
-        let mut producers = vec![(1u64, &pos, &mut queue)];
-        assert!(production_system(&mut producers).is_empty());
-        assert!(production_system(&mut producers).is_empty());
-
-        // Tick 3: complete
-        let completions = production_system(&mut producers);
-        assert_eq!(completions.len(), 1);
-        assert_eq!(completions[0].producer, 1u64);
-        assert_eq!(completions[0].item.unit_id, "infantry");
     }
 
     #[test]

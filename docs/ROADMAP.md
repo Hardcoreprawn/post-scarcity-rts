@@ -64,10 +64,11 @@ To avoid random phase switching, we will **follow the roadmap** unless it is exp
 
 ### Duplication — Consolidate
 
-- [ ] **Consolidate `ProductionQueue` in `rts_core`** — two incompatible versions exist:
-  - `crates/rts_core/src/components.rs` line 625 (older, string-based `unit_id`)
-  - `crates/rts_core/src/production.rs` line 254 (newer, `UnitTypeId`-based)
-  - **Action:** Remove components.rs version, use production.rs version only
+- [x] **Consolidate `ProductionQueue` in `rts_core`** — ~~two incompatible versions existed~~
+  - Removed `ProductionComplete` struct and `legacy_production_system()` from systems.rs
+  - Updated `simulation.rs` to use `production_system()` from production.rs
+  - Entity now has `building: Option<ProductionBuilding>` for production state
+  - `TickEvents` now uses `Vec<ProductionEvent>` instead of `Vec<ProductionComplete>`
 
 - [ ] **Consolidate damage calculation** — three systems coexist:
   - Old flat armor: `calculate_damage()` in systems.rs + `DamageType::effectiveness_vs()` in components.rs
@@ -90,8 +91,8 @@ cargo clippy --workspace -- -W clippy::all
 
 **Exit Criteria:**
 
-- [ ] `src/` directory deleted
-- [ ] Single `ProductionQueue` definition in `rts_core`
+- [x] `src/` directory deleted
+- [x] Single `ProductionQueue` definition in `rts_core`
 - [ ] No duplicate damage calculation functions
 - [ ] All tests passing
 
