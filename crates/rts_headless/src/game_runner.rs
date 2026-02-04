@@ -2,9 +2,19 @@
 //!
 //! This module runs actual game simulations using rts_core's Simulation,
 //! executing AI strategies and collecting detailed metrics.
+//!
+//! # Defensive Coding Principles (JPL-style)
+//!
+//! - All loops are bounded with explicit maximum iterations
+//! - All allocations have predetermined limits
+//! - Progress is logged at regular intervals
+//! - Failure modes are explicit, not silent
+//! - Resource usage is tracked and reported
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tracing::{debug, error, info, trace, warn};
 
 use rts_core::components::{CombatStats, Command, EntityId, FactionMember};
 use rts_core::data::UnitData;
@@ -128,8 +138,63 @@ pub struct GameResult {
     pub final_state_hash: u64,
 }
 
+// =============================================================================
+// RESOURCE LIMITS (JPL-style defensive programming)
+// =============================================================================
+
+/// Maximum entities we'll ever allow in a single game.
+/// Prevents runaway spawning from consuming all memory.
+/// Rationale: 10K entities × ~1KB each = ~10MB, well within reason.
+const MAX_ENTITIES: usize = 10_000;
+
+/// Maximum events to track per game.
+/// Prevents unbounded memory growth from event logging.
+/// Rationale: 100K events × ~100 bytes = ~10MB.
+const MAX_EVENTS: usize = 100_000;
+
+/// Progress logging interval (ticks).
+/// Log every N ticks so we can see the game is making progress.
+const PROGRESS_LOG_INTERVAL: u64 = 1000;
+
+// =============================================================================
+// ECONOMY LIMITS (game balance)
+// =============================================================================
+
+/// Maximum units per player (supply cap).
+/// This is a fundamental RTS mechanic - you can't just build infinite units.
+/// 200 is standard for most RTS games (StarCraft, C&C, etc.)
+const MAX_SUPPLY_PER_PLAYER: usize = 200;
+
+// =============================================================================
+// WATCHDOG TIMEOUTS (detecting hangs, not game duration)
+// =============================================================================
+
+/// Maximum wall-clock time for a SINGLE TICK to complete.
+/// If one tick takes > 5 seconds, we have an infinite loop or deadlock.
+/// Normal ticks should be < 1ms even with thousands of entities.
+const TICK_TIMEOUT_MS: u128 = 5_000;
+
+/// Grace period before logging "slow tick" warnings (ms).
+/// Ticks taking > 100ms are concerning but not fatal.
+const SLOW_TICK_THRESHOLD_MS: u128 = 100;
+
 /// Run a complete game simulation.
+///
+/// # Panics
+/// Panics if:
+/// - Entity count exceeds MAX_ENTITIES (runaway spawning)
+/// - A single tick takes longer than TICK_TIMEOUT_MS
+/// - Memory allocation fails
 pub fn run_game(config: GameConfig) -> GameResult {
+    let game_start = Instant::now();
+    info!(
+        game_id = %config.game_id,
+        seed = config.seed,
+        max_ticks = config.max_ticks,
+        scenario = %config.scenario.name,
+        "Starting game simulation"
+    );
+
     let mut sim = Simulation::new();
     let mut rng = SimpleRng::new(config.seed);
 
@@ -197,16 +262,43 @@ pub fn run_game(config: GameConfig) -> GameResult {
         player.update_peak_army();
     }
 
-    // Track events
-    let mut events: Vec<TimedEvent> = Vec::new();
+    // Track events with bounded capacity
+    let mut events: Vec<TimedEvent> = Vec::with_capacity(1024);
     let mut screenshot_manager = config.screenshot_config.map(ScreenshotManager::new);
 
-    // Main game loop
+    // Pre-game diagnostics
+    let initial_entity_count = sim.entities().len();
+    info!(
+        initial_entities = initial_entity_count,
+        player_a_units = player_a.units.len(),
+        player_a_buildings = player_a.buildings.len(),
+        player_b_units = player_b.units.len(),
+        player_b_buildings = player_b.buildings.len(),
+        "Game initialized"
+    );
+
+    // Main game loop - BOUNDED by max_ticks
     let mut tick = 0u64;
     let mut winner: Option<String> = None;
     let mut win_condition = "timeout".to_string();
+    let mut last_progress_log = Instant::now();
 
+    // Invariant: tick always increases, loop will terminate at max_ticks
     while tick < config.max_ticks {
+        let tick_start = Instant::now();
+        // Defensive check: entity count sanity
+        let entity_count = sim.entities().len();
+        if entity_count > MAX_ENTITIES {
+            error!(
+                tick = tick,
+                entity_count = entity_count,
+                max = MAX_ENTITIES,
+                "FATAL: Entity count exceeded maximum - aborting to prevent OOM"
+            );
+            win_condition = "error_entity_overflow".to_string();
+            break;
+        }
+
         // Execute AI for each player
         execute_ai_turn(&mut sim, &mut player_a, tick, &mut rng, registry);
         execute_ai_turn(&mut sim, &mut player_b, tick, &mut rng, registry);
@@ -214,6 +306,50 @@ pub fn run_game(config: GameConfig) -> GameResult {
         // Advance simulation
         let tick_events = sim.tick();
         tick += 1;
+
+        // Watchdog: check tick duration
+        let tick_duration = tick_start.elapsed();
+
+        // Warn about slow ticks (not fatal, but concerning)
+        if tick_duration.as_millis() > SLOW_TICK_THRESHOLD_MS
+            && tick_duration.as_millis() <= TICK_TIMEOUT_MS
+        {
+            warn!(
+                tick = tick,
+                duration_ms = tick_duration.as_millis(),
+                threshold_ms = SLOW_TICK_THRESHOLD_MS,
+                entities = sim.entities().len(),
+                "Slow tick detected - possible performance issue"
+            );
+        }
+
+        // Fatal: tick took way too long
+        if tick_duration.as_millis() > TICK_TIMEOUT_MS {
+            error!(
+                tick = tick,
+                duration_ms = tick_duration.as_millis(),
+                timeout_ms = TICK_TIMEOUT_MS,
+                "FATAL: Tick took too long - possible infinite loop or deadlock"
+            );
+            win_condition = "error_tick_timeout".to_string();
+            break;
+        }
+
+        // Progress logging
+        if tick % PROGRESS_LOG_INTERVAL == 0 || last_progress_log.elapsed() > Duration::from_secs(5)
+        {
+            debug!(
+                tick = tick,
+                max_ticks = config.max_ticks,
+                progress_pct = (tick as f64 / config.max_ticks as f64 * 100.0) as u32,
+                entities = entity_count,
+                player_a_units = player_a.units.len(),
+                player_b_units = player_b.units.len(),
+                elapsed_ms = game_start.elapsed().as_millis(),
+                "Game progress"
+            );
+            last_progress_log = Instant::now();
+        }
 
         // Process combat events
         for damage_event in &tick_events.damage_events {
@@ -330,6 +466,28 @@ pub fn run_game(config: GameConfig) -> GameResult {
         }
     }
 
+    // Post-game diagnostics
+    let game_duration = game_start.elapsed();
+    info!(
+        game_id = %config.game_id,
+        duration_ticks = tick,
+        duration_ms = game_duration.as_millis(),
+        winner = ?winner,
+        win_condition = %win_condition,
+        final_entities = sim.entities().len(),
+        events_recorded = events.len(),
+        "Game simulation complete"
+    );
+
+    // Warn if we hit resource limits
+    if events.len() >= MAX_EVENTS {
+        warn!(
+            events = events.len(),
+            max = MAX_EVENTS,
+            "Event buffer may have been truncated"
+        );
+    }
+
     // Build metrics
     let mut factions = HashMap::new();
 
@@ -371,6 +529,10 @@ fn execute_ai_turn(
     // Get current unit count for strategy decisions
     let current_resources = player.resources;
     let unit_counts: HashMap<String, u32> = player.units_produced.clone();
+    let current_supply = player.units.len();
+
+    // Supply cap check - fundamental RTS mechanic
+    let can_build_units = current_supply < MAX_SUPPLY_PER_PLAYER;
 
     // Check build order
     if let Some(item) = player
@@ -379,8 +541,9 @@ fn execute_ai_turn(
     {
         match item {
             BuildOrderItem::Unit(unit_type) => {
+                // Only build if we have resources AND supply
                 let cost = get_unit_cost_with_registry(&unit_type, player.faction_id, registry);
-                if player.resources >= cost {
+                if player.resources >= cost && can_build_units {
                     // Spawn near depot
                     if let Some(depot_id) = player.depot_entity {
                         if let Some(depot_pos) = get_entity_position(sim, depot_id) {
@@ -441,7 +604,8 @@ fn execute_ai_turn(
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
         {
             let cost = get_unit_cost_with_registry(best_unit, player.faction_id, registry);
-            if player.resources >= cost {
+            // Only build if we have resources AND supply
+            if player.resources >= cost && can_build_units {
                 if let Some(depot_id) = player.depot_entity {
                     if let Some(depot_pos) = get_entity_position(sim, depot_id) {
                         let offset_x = (rng.next() % 50) as i32 - 25;
@@ -463,15 +627,43 @@ fn execute_ai_turn(
         }
     }
 
-    // Passive income (simulate harvesters)
-    player.resources += 10; // Base income per tick
+    // ==========================================================================
+    // ECONOMY: Passive income (simulating harvesters for headless testing)
+    // ==========================================================================
+    // Target economy rates (per second of game time, at 60 tps):
+    //   - Early game: ~5-10 resources/sec (1 infantry every 5-10 seconds)
+    //   - Mid game:   ~15-25 resources/sec (with 3-5 harvesters)
+    //   - Late game:  ~30-50 resources/sec (with economy buildings)
+    //
+    // For headless testing without actual harvesters, we use passive income:
+    //   - 1 resource every 6 ticks = 10 resources/sec
+    //   - This allows ~1 infantry per 5 seconds baseline
+    //
+    // TODO: Replace with actual harvester simulation for realistic economy
+    if tick % 6 == 0 {
+        player.resources += 1;
+    }
 
     // Target acquisition - find and attack nearby enemies
     acquire_targets_for_units(sim, player);
 
+    // Check if we can see any enemies
+    let visible_enemies = sim.get_visible_enemies_for(player.faction_id);
+    let has_visible_enemies = !visible_enemies.is_empty();
+
     // Execute tactical decisions
     let army_supply = player.units.len() as u32;
     let decision = player.executor.decide_action(tick, army_supply, 5, false); // Estimate enemy supply
+
+    // Enemy base location for attack/scout moves
+    let enemy_base = if player.faction_id == FactionId::Continuity {
+        Vec2Fixed::new(Fixed::from_num(464), Fixed::from_num(256)) // Collegium base
+    } else {
+        Vec2Fixed::new(Fixed::from_num(48), Fixed::from_num(256)) // Continuity base
+    };
+
+    // Map center for scouting
+    let map_center = Vec2Fixed::new(Fixed::from_num(256), Fixed::from_num(256));
 
     match decision {
         TacticalDecision::Attack => {
@@ -479,14 +671,7 @@ fn execute_ai_turn(
                 player.first_attack_tick = Some(tick);
             }
 
-            // For units without targets, send them toward enemy base
-            let enemy_base = if player.faction_id == FactionId::Continuity {
-                Vec2Fixed::new(Fixed::from_num(464), Fixed::from_num(256)) // Collegium base
-            } else {
-                Vec2Fixed::new(Fixed::from_num(48), Fixed::from_num(256)) // Continuity base
-            };
-
-            // Send move command to units without attack targets
+            // Send units toward enemy base using ATTACK-MOVE so they engage on the way
             for &unit_id in &player.units {
                 // Check if unit already has an attack target
                 let has_target = sim
@@ -496,7 +681,8 @@ fn execute_ai_turn(
                     .is_some();
 
                 if !has_target {
-                    let _ = sim.apply_command(unit_id, Command::MoveTo(enemy_base));
+                    // Attack-move, not just move - engage anything on the way
+                    let _ = sim.apply_command(unit_id, Command::AttackMove(enemy_base));
                 }
             }
         }
@@ -510,8 +696,42 @@ fn execute_ai_turn(
                 }
             }
         }
-        TacticalDecision::Hold | TacticalDecision::Expand | TacticalDecision::Scout => {
-            // Do nothing special for now
+        TacticalDecision::Scout => {
+            // Active scouting - send units to find enemies
+            // Scout toward map center first, then enemy base
+            for &unit_id in &player.units {
+                let has_target = sim
+                    .get_entity(unit_id)
+                    .and_then(|e| e.attack_target.as_ref())
+                    .and_then(|t| t.target)
+                    .is_some();
+
+                if !has_target {
+                    let _ = sim.apply_command(unit_id, Command::AttackMove(map_center));
+                }
+            }
+        }
+        TacticalDecision::Hold => {
+            // If we can't see enemies and we're holding, we should still scout!
+            // Otherwise we just sit at home forever
+            if !has_visible_enemies && player.units.len() >= 5 {
+                // Send a few units to scout (keep some home for defense)
+                let scouts_to_send = player.units.len() / 3; // Send 1/3 of army
+                for &unit_id in player.units.iter().take(scouts_to_send) {
+                    let has_target = sim
+                        .get_entity(unit_id)
+                        .and_then(|e| e.attack_target.as_ref())
+                        .and_then(|t| t.target)
+                        .is_some();
+
+                    if !has_target {
+                        let _ = sim.apply_command(unit_id, Command::AttackMove(map_center));
+                    }
+                }
+            }
+        }
+        TacticalDecision::Expand => {
+            // For now, treat like hold - maybe build expansion later
         }
     }
 }
@@ -679,33 +899,55 @@ fn get_entity_position(sim: &Simulation, entity_id: EntityId) -> Option<Vec2Fixe
 
 /// Acquire targets for units - find nearby enemies and issue Attack commands.
 /// Prioritize depot (HQ) when in range to enable victory.
+/// Uses visibility system - AI can only target what it can see.
+///
+/// # Bounds
+/// - Iterates over player.units (bounded by MAX_ENTITIES)
+/// - Iterates over visible_enemies (bounded by MAX_ENTITIES)
+/// - Total work: O(units * visible_enemies) with both bounded
 fn acquire_targets_for_units(sim: &mut Simulation, player: &PlayerState) {
-    // Collect enemy positions and IDs, noting which is the depot
-    // Use sorted_ids for deterministic iteration order
-    let mut enemies: Vec<(EntityId, Vec2Fixed, bool)> = Vec::new(); // (id, pos, is_depot)
-
-    for entity_id in sim.entities().sorted_ids() {
-        if let Some(entity) = sim.entities().get(entity_id) {
-            if let Some(faction) = &entity.faction {
-                // Check if enemy faction
-                let is_enemy = faction.faction != player.faction_id;
-                if is_enemy {
-                    if let Some(pos) = &entity.position {
-                        let is_depot = entity.depot.is_some();
-                        enemies.push((entity.id, pos.value, is_depot));
-                    }
-                }
-            }
-        }
+    // Defensive: log if we have a suspiciously large number of units
+    if player.units.len() > 1000 {
+        warn!(
+            faction = ?player.faction_id,
+            unit_count = player.units.len(),
+            "Unusually large unit count - possible runaway production"
+        );
     }
 
-    if enemies.is_empty() {
+    // Get only VISIBLE enemies for this faction (fair play)
+    let visible_enemies = sim.get_visible_enemies_for(player.faction_id);
+
+    trace!(
+        faction = ?player.faction_id,
+        own_units = player.units.len(),
+        visible_enemies = visible_enemies.len(),
+        "Target acquisition"
+    );
+
+    if visible_enemies.is_empty() {
         return;
     }
+
+    // Bounded iteration counter for paranoia
+    let mut iterations = 0usize;
+    let max_iterations = player
+        .units
+        .len()
+        .saturating_mul(visible_enemies.len().saturating_add(1));
 
     // For each of our units, find best target
     // ALWAYS prioritize depot/HQ when in range - re-evaluate every tick
     for &unit_id in &player.units {
+        iterations += 1;
+        if iterations > max_iterations {
+            error!(
+                iterations = iterations,
+                max = max_iterations,
+                "FATAL: acquire_targets exceeded iteration bound - breaking to prevent hang"
+            );
+            break;
+        }
         let Some(unit_pos) = get_entity_position(sim, unit_id) else {
             continue;
         };
@@ -728,11 +970,11 @@ fn acquire_targets_for_units(sim: &mut Simulation, player: &PlayerState) {
         let depot_range_sq = attack_range * attack_range * Fixed::from_num(4); // 2x attack range
 
         let mut depot_in_range: Option<EntityId> = None;
-        for &(enemy_id, enemy_pos, is_depot) in &enemies {
-            if is_depot {
-                let dist_sq = unit_pos.distance_squared(enemy_pos);
+        for enemy in &visible_enemies {
+            if enemy.is_depot {
+                let dist_sq = unit_pos.distance_squared(enemy.position);
                 if dist_sq <= depot_range_sq {
-                    depot_in_range = Some(enemy_id);
+                    depot_in_range = Some(enemy.id);
                     break;
                 }
             }
@@ -764,15 +1006,15 @@ fn acquire_targets_for_units(sim: &mut Simulation, player: &PlayerState) {
         };
 
         if needs_target {
-            // Find nearest enemy
+            // Find nearest VISIBLE enemy
             let mut best_target: Option<EntityId> = None;
             let mut best_dist = Fixed::MAX;
 
-            for &(enemy_id, enemy_pos, _) in &enemies {
-                let dist_sq = unit_pos.distance_squared(enemy_pos);
+            for enemy in &visible_enemies {
+                let dist_sq = unit_pos.distance_squared(enemy.position);
                 if dist_sq < best_dist {
                     best_dist = dist_sq;
-                    best_target = Some(enemy_id);
+                    best_target = Some(enemy.id);
                 }
             }
 

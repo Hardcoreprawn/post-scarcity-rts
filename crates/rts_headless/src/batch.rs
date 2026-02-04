@@ -2,6 +2,11 @@
 //!
 //! Runs multiple games in parallel using rayon to collect balance
 //! metrics across many games efficiently.
+//!
+//! # Defensive Coding
+//!
+//! Each game run is wrapped in panic catching to prevent one bad game
+//! from killing the entire batch. Resource limits are enforced.
 
 use crate::faction_loader::FactionRegistry;
 use crate::game_runner::{run_game, GameConfig};
@@ -11,11 +16,24 @@ use crate::screenshot::{ScreenshotConfig, ScreenshotMode};
 use crate::strategies::Strategy;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::panic;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
+
+/// Default game duration for batch testing (in ticks).
+/// 10 minutes of game time = 36,000 ticks. At full speed, runs in ~1-3 seconds.
+pub const BATCH_DEFAULT_MAX_TICKS: u64 = 36_000;
+
+/// Default game duration for interactive/real-time mode (in ticks).
+/// 30 minutes of game time = 108,000 ticks. More realistic RTS match length.
+pub const REALTIME_DEFAULT_MAX_TICKS: u64 = 108_000;
+
+/// Long game duration for extended testing (in ticks).
+/// 60 minutes of game time = 216,000 ticks. For testing late-game scenarios.
+pub const EXTENDED_DEFAULT_MAX_TICKS: u64 = 216_000;
 
 /// Configuration for a batch run
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -320,9 +338,24 @@ pub fn run_batch(config: BatchConfig) -> BatchResults {
     let progress = BatchProgress::new(config.game_count);
     let progress_arc = Arc::new(progress);
 
+    // Pre-batch diagnostics
     info!(
-        "Starting batch run: {} games of '{}'",
-        config.game_count, config.scenario
+        game_count = config.game_count,
+        scenario = %config.scenario,
+        parallel = config.parallel_games,
+        max_ticks = config.max_ticks,
+        seed_start = config.seed_start,
+        "Starting batch run"
+    );
+
+    // Report system resources
+    let num_cpus = std::thread::available_parallelism()
+        .map(|p| p.get())
+        .unwrap_or(1);
+    info!(
+        available_cpus = num_cpus,
+        parallel_requested = config.parallel_games,
+        "System resources"
     );
 
     // Load faction data if path is provided
@@ -357,14 +390,32 @@ pub fn run_batch(config: BatchConfig) -> BatchResults {
             .ok(); // Ignore if already set
     }
 
+    info!("Beginning parallel game execution...");
+
     let results: Vec<Result<GameMetrics, BatchError>> = (0..config.game_count)
         .into_par_iter()
         .map(|i| {
             let seed = config.seed_start.wrapping_add(i as u64);
             let registry_clone = faction_registry.clone();
+            let game_start = Instant::now();
 
-            match run_single_game(&config.scenario, seed, &config, registry_clone) {
-                Ok(metrics) => {
+            debug!(game_index = i, seed = seed, "Starting game");
+
+            // Wrap in panic catch to prevent one bad game from killing batch
+            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                run_single_game(&config.scenario, seed, &config, registry_clone)
+            }));
+
+            let game_duration = game_start.elapsed();
+
+            match result {
+                Ok(Ok(metrics)) => {
+                    debug!(
+                        game_index = i,
+                        duration_ms = game_duration.as_millis(),
+                        winner = ?metrics.winner,
+                        "Game completed"
+                    );
                     progress_arc.record_completion(metrics.winner.as_deref());
 
                     let completed = progress_arc.current();
@@ -377,12 +428,32 @@ pub fn run_batch(config: BatchConfig) -> BatchResults {
 
                     Ok(metrics)
                 }
-                Err(e) => {
-                    warn!("Game {} failed: {}", i, e);
+                Ok(Err(e)) => {
+                    warn!(game_index = i, seed = seed, error = %e, "Game failed");
                     Err(BatchError {
                         game_index: i,
                         seed,
                         message: e,
+                    })
+                }
+                Err(panic_info) => {
+                    let msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "Unknown panic".to_string()
+                    };
+                    error!(
+                        game_index = i,
+                        seed = seed,
+                        panic_msg = %msg,
+                        "Game PANICKED - catching to continue batch"
+                    );
+                    Err(BatchError {
+                        game_index: i,
+                        seed,
+                        message: format!("PANIC: {}", msg),
                     })
                 }
             }
@@ -396,12 +467,31 @@ pub fn run_batch(config: BatchConfig) -> BatchResults {
     let summary = BatchSummary::from_games(&games);
     let duration_seconds = start.elapsed().as_secs_f64();
 
+    // Post-batch diagnostics
     info!(
-        "Batch complete: {} games in {:.1}s ({:.1} games/sec)",
-        games.len(),
-        duration_seconds,
-        games.len() as f64 / duration_seconds
+        completed = games.len(),
+        failed = errors.len(),
+        total = config.game_count,
+        duration_secs = format!("{:.1}", duration_seconds),
+        games_per_sec = format!("{:.2}", games.len() as f64 / duration_seconds.max(0.001)),
+        "Batch complete"
     );
+
+    if !errors.is_empty() {
+        warn!(
+            error_count = errors.len(),
+            "Batch had {} game failures",
+            errors.len()
+        );
+        for error in &errors {
+            debug!(
+                game_index = error.game_index,
+                seed = error.seed,
+                reason = %error.message,
+                "Failed game"
+            );
+        }
+    }
 
     BatchResults {
         config,

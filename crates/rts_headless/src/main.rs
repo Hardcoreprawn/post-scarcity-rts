@@ -99,6 +99,19 @@ enum Commands {
         /// Path to faction data directory for data-driven unit stats
         #[arg(long)]
         faction_data: Option<PathBuf>,
+
+        /// Maximum game duration in minutes (game time, not wall clock)
+        /// Default: 10 min for batch, 30 min for interactive
+        #[arg(long, default_value = "10")]
+        duration_minutes: u32,
+
+        /// Quick mode: 5-minute games for rapid iteration
+        #[arg(long, conflicts_with = "duration_minutes")]
+        quick: bool,
+
+        /// Extended mode: 60-minute games for late-game testing
+        #[arg(long, conflicts_with = "duration_minutes")]
+        extended: bool,
     },
 
     /// Analyze batch results and suggest balance changes
@@ -220,6 +233,9 @@ fn main() {
             seed,
             screenshots,
             faction_data,
+            duration_minutes,
+            quick,
+            extended,
         }) => {
             cmd_batch(
                 scenario,
@@ -229,6 +245,9 @@ fn main() {
                 seed,
                 screenshots,
                 faction_data,
+                duration_minutes,
+                quick,
+                extended,
             );
         }
         Some(Commands::Analyze {
@@ -294,8 +313,68 @@ fn cmd_batch(
     seed: u64,
     screenshots: bool,
     faction_data: Option<PathBuf>,
+    duration_minutes: u32,
+    quick: bool,
+    extended: bool,
 ) {
-    tracing::info!("Starting batch run: {} games of '{}'", count, scenario);
+    use rts_headless::batch::EXTENDED_DEFAULT_MAX_TICKS;
+    use std::time::Instant;
+
+    let batch_start = Instant::now();
+
+    // Determine max_ticks from duration options
+    // Ticks = minutes * 60 seconds * 60 ticks/second
+    const TICKS_PER_MINUTE: u64 = 60 * 60;
+    let max_ticks = if quick {
+        5 * TICKS_PER_MINUTE // 5 minutes - rapid testing
+    } else if extended {
+        EXTENDED_DEFAULT_MAX_TICKS // 60 minutes - late game testing
+    } else {
+        (duration_minutes as u64) * TICKS_PER_MINUTE
+    };
+
+    // System diagnostics
+    let num_cpus = std::thread::available_parallelism()
+        .map(|p| p.get())
+        .unwrap_or(1);
+
+    let game_duration_str = if max_ticks >= 60 * TICKS_PER_MINUTE {
+        format!("{} hour(s)", max_ticks / (60 * TICKS_PER_MINUTE))
+    } else {
+        format!("{} minutes", max_ticks / TICKS_PER_MINUTE)
+    };
+
+    tracing::info!(
+        scenario = %scenario,
+        count = count,
+        parallel = parallel,
+        seed = seed,
+        output = %output.display(),
+        cpus_available = num_cpus,
+        screenshots = screenshots,
+        faction_data = ?faction_data,
+        max_ticks = max_ticks,
+        game_duration = %game_duration_str,
+        "Batch configuration"
+    );
+
+    // Ensure output directory exists
+    if let Err(e) = std::fs::create_dir_all(&output) {
+        tracing::error!(error = %e, path = %output.display(), "Failed to create output directory");
+        eprintln!(
+            "FATAL: Cannot create output directory '{}': {}",
+            output.display(),
+            e
+        );
+        std::process::exit(1);
+    }
+
+    tracing::info!(
+        "Starting batch run: {} games of '{}' ({} game time each)",
+        count,
+        scenario,
+        game_duration_str
+    );
 
     let config = BatchConfig {
         scenario,
@@ -308,7 +387,7 @@ fn cmd_batch(
             ScreenshotMode::Disabled
         },
         seed_start: seed,
-        max_ticks: 36000,
+        max_ticks,
         strategy_a: None,
         strategy_b: None,
         faction_data_path: faction_data,
@@ -316,10 +395,20 @@ fn cmd_batch(
 
     let results = run_batch(config);
 
+    let batch_duration = batch_start.elapsed();
+
+    tracing::info!(
+        games_completed = results.games.len(),
+        games_failed = results.errors.len(),
+        total_duration_secs = format!("{:.1}", batch_duration.as_secs_f64()),
+        "Batch execution finished"
+    );
+
     // Save results
     let results_path = output.join("batch_results.json");
     if let Err(e) = results.save(&results_path) {
-        eprintln!("Failed to save results: {}", e);
+        tracing::error!(error = %e, path = %results_path.display(), "Failed to save results");
+        eprintln!("FATAL: Failed to save results: {}", e);
         std::process::exit(1);
     }
 
@@ -328,15 +417,33 @@ fn cmd_batch(
     eprintln!("BATCH COMPLETE");
     eprintln!("{}", "=".repeat(50));
     eprintln!("Games played: {}", results.games.len());
+    if !results.errors.is_empty() {
+        eprintln!("Games FAILED: {} ⚠️", results.errors.len());
+    }
     eprintln!("Duration: {:.1}s", results.duration_seconds);
     eprintln!(
         "Throughput: {:.1} games/sec",
-        results.games.len() as f64 / results.duration_seconds
+        results.games.len() as f64 / results.duration_seconds.max(0.001)
     );
     eprintln!("\nWin Rates:");
     for (faction, rate) in &results.summary.win_rates {
         eprintln!("  {}: {:.1}%", faction, rate * 100.0);
     }
+
+    // Report errors if any
+    if !results.errors.is_empty() {
+        eprintln!("\n⚠️  GAME FAILURES:");
+        for error in results.errors.iter().take(10) {
+            eprintln!(
+                "  Game {} (seed {}): {}",
+                error.game_index, error.seed, error.message
+            );
+        }
+        if results.errors.len() > 10 {
+            eprintln!("  ... and {} more failures", results.errors.len() - 10);
+        }
+    }
+
     eprintln!("\nResults saved to: {}", results_path.display());
 
     // Run quick analysis
