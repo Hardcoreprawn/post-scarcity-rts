@@ -422,25 +422,19 @@ Build the tools needed for rapid iteration on gameplay and visuals.
 
 **Architecture Goal:** Both human players and AI use identical interfaces — same commands, same visibility, same information access. The only difference is who makes the decisions.
 
-#### 3.1.5.1 PlayerFacade Trait (rts_core)
+#### 3.1.5.1 PlayerFacade Trait (rts_core) ✅ COMPLETE
 
-- [ ] Create `player_facade.rs` module in `rts_core`
-- [ ] Define `PlayerFacade` trait:
-  - `issue_command(unit: EntityId, cmd: Command)` — single unit control
-  - `issue_commands(units: &[EntityId], cmd: Command)` — group control
-  - `get_visible_entities(faction: FactionId) -> Vec<EntityId>` — only what player can see
-  - `get_own_entities(faction: FactionId) -> Vec<EntityId>` — player's units/buildings
-  - `query_unit_info(id: EntityId) -> Option<UnitInfo>` — basic info (if visible)
-  - `get_resources(faction: FactionId) -> PlayerResources` — economy state
-- [ ] Export in `rts_core::prelude`
+- [x] Create `player_facade.rs` module in `rts_core`
+- [x] Define `PlayerFacade` trait with all methods
+- [x] Export in `rts_core::prelude`
 
-#### 3.1.5.2 Core Visibility System
+#### 3.1.5.2 Core Visibility System ✅ COMPLETE
 
-- [ ] Add `vision_range: Option<Fixed>` to `Entity` struct
-- [ ] Add `vision_range: Option<Fixed>` to `UnitData` struct
-- [ ] Add `is_visible_to(viewer_faction, target_id) -> bool` method to `Simulation`
-- [ ] Add `get_visible_enemies(faction) -> Vec<(EntityId, Position)>` helper
-- [ ] Default vision range = 2× attack range when not specified
+- [x] Add `vision_range: Option<Fixed>` to `Entity` struct
+- [x] Add `is_visible_to(viewer_faction, target_id) -> bool` method to `Simulation`
+- [x] Add `get_visible_enemies_for(faction)` and `get_faction_entities()` helpers
+- [x] Default vision range = 2× attack range when not specified
+- [ ] Add `vision_range: Option<Fixed>` to `UnitData` struct (RON parsing)
 
 #### 3.1.5.3 Unify Attack Targeting
 
@@ -451,7 +445,7 @@ Build the tools needed for rapid iteration on gameplay and visuals.
 
 #### 3.1.5.4 Implement Facades for Both Frontends
 
-- [ ] Create `SimulationPlayerFacade` struct (wraps `&mut Simulation` + `FactionId`)
+- [x] Create `SimulationPlayerFacade` struct (wraps `&mut Simulation` + `FactionId`)
 - [ ] Update `game_runner.rs` headless batch:
   - Replace `sim.entities().sorted_ids()` with `facade.get_visible_enemies()`
   - Replace `sim.apply_command()` with `facade.issue_command()`
@@ -518,7 +512,7 @@ Migrate from flat armor subtraction to percentage-based damage reduction. See [c
 
 ### 3.3 Tier System & Unit Roster
 
-Define the 8-tier structure for both factions.
+Define the 5-tier structure for both factions.
 
 #### Tier Structure
 
@@ -527,33 +521,53 @@ Define the 8-tier structure for both factions.
 | T1 | Basic | Start | 5-6 units |
 | T2 | Trained | Barracks II | 5-6 units |
 | T3 | Elite | Tech Lab | 6-8 units |
-| T4 | Advanced | Factory | 6-8 units |
-| T5 | Specialist | War Hall | 5-6 units |
-| T6 | Heavy | Heavy Bay | 4-5 units |
-| T7 | Super | Command Center | 3-4 units |
-| T8 | Ultimate | Capital Dock | 1-2 units |
+| T4 | Heavy | Strategic Operations | 4-5 units |
+| T5 | Capital | Capital Dock | 2-3 units |
 
-#### Continuity Authority (40-50 units total)
+#### Continuity Authority (21 units designed)
 
-- [ ] T1: Security Team, Scout Drone, Worker, Light Turret, Militia
-- [ ] T2: Tactical Squad, Recon Vehicle, Engineer, Mortar Pit
-- [ ] T3: Guardian Mech, Sniper Team, Shield Bearer, Combat Medic, Bunker
-- [ ] T4: Siege Tank, APC, Artillery Platform, EMP Drone
-- [ ] T5: Stealth Operative, Heavy Gunner, Field Commander
-- [ ] T6: Thor Walker, Devastator, Mobile Fortress
-- [ ] T7: Capital Mech, Orbital Strike Beacon
-- [ ] T8: Titan (super-unit)
+- [x] T1 (Light): Security Team, Patrol Vehicle, Compliance Officer, Field Medic, Harvester
+- [x] T2 (Medium): Guardian Mech, Pacification Platform, Protected Transport, Compliance Broadcaster, Warden Mech
+- [x] T3 (Medium-Heavy): Designator Team, Black Ops Squad, Field Command Post, Suppression Team, Neutralizer
+- [x] T4 (Heavy): Sovereign Platform, Rapid Response Squadron, Siege Breaker, Phalanx Carrier
+- [x] T5 (Capital): Deterrence Platform, Overseer Array
 
-#### Collegium of Minds (40-50 units total)
+#### Collegium of Minds (22 units designed)
 
-- [ ] T1: Research Assistant, Probe, Worker Automaton, Sensor Node
-- [ ] T2: Drone Squadron, Data Analyst, Hacker Unit, Turret Bot
-- [ ] T3: Neural Knight, Psi-Operative, Mind Shield, Bio-Lab
-- [ ] T4: Hover Tank, Teleporter, Plasma Artillery, Swarm Controller
-- [ ] T5: Phase Assassin, Gravity Manipulator, Network Node
-- [ ] T6: Colossus Walker, Mind Flayer, Siege Brain
-- [ ] T7: Quantum Core, Reality Bender
-- [ ] T8: Overmind (super-unit)
+- [x] T1 (Light): Research Assistant, Scout Drone, Constructor Bot, Disruptor Drone, Harvester Swarm
+- [x] T2 (Medium): Attack Drone Squadron, Shield Drone, Hover Tank, ECM Swarm, Network Beacon, Beam Array
+- [x] T3 (Medium-Heavy): Infiltrator Drone, Tractor Platform, Mirror Drone, Targeting Node, Repair Swarm
+- [x] T4 (Heavy): Archon Core, Zeppelin Lab, Siege Brain, Quantum Anchor
+- [x] T5 (Capital): Singularity Node, Consensus Engine
+
+#### Unit Implementation Tasks
+
+**RON Data Creation:**
+
+- [ ] Create RON entries for all 21 Continuity units (stats, costs, requirements)
+- [ ] Create RON entries for all 22 Collegium units
+- [ ] Define building unlock chains for each tier
+
+**Role System Implementation:**
+
+- [ ] **Tackle:** Implement tether/slow mechanics (Compliance Officer, Disruptor Drone)
+- [ ] **EW:** Implement accuracy debuff auras (Compliance Broadcaster, ECM Swarm)
+- [ ] **Command:** Implement buff auras (Field Command Post, Network Beacon)
+- [ ] **Painter:** Implement target designation (+damage to marked) (Designator Team, Targeting Node)
+- [ ] **Tank:** Implement taunt/shield mechanics (Warden Mech, Quantum Anchor)
+
+**Ability System:**
+
+- [ ] Ability data structure (cooldown, cost, effect type, targeting)
+- [ ] Active abilities (Defensive Posture, Override, Blackout Pulse)
+- [ ] Toggle abilities (cloak, deploy mode)
+- [ ] Aura abilities (command buffs, EW debuffs)
+
+**Veterancy System (Phase 5+):**
+
+- [ ] XP tracking per unit
+- [ ] Rank thresholds and stat bonuses
+- [ ] Legendary trait system
 
 ### 3.4 Technical Wiring (GDD Alignment)
 
@@ -876,3 +890,63 @@ Created comprehensive vision system design to enable genuine faction asymmetry:
 - NEW: [Vision & Intelligence System](design/systems/vision-and-intel.md)
 - MOD: [Combat System](design/systems/combat.md) — Added vision integration section
 - MOD: [Collegium Faction](design/factions/collegium.md) — Expanded Scout Drone and Hover Tank with explicit sniper doctrine
+
+### Unit Roles and Scale Framework (February 4, 2026)
+
+Created comprehensive unit role framework inspired by EVE Online's diversity:
+
+**14 Combat Roles Defined:**
+
+- Scout, Tackle, EW, Brawler, Sniper, Tank, Logistics, Artillery, Command, Carrier, Interdictor, Stealth, Dreadnought, Super
+
+**Key Gaps Identified:**
+
+- **Tackle** — No faction had dedicated "pin targets" units (now added)
+- **EW** — Only Sculptors had real EWAR; others needed it (now added)
+- **Command** — Aura-based buffing was underutilized (now added)
+
+**Weight Classes:**
+
+- Light (25-75 cost, 1 pop) → Medium (100-275 cost, 2-3 pop) → Heavy (300-500 cost, 4-6 pop) → Capital (600-1000 cost, 8-12 pop) → Super (1000+ cost, 15+ pop)
+
+**Veterancy System Designed:**
+
+- Trained → Veteran (100 XP) → Elite (300 XP) → Legendary (1000 XP)
+- Each rank grants stat bonuses; Legendary gets unique trait
+
+**Document Created:** [Unit Roles and Scale Framework](design/systems/unit-roles-and-scale.md)
+
+### Thin Shard Faction Expansion (February 4, 2026)
+
+Expanded Continuity Authority and Collegium unit rosters with full role coverage:
+
+**Continuity Authority (21 units across 5 tiers):**
+
+- T1: Security Team, Patrol Vehicle, Compliance Officer (tackle), Field Medic, Harvester
+- T2: Guardian Mech, Pacification Platform, Protected Transport, Compliance Broadcaster (EW), Warden Mech (tank)
+- T3: Designator Team (painter), Black Ops Squad (stealth), Field Command Post (command), Suppression Team (sniper), Neutralizer (heavy EW)
+- T4: Sovereign Platform (dreadnought), Rapid Response Squadron, Siege Breaker (heavy artillery), Phalanx Carrier
+- T5: Deterrence Platform (superweapon), Overseer Array (strategic intel)
+
+**Collegium of Minds (22 units across 5 tiers):**
+
+- T1: Research Assistant, Scout Drone, Constructor Bot, Disruptor Drone (tackle), Harvester Swarm
+- T2: Attack Drone Squadron, Shield Drone, Hover Tank (sniper), ECM Swarm (EW), Network Beacon (command), Beam Array (artillery)
+- T3: Infiltrator Drone (stealth), Tractor Platform (heavy tackle), Mirror Drone (counter-EW), Targeting Node (painter), Repair Swarm
+- T4: Archon Core (dreadnought/carrier), Zeppelin Lab, Siege Brain (heavy artillery), Quantum Anchor (heavy tank)
+- T5: Singularity Node (superweapon), Consensus Engine (strategic command)
+
+**Sculptor Faction Redesign:**
+
+- Changed from Zerg/alien aesthetic to VTM Tzimisce body horror
+- T1: Buff enhanced humans (Aspirants, Attendants, Couriers)
+- T2: Unsettling but still humanoid (Exemplars, Whisperers, Reclaimers)
+- T3: Full body horror (Magnum Opus, Chorus, The Gift)
+- Updated vision-and-intel.md with new Sculptor unit references
+
+**Documents Updated:**
+
+- MOD: [Continuity Faction](design/factions/continuity.md) — Full 5-tier roster with all roles
+- MOD: [Collegium Faction](design/factions/collegium.md) — Full 5-tier roster with all roles
+- MOD: [Sculptors Faction](design/factions/sculptors.md) — Complete redesign (body horror aesthetic)
+- MOD: [Vision & Intel](design/systems/vision-and-intel.md) — Updated Sculptor references

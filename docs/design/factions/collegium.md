@@ -55,7 +55,7 @@ The Collegium wins through expansion, adaptation, and numerical superiority. The
 
 ### Harvester
 
-#### Harvester Swarm
+#### Harvester Swarm (Economy Unit)
 
 - Many small drones (spawn in groups of 4)
 - Fast collection, fast return
@@ -66,18 +66,25 @@ The Collegium wins through expansion, adaptation, and numerical superiority. The
 
 ## Units
 
-### Tier 1 — Academic Corps
+*See [Unit Roles and Scale Framework](../systems/unit-roles-and-scale.md) for role definitions.*
 
-| Unit | Role | Stats | Cost |
-| ---- | ---- | ----- | ---- |
-| **Research Assistant** | Basic infantry | HP: 50, Armor: 0, DPS: 8 | 30 |
-| **Scout Drone** | Reconnaissance | HP: 40, Armor: 0, Speed: Very Fast | 25 |
-| **Constructor Bot** | Building/repair | HP: 80, Armor: 5, Build Speed: Fast | 50 |
+### Tier 1 — Academic Corps (Light)
+
+Starting units. Cheap, expendable, swarm-oriented.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Research Assistant** | Brawler | HP: 50, Armor: 0, DPS: 8, Range: 5 | 30 | 1 |
+| **Scout Drone** | Scout | HP: 40, Armor: 0, Speed: Very Fast, Sight: 16 | 25 | 1 |
+| **Constructor Bot** | Economy/Repair | HP: 80, Armor: 5, Build Speed: Fast | 50 | 1 |
+| **Disruptor Drone** | Tackle | HP: 50, Armor: 0, EMP field | 45 | 1 |
+| **Harvester Swarm** | Economy | HP: 30 each (x4), Capacity: 50 each | 60 | 1 |
 
 #### Research Assistant
 
 - Cheap, fast-producing infantry
 - Can capture neutral buildings
+- Weak individually, dangerous in numbers
 - Upgrades: Defensive Protocols, Field Research Kit
 
 #### Scout Drone
@@ -96,27 +103,46 @@ The Collegium wins through expansion, adaptation, and numerical superiority. The
 - Can also repair friendly units (slowly)
 - Essential for expansion
 
-### Tier 2 — Distributed Force
+#### Disruptor Drone
 
-| Unit | Role | Stats | Cost |
-| ---- | ---- | ----- | ---- |
-| **Attack Drone Squadron** | Core damage | HP: 60 each (x4), DPS: 40 total | 120 |
-| **Shield Drone** | Support | HP: 100, Armor: 10, Shield: 200 | 100 |
-| **Hover Tank** | Anti-armor | HP: 300, Armor: 25, DPS: 35 | 200 |
+- Flying tackle unit, cheap and expendable
+- Aura: Enemies within 4 move 30% slower
+- Ability: **EMP Pulse** — 2s stun to all enemies in small radius, drone destroyed
+- Suicide tackle — pin targets for your snipers
+
+#### Harvester Swarm
+
+- 4 tiny drones operating together
+- Fast collection, low individual capacity
+- If 2+ survive, the swarm regenerates to full over time
+- Fragile but replaceable
+
+### Tier 2 — Distributed Force (Medium)
+
+Core combat. Requires Data Node.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Attack Drone Squadron** | Brawler | HP: 60 each (x4), DPS: 40 total | 120 | 2 |
+| **Shield Drone** | Logistics/Tank | HP: 100, Armor: 10, Shield: 200 | 100 | 2 |
+| **Hover Tank** | Sniper | HP: 300, Armor: 25, DPS: 35, Range: 14 | 200 | 3 |
+| **ECM Swarm** | EW | HP: 30 each (x6), Jamming | 150 | 2 |
+| **Network Beacon** | Command | HP: 150, Armor: 15, Aura buffs | 175 | 2 |
+| **Beam Array** | Artillery | HP: 250, Armor: 20, DPS: 50, Range: 18 | 275 | 3 |
 
 #### Attack Drone Squadron
 
 - 4 drones operating as one unit
 - High DPS, very fragile
 - Can split to attack multiple targets
-- Ability: **Swarm Protocol** — Merge with other squadrons temporarily
+- Ability: **Swarm Protocol** — Merge with other squadrons temporarily for +50% damage
 
 #### Shield Drone
 
-- Projects shield bubble
-- Protected units take reduced damage
+- Projects shield bubble (radius 6)
+- Protected units take 25% reduced damage
 - Shield regenerates out of combat
-- Key support unit
+- Key support unit — protect your snipers
 
 #### Hover Tank
 
@@ -127,33 +153,141 @@ The Collegium wins through expansion, adaptation, and numerical superiority. The
 
 **Sniper Doctrine:** Hover Tanks are the Collegium's long-range killers, but they can only see 8 units and shoot 14. Without Scout Drones providing vision, they're expensive short-range fighters. With scouts, they delete targets before the enemy can respond.
 
-### Tier 3 — Knowledge Ascendant
+#### ECM Swarm
 
-| Unit | Role | Stats | Cost |
-| ---- | ---- | ----- | ---- |
-| **Archon Core** | Super unit | HP: 600, Armor: 40, DPS: 80 | 500 |
-| **Zeppelin Lab** | Mobile production | HP: 800, Armor: 20, Produces: T1-T2 units | 600 |
-| **Singularity Node** | Superweapon | HP: 500, Armor: 60, Special | 800 |
+- 6 tiny jamming drones
+- Aura: Enemies within 8 have -20% accuracy (stacks with multiple swarms)
+- Individual drones can be killed, swarm degrades gracefully
+- Ability: **Scatter** — Spread out to cover larger area (weaker individual effect)
+
+#### Network Beacon
+
+- Flying command node
+- Aura: +20% attack speed to all drones within 10
+- Ability: **Uplink** — All friendly units in radius share vision for 15s
+- The Collegium's distributed command — losing one hurts, but there are more
+
+#### Beam Array
+
+- Stationary energy artillery (Range 18, Sight 5)
+- No travel time — instant hit at any range
+- Must deploy to fire, 2s deploy time
+- Ability: **Overcharge** — Next shot deals double damage, 30s cooldown
+- Absolutely dependent on spotters; nearly blind alone
+
+### Tier 3 — Knowledge Ascendant (Medium-Heavy)
+
+Specialists. Requires Research Campus.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Infiltrator Drone** | Stealth | HP: 80, Armor: 5, Hacking | 200 | 2 |
+| **Tractor Platform** | Heavy Tackle | HP: 300, Armor: 30, Tractor beam | 250 | 3 |
+| **Mirror Drone** | Counter-EW | HP: 120, Armor: 15, Reflects debuffs | 225 | 2 |
+| **Targeting Node** | Painter | HP: 100, Armor: 10, Paint range: 16 | 150 | 2 |
+| **Repair Swarm** | Heavy Logistics | HP: 20 each (x8), Heals: 40/s total | 200 | 2 |
+
+#### Infiltrator Drone
+
+- Permanently cloaked (even when acting)
+- No weapons — pure sabotage
+- Ability: **Hack** — Disable enemy building for 20s, 60s cooldown
+- Ability: **Data Theft** — Reveals enemy production queue and tech
+- The unseen threat
+
+#### Tractor Platform
+
+- Heavy tackle drone
+- Ability: **Tractor Beam** — Immobilizes target, pulls toward platform over 5s
+- Can drag units out of position, into kill zones, away from allies
+- Counters: kill the platform, or break the beam with enough damage
+
+#### Mirror Drone
+
+- Counter-EW specialist
+- Aura: Friendly units within 8 immune to accuracy debuffs
+- Ability: **Reflection** — Next debuff applied to Mirror is redirected to the caster
+- Essential against EW-heavy factions
+
+#### Targeting Node
+
+- Dedicated painter drone
+- Ability: **Network Target** — Painted target visible to all Collegium units for 20s
+- Ability: **Priority Override** — All nearby units focus fire painted target
+- ESSENTIAL for sniper doctrine: paint target → everyone shoots it
+
+#### Repair Swarm
+
+- 8 tiny repair drones
+- Heals mechanical units only (drones, vehicles, structures)
+- Ability: **Emergency Nanocloud** — Burst heal 150 to target
+- Keeps your expensive Hover Tanks alive
+
+### Tier 4 — Distributed Supremacy (Heavy)
+
+Army anchors. Requires Ascension Spire.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Archon Core** | Dreadnought/Carrier | HP: 600, Armor: 40, DPS: 80, Spawns drones | 500 | 6 |
+| **Zeppelin Lab** | Mobile Production | HP: 800, Armor: 20, Produces: T1-T2 | 600 | 6 |
+| **Siege Brain** | Heavy Artillery | HP: 400, Armor: 35, DPS: 100, Range: 22 | 500 | 5 |
+| **Quantum Anchor** | Heavy Tank | HP: 700, Armor: 50, Shield: 400 | 450 | 5 |
 
 #### Archon Core
 
 - Floating AI core with drone escort
-- Automatically spawns attack drones
+- Automatically spawns 1 Attack Drone every 15s (up to 4)
 - Ability: **Override** — Take control of enemy mechanical unit for 15s
 - Powerful but high priority target
+- Command aura: +10% all stats to drones within 12
 
 #### Zeppelin Lab
 
 - Massive floating research station
-- Produces units anywhere on map
+- Produces T1-T2 units anywhere on map
 - Slow, vulnerable without escort
+- Ability: **Network Backup** — If destroyed, saves production queue to nearest Data Node
 - Can research upgrades while mobile
+
+#### Siege Brain
+
+- Massive computational artillery platform (Range 22, Sight 4)
+- Calculates firing solutions in real-time
+- Ability: **Predictive Targeting** — Next 3 shots have 100% accuracy (no dodge)
+- Ability: **Saturation Fire** — Wide area barrage, 50% damage per shot
+- Totally blind without network vision
+
+#### Quantum Anchor
+
+- Heavy shielding platform, minimal weapons
+- Aura: All shields in radius regenerate 50% faster
+- Ability: **Phase Lock** — Become invulnerable for 3s, cannot move or attack
+- The immovable object
+
+### Tier 5 — Singularity Protocol (Capital)
+
+Game-ending threats. Requires Singularity Chamber.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Singularity Node** | Superweapon | HP: 500, Armor: 60, Global EMP | 800 | 10 |
+| **Consensus Engine** | Strategic Command | HP: 800, Armor: 45, Army-wide buffs | 900 | 12 |
 
 #### Singularity Node
 
-- Stationary superweapon
-- Ability: **Knowledge Bomb** — Disables all enemy electronics in large area
-- Debuffs enemy production globally while active
+- Stationary superweapon platform
+- Ability: **Knowledge Bomb** — Disables all enemy mechanical units in HUGE radius for 8s, 180s cooldown
+- Passive: Enemy production speed -15% globally while Singularity exists
+- "The inevitable conclusion of superior knowledge"
+
+#### Consensus Engine
+
+- Floating AI megastructure
+- Aura: ALL friendly units on map get +5% damage, +5% speed
+- Ability: **Distributed Thinking** — For 30s, all friendly units share sight with all other friendly units
+- Ability: **Optimization Pass** — All friendly units heal 5% max HP per second for 10s
+- The brain of the Collegium
 
 ---
 

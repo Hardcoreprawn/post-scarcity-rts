@@ -14,11 +14,11 @@ The movement spread through clinics and salons, through grateful patients who be
 
 ## Faction Aesthetic
 
-- **Visual:** Art Nouveau meets biopunk — flowing organic lines, iridescent surfaces, deliberate beauty
-- **Colors:** Pearl white, rose gold, deep violet, bioluminescent accents
-- **Architecture:** Elegant curves, living materials, gallery-like spaces
-- **Sound:** Soft music, flowing water, gentle biorhythms, cultured voices
-- **Mood:** Spa meets atelier — luxurious, welcoming, aspirational
+- **Visual:** Lower tiers look *buff human* — enhanced but recognizable. Higher tiers get *wrong* — too many joints, skin that doesn't sit right, faces that almost remember how to smile
+- **Colors:** Clinical white, surgical steel, bruise purple, vein blue, scar-tissue pink
+- **Architecture:** Clean medical facilities that feel *too* clean, gallery spaces with uncomfortable exhibits
+- **Sound:** Heartbeats, breathing that's slightly off-rhythm, whispered voices, bone cracking
+- **Mood:** Uncanny valley — everything looks *almost* right. Tzimisce flesh-craft meets Delaque psychic creep
 
 ## Playstyle Identity
 
@@ -71,92 +71,104 @@ The Sculptors win through quality. Their units are individually powerful, highly
 
 ## Units
 
-### Tier 1 — Practitioners
+### Tier 1 — The Improved (Still Human)
 
 | Unit | Role | Stats | Cost |
 | ---- | ---- | ----- | ---- |
-| **Therapist** | Support infantry | HP: 70, Armor: 5, Heals allies | 60 |
-| **Aesthetic** | Basic infantry | HP: 90, Armor: 10, DPS: 14 | 75 |
+| **Aspirant** | Melee infantry | HP: 120, Armor: 15, DPS: 18 (melee) | 50 |
+| **Attendant** | Support infantry | HP: 80, Armor: 5, Heals allies | 60 |
 | **Courier** | Reconnaissance | HP: 60, Armor: 0, Speed: Very Fast | 45 |
 
-#### Therapist
+#### Aspirant
 
-- Field medics with biomodification expertise
-- Heals organic units over time
-- Lightly armed for self-defense only
+- Buff, enhanced humans — clearly still people, just *better*
+- Optimized muscle density, reinforced bone structure, peak human+
+- Close combat specialists — enhanced reflexes, ceramic-coated knuckles
+- Look like heavyweight MMA fighters with subtle surgical scars
+- Ability: **Rush** — Short charge, bonus damage on impact
+
+#### Attendant
+
+- Field medics, still recognizably human
+- Clean white coats, calm demeanor, unsettlingly steady hands
+- Heal organic units, stabilize the wounded
+- "We're here to help. Hold still."
 - Ability: **Stabilize** — Prevents target from dying for 5s
-
-#### Aesthetic
-
-- Volunteers who chose combat-optimized forms
-- Elegant, deliberate modifications — not monstrous
-- Each visually unique (procedural variation)
-- Professional soldiers, not zealots
 
 #### Courier
 
-- Speed-optimized scouts
-- Enhanced senses, communication implants
+- Speed-optimized scouts — lean, fast, twitchy
+- Enhanced legs, efficient cardiovascular system
 - Non-combatant — designed for information, not violence
+- Look like marathon runners with too-smooth skin
 - Ability: **Relay** — Shares vision with all nearby units
 
-### Tier 2 — Artisans
+### Tier 2 — The Refined (Getting Strange)
 
 | Unit | Role | Stats | Cost |
 | ---- | ---- | ----- | ---- |
-| **Masterwork** | Heavy infantry | HP: 250, Armor: 30, DPS: 35 | 200 |
-| **Symbiont** | Support vehicle | HP: 300, Armor: 20, Auras | 175 |
-| **Dissolution** | Siege specialist | HP: 150, Armor: 15, DPS: 45 (buildings) | 180 |
+| **Exemplar** | Heavy melee | HP: 280, Armor: 35, DPS: 40 (melee) | 200 |
+| **Whisperer** | Psychic support | HP: 120, Armor: 10, DPS: 15, Debuffs | 175 |
+| **Reclaimer** | Ranged/siege | HP: 150, Armor: 20, DPS: 30 | 180 |
 
-#### Masterwork
+#### Exemplar
 
-- Faction signature unit
-- Heavily modified combat specialists
-- Each one represents months of collaborative design
-- Ability: **Adaptation** — Choose one of three temporary buffs
+- The first sign something's *off*
+- Massive, sculpted physiques — too perfect, too symmetrical
+- Skin stretched tight over enhanced musculature, veins visible
+- Silent. They don't speak. They don't need to.
+- Ability: **Unflinching** — Immune to crowd control for 5s
 
-#### Symbiont
+#### Whisperer
 
-- Living support platform, crew of three
-- Provides healing aura and buff effects
-- Not a transport — a mobile enhancement station
-- Ability: **Uplift** — Temporarily enhances nearby units
+- Delaque-style psychics — pale, hairless, androgynous
+- Sunken eyes that seem to look through you
+- Project discomfort, fear, confusion at range
+- "They hear you thinking."
+- Ability: **Unnerve** — Target unit attacks 30% slower for 8s
 
-#### Dissolution
+#### Reclaimer
 
-- Specialists in structural deconstruction
-- Corrosive compounds break down materials
-- Controversial within the faction ("We create, not destroy")
-- Ability: **Reclaim** — Destroyed buildings yield essence
+- Specialists in breaking things down for raw materials
+- Extra limbs (subtle — an arm that splits at the elbow)
+- Acid projectors, corrosive compounds
+- "Everything can be reused."
+- Ability: **Dissolve** — Destroyed buildings yield essence
 
-### Tier 3 — Magnum Opus
+### Tier 3 — The Transcended (Body Horror)
 
 | Unit | Role | Stats | Cost |
 | ---- | ---- | ----- | ---- |
-| **Paragon** | Super-heavy | HP: 800, Armor: 50, DPS: 70 | 600 |
-| **Muse** | Commander | HP: 400, Armor: 35, DPS: 30, Auras | 450 |
-| **Genesis Chamber** | Superweapon | HP: 600, Armor: 40, Special | 550 |
+| **Magnum Opus** | Super-heavy melee | HP: 900, Armor: 55, DPS: 80 (melee) | 600 |
+| **Chorus** | Psychic artillery | HP: 300, Armor: 25, DPS: 50 (AOE, long range) | 450 |
+| **The Gift** | Conversion unit | HP: 400, Armor: 30, Special | 500 |
 
-#### Paragon
+#### Magnum Opus
 
-- The pinnacle of human redesign
-- Years of development, one-of-a-kind form
-- Multiple weapon systems, self-repairing
-- Ability: **Transcendence** — Becomes invulnerable but immobile for 10s, full heal
+- Full Tzimisce — this *was* a person, maybe several
+- Towering meat-sculpture, bones visible through translucent skin
+- Multiple fused limbs, faces half-absorbed into the mass
+- Terrifying melee presence — grabs, crushes, rends
+- Self-repairing (flesh knits back together visibly)
+- Ability: **Reconstitute** — Immobile for 5s, heals 50% HP
 
-#### Muse
+#### Chorus
 
-- Inspirational leader, enhanced for command
-- Neural broadcasting provides tactical coordination
-- Aura: +20% damage, +30% healing for nearby units
-- Ability: **Inspire** — Target unit gains +50% stats for 15s
+- Multiple Whisperers fused into one entity
+- Ring of bald heads on a shared body, mouths moving in sync
+- Psychic artillery — projects waves of pain, terror, madness
+- Sight range is terrible (eyes facing each other), needs spotters
+- "They speak with one voice now. It's beautiful."
+- Ability: **Scream** — AOE damage + fear (enemies flee briefly)
 
-#### Genesis Chamber
+#### The Gift
 
-- Mobile transformation facility
-- Ability: **Awakening** — Converts neutral wildlife into combat forms
-- Ability: **Gift** — Can attempt to convert damaged enemy infantry (risky, can fail)
-- "Everyone deserves the chance to become more"
+- Mobile conversion facility — this is where new Sculptors come from
+- Disturbing blend of medical equipment and organic tissue
+- Can "recruit" neutral creatures or wounded enemy infantry
+- Not combat-focused — protected by other units
+- "Everyone deserves the chance to become more."
+- Ability: **Embrace** — Convert target wounded enemy infantry (long channel, can fail)
 
 ---
 
@@ -232,18 +244,21 @@ The Sculptors win through quality. Their units are individually powerful, highly
 
 | Unit | Ability | Effect | Cooldown |
 | ---- | ------- | ------ | -------- |
-| Therapist | **Stabilize** | Target can't die for 5s | 30s |
-| Masterwork | **Adaptation** | Choose: +armor, +damage, or +speed for 20s | 45s |
-| Paragon | **Transcendence** | Invulnerable + immobile + full heal over 10s | 90s |
-| Muse | **Inspire** | Target gains +50% all stats for 15s | 60s |
+| Aspirant | **Rush** | Short charge, +50% damage on impact | 20s |
+| Attendant | **Stabilize** | Target can't die for 5s | 30s |
+| Exemplar | **Unflinching** | Immune to CC for 5s | 45s |
+| Whisperer | **Unnerve** | Target attacks 30% slower for 8s | 25s |
+| Magnum Opus | **Reconstitute** | Immobile 5s, heal 50% HP | 60s |
+| Chorus | **Scream** | AOE damage + fear (enemies flee 3s) | 45s |
+| The Gift | **Embrace** | Convert wounded enemy infantry | 90s |
 
 ### Commander Powers
 
 | Power | Effect | Cost | Cooldown |
 | ----- | ------ | ---- | -------- |
-| **Emergency Treatment** | Heal all units in area for 200 HP | 100 | 90s |
-| **Commission** | Instantly produce one Tier 1 unit at location | 150 | 120s |
-| **Metamorphic Wave** | All units in area gain Adaptation buff | 250 | 180s |
+| **Emergency Stabilization** | Heal all units in area for 200 HP | 100 | 90s |
+| **Field Promotion** | Instantly upgrade one T1 unit to T2 equivalent | 200 | 120s |
+| **Psychic Shroud** | Enemy units in area lose 50% sight range for 15s | 150 | 180s |
 
 ---
 
@@ -286,21 +301,30 @@ The Sculptors win through quality. Their units are individually powerful, highly
 
 **Unit Selection:**
 
-- Therapist: "How can I help?"
-- Aesthetic: "Ready to serve."
-- Paragon: "I am what I chose to be."
+- Aspirant: "Ready to prove myself."
+- Attendant: "How can I help?"
+- Exemplar: *Silent acknowledgment*
+- Whisperer: "We hear you."
+- Magnum Opus: *Heavy breathing, bone creaking*
+- Chorus: "We speak as one."
 
 **Attack Order:**
 
-- Therapist: "Protecting our people."
-- Aesthetic: "Engaging with purpose."
-- Paragon: "They'll understand eventually."
+- Aspirant: "Let me show you what I've become!"
+- Attendant: "Protecting our people."
+- Exemplar: *Moves without speaking*
+- Whisperer: "They will understand fear."
+- Magnum Opus: *Wet, grinding movement sounds*
+- Chorus: "LISTEN TO US."
 
 **Death:**
 
-- Therapist: "Get them... to the clinic..."
-- Aesthetic: "This form... wasn't enough..."
-- Paragon: "A masterwork... lost..."
+- Aspirant: "Not... enough..."
+- Attendant: "Get them... to the clinic..."
+- Exemplar: *Silent collapse*
+- Whisperer: "The silence... it's so loud..."
+- Magnum Opus: *The sound of meat hitting floor*
+- Chorus: "We are... diminished..."
 
 ---
 

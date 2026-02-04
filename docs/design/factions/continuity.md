@@ -71,13 +71,19 @@ The Continuity wins through professionalism and overwhelming resources. They bui
 
 ## Units
 
-### Tier 1 — Security Forces
+*See [Unit Roles and Scale Framework](../systems/unit-roles-and-scale.md) for role definitions.*
 
-| Unit | Role | Stats | Cost |
-| ---- | ---- | ----- | ---- |
-| **Security Team** | Basic infantry | HP: 80, Armor: 5, DPS: 12 | 50 |
-| **Crowd Management Unit** | Area control | HP: 60, Armor: 3, DPS: 18 (vs infantry) | 75 |
-| **Patrol Vehicle** | Reconnaissance | HP: 100, Armor: 10, Speed: Fast | 60 |
+### Tier 1 — Security Forces (Light)
+
+Starting units. Cheap, expendable, foundational.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Security Team** | Brawler | HP: 80, Armor: 5, DPS: 12, Range: 5 | 50 | 1 |
+| **Patrol Vehicle** | Scout | HP: 100, Armor: 10, Speed: Fast, Sight: 14 | 60 | 1 |
+| **Compliance Officer** | Tackle | HP: 70, Armor: 8, DPS: 6, Tether | 65 | 1 |
+| **Field Medic** | Logistics | HP: 50, Armor: 3, Heals: 8/s | 55 | 1 |
+| **Harvester** | Economy | HP: 150, Armor: 10, Capacity: 200 | 75 | 1 |
 
 #### Security Team
 
@@ -85,25 +91,34 @@ The Continuity wins through professionalism and overwhelming resources. They bui
 - Can garrison buildings for defense bonus
 - Standard issue equipment, nothing flashy
 
-#### Crowd Management Unit
-
-- Non-lethal deterrents (officially)
-- Area denial capability
-- "Temporary escalation protocols"
-
 #### Patrol Vehicle
 
-- Fast reconnaissance
-- Light defensive armament
-- Surveillance package reveals cloaked units
+- Fast reconnaissance, sight range 14 (attack range 6)
+- Light defensive armament (anti-infantry)
+- Surveillance package reveals cloaked units within 6
 
-### Tier 2 — Peacekeeping Division
+#### Compliance Officer
 
-| Unit | Role | Stats | Cost |
-| ---- | ---- | ----- | ---- |
-| **Guardian Mech** | Heavy response | HP: 500, Armor: 50, DPS: 45 | 300 |
-| **Pacification Platform** | Artillery | HP: 300, Armor: 40, Range: 12 | 250 |
-| **Protected Transport** | Infantry carrier | HP: 400, Armor: 30, Capacity: 2 squads | 150 |
+- Specialist in "detainment procedures"
+- Ability: **Compliance Tether** — Immobilizes target AND self for 5s
+- Enables kills on fleeing units; sacrificial tackle
+
+#### Field Medic
+
+- Unarmed support unit, heals infantry
+- Ability: **Triage** — Burst heal 50 HP to lowest-health ally in range
+
+### Tier 2 — Peacekeeping Division (Medium)
+
+Core combat units. Requires Research Institute.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Guardian Mech** | Brawler/Tank | HP: 500, Armor: 50, DPS: 45, Range: 8 | 300 | 3 |
+| **Pacification Platform** | Artillery | HP: 300, Armor: 40, DPS: 35, Range: 16 | 250 | 2 |
+| **Protected Transport** | Carrier | HP: 400, Armor: 30, Capacity: 2 squads | 150 | 2 |
+| **Compliance Broadcaster** | EW | HP: 150, Armor: 20, Jamming aura | 200 | 2 |
+| **Warden Mech** | Tank | HP: 600, Armor: 65, DPS: 20, Taunt | 275 | 3 |
 
 #### Guardian Mech
 
@@ -114,43 +129,137 @@ The Continuity wins through professionalism and overwhelming resources. They bui
 
 #### Pacification Platform
 
-- Long-range precision systems
-- Must deploy to fire
+- Long-range precision systems (Range 16, Sight 6)
+- Must deploy to fire; needs spotters for full effectiveness
+- Ability: **Concentrated Fire** — 3 rapid shots at single target
 - "Targeted intervention capability"
-- Officially for infrastructure, not personnel
 
 #### Protected Transport
 
 - Armored personnel carrier
-- Provides protection to passengers
+- Ability: **Emergency Deployment** — Instantly unload all passengers
 - Safe transport through unstable areas
 
-### Tier 3 — Strategic Assets
+#### Compliance Broadcaster
 
-| Unit | Role | Stats | Cost |
-| ---- | ---- | ----- | ---- |
-| **Sovereign Platform** | Super-heavy | HP: 1200, Armor: 80, DPS: 100 | 800 |
-| **Rapid Response Squadron** | Air support | HP: 400, Armor: 30, DPS: 60 | 400 |
-| **Deterrence System** | Superweapon | HP: 1000, Armor: 100, Special | 1000 |
+- Mobile jamming platform
+- Aura: Enemy units within 8 have -25% accuracy
+- Ability: **Blackout Pulse** — 3s jam (no attacks) to all enemies in radius, 45s cooldown
+- "Communications difficulties in the area"
+
+#### Warden Mech
+
+- Heavy defensive platform, minimal offensive capability
+- Massive armor, regenerating shield (50 HP/s out of combat)
+- Ability: **Challenge** — Forces enemies in radius to target Warden for 5s
+- The line that holds
+
+### Tier 3 — Intervention Corps (Medium-Heavy)
+
+Specialists. Requires Tactical Operations Center.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Designator Team** | Scout/Painter | HP: 60, Armor: 5, Sight: 16, Paint range: 14 | 100 | 1 |
+| **Black Ops Squad** | Stealth/Assassin | HP: 90, Armor: 15, DPS: 40, Cloak | 225 | 2 |
+| **Field Command Post** | Command | HP: 400, Armor: 35, Aura buffs | 300 | 3 |
+| **Suppression Team** | Sniper | HP: 80, Armor: 10, DPS: 25, Range: 14 | 175 | 2 |
+| **Neutralizer** | Heavy EW | HP: 200, Armor: 25, Energy drain | 250 | 2 |
+
+#### Designator Team
+
+- Forward observers for artillery coordination
+- Ability: **Target Designation** — Painted target takes +25% damage from all sources for 10s
+- No weapons; pure support. "Painting" a target is their entire job.
+
+#### Black Ops Squad
+
+- Cloaked when not attacking; cloak breaks for 3s after firing
+- High burst damage, fragile
+- Ability: **Infiltrate** — Teleport short distance, bonus damage on next attack
+- "This unit doesn't exist."
+
+#### Field Command Post
+
+- Mobile command vehicle
+- Aura: +10% damage, +2 sight range, +15% accuracy to all friendlies within 10
+- Ability: **Coordinated Assault** — All units in radius attack 30% faster for 10s
+- High-priority target; losing it hurts
+
+#### Suppression Team
+
+- Long-range sniper infantry (Range 14, Sight 8)
+- Ability: **Pinning Fire** — Target cannot move for 3s
+- Needs spotters to reach full range; excellent vs high-value targets
+
+#### Neutralizer
+
+- Electronic warfare specialist vehicle
+- Ability: **System Drain** — Target ability cooldowns increased by 10s
+- Aura: Enemy abilities cost +50% more (energy/cooldown)
+- Counters ability-dependent factions
+
+### Tier 4 — Strategic Assets (Heavy)
+
+Army anchors. Requires Strategic Operations.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Sovereign Platform** | Dreadnought | HP: 1200, Armor: 80, DPS: 100 | 800 | 8 |
+| **Rapid Response Squadron** | Air Assault | HP: 400, Armor: 30, DPS: 60 | 400 | 4 |
+| **Siege Breaker** | Heavy Artillery | HP: 500, Armor: 50, DPS: 80, Range: 20 | 550 | 5 |
+| **Phalanx Carrier** | Heavy Tank/Carrier | HP: 800, Armor: 70, Capacity: 3 squads | 450 | 5 |
 
 #### Sovereign Platform
 
 - Massive quadrupedal command platform
-- Multiple weapon systems
-- Ability: **Emergency Protocol** — Massive area damage
+- Multiple weapon systems (anti-ground, anti-air, point defense)
+- Ability: **Emergency Protocol** — Massive area damage (200 in radius), 100 self-damage
 - Deployed only in "extreme stability events"
+- Has Command aura (+15% all stats to nearby units)
 
 #### Rapid Response Squadron
 
-- Heavy gunship wing
-- Quick reaction force
-- Officially for disaster relief
+- Heavy gunship wing (3 aircraft operating as one unit)
+- Fast, hits hard, fragile against dedicated AA
+- Ability: **Strafe Run** — Line attack, +100% damage
+- "Officially for disaster relief"
 
-#### Deterrence System
+#### Siege Breaker
+
+- Massive artillery platform (Range 20, Sight 4)
+- Cannot move and fire; deploy time 3s
+- Ability: **Bunker Buster** — Single shot deals 300 damage to buildings
+- Totally dependent on spotters
+
+#### Phalanx Carrier
+
+- Rolling fortress; carries troops while providing heavy armor
+- Ability: **Lockdown** — Immobile, but gains +50% armor and spawns turret
+- Can repair while locked down
+
+### Tier 5 — Deterrence Division (Capital)
+
+Game-ending threats. Requires Capital Dock.
+
+| Unit | Role | Stats | Cost | Pop |
+| ---- | ---- | ----- | ---- | --- |
+| **Deterrence Platform** | Superweapon | HP: 1000, Armor: 100, Orbital Strike | 1000 | 12 |
+| **Overseer Array** | Strategic Intel | HP: 600, Armor: 40, Map-wide reveal | 700 | 8 |
+
+#### Deterrence Platform
 
 - Orbital strike coordination facility
-- Ability: **Precision Strike** — Calls down kinetic bombardment
+- Ability: **Kinetic Strike** — Calls down bombardment (500 damage in area) after 5s delay
+- 120s cooldown; visible warning marker for defenders
 - "Nobody wants us to use this. That's the point."
+
+#### Overseer Array
+
+- Strategic intelligence platform
+- Ability: **Full Spectrum** — Reveals entire map for 15s, 180s cooldown
+- Passive: +4 sight range to all friendly units globally
+- The eye that sees everything
 
 ---
 

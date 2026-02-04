@@ -95,7 +95,7 @@ Not all vision sources detect stealth. Dedicated sensor units are required.
 | Continuity Authority | Watcher Drone | Tethered to command post (limited range but very stealthy) |
 | Collegium | Scout Drone | Cloaked when stationary, fastest unit in game |
 | Tinkers' Union | Outrider Bike | Fast, can lay sensor beacons, armed (light) |
-| Sculptors | Whisper | Organic stealth, can "bond" to enemy units for tracking |
+| Sculptors | Courier | Fast enhanced human, Relay ability shares vision; Whisperers can "mark" enemies psychically |
 | Zephyr Guild | Cloudskimmer | Flying scout, can spot from high altitude (huge range) |
 
 ### The Spotter
@@ -136,7 +136,7 @@ Not all vision sources detect stealth. Dedicated sensor units are required.
 | Continuity Authority | Compliance Cannon | Slow siege, massive damage, requires forward observers |
 | Collegium | Beam Array | Energy weapon, no travel time, needs network node for targeting |
 | Tinkers' Union | Cobbled Launcher | Inaccurate but cheap, can fire smoke for cover |
-| Sculptors | Dissolution Form | Bio-artillery, slower but regenerates, spores provide own vision |
+| Sculptors | Chorus | Psychic artillery — fused Whisperers project pain/terror; nearly blind, needs Couriers or Whisperers to spot |
 | Zephyr Guild | Bomber Zeppelin | Mobile artillery, self-spots from altitude but fragile |
 
 ### The Sensor Platform
@@ -240,18 +240,18 @@ Some factions have energy-based cloaking:
 
 **Playstyle:** Plant beacons, use smoke for cover, leverage terrain knowledge.
 
-### Sculptors: Organic Senses
+### Sculptors: Psychic Network
 
-**Philosophy:** Flesh is the superior sensor.
+**Philosophy:** Enhanced minds sense what eyes cannot.
 
 | Strength | Weakness |
 | -------- | -------- |
-| "Whispers" can bond to enemy units (tracking) | Bonding is slow, visible |
-| Bio-sensors detect through terrain | Bio-sensors are fragile |
-| Psionic link shares vision faction-wide | Link requires living units |
-| Artillery (Dissolution) creates spore vision | Spores are slow-spreading |
+| Whisperers can "mark" enemies (psychic tracking) | Marking requires line of sight initially |
+| Marked targets stay visible even through fog | Marking is obvious — enemy knows they're tagged |
+| Chorus shares vision with all Whisperers | Chorus is nearly blind alone (sight 4) |
+| Couriers share vision via Relay ability | Couriers are fragile, non-combatant |
 
-**Playstyle:** Infiltrate, bond, track. Patience is rewarded.
+**Playstyle:** Mark high-value targets, maintain psychic network between Whisperers and Chorus. Losing your Whisperers blinds your Chorus artillery.
 
 ### Zephyr Guild: Air Superiority
 
@@ -302,7 +302,7 @@ Painted Target:
 | Continuity Authority | Designator | Dedicated unit, long paint range |
 | Collegium | Any drone (upgrade) | Network target sharing |
 | Tinkers' Union | Outrider Bike (ability) | Short duration, risky |
-| Sculptors | Whisper (bonded target) | Automatic painting |
+| Sculptors | Whisperer (psychic mark) | Marked targets take +damage from Chorus |
 | Zephyr Guild | Cloudskimmer (upgrade) | Paint from altitude |
 
 ### Vision Loss Events
