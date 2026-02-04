@@ -45,8 +45,8 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{
-    AttackTarget, CombatStats, Command, CommandQueue, EntityId, FactionMember, Health, Movement,
-    PatrolState, Position, ProductionQueue, Projectile, Velocity,
+    ArmorType, AttackTarget, CombatStats, Command, CommandQueue, EntityId, FactionMember, Health,
+    Movement, PatrolState, Position, ProductionQueue, Projectile, Velocity,
 };
 use crate::economy::Depot;
 use crate::error::{GameError, Result};
@@ -688,14 +688,18 @@ impl Simulation {
                             self.spawn_projectile(position.value, projectile);
                             combat_stats.cooldown_remaining = combat_stats.attack_cooldown;
                         } else if let Some(target_entity) = self.entities.get_mut(target_id) {
-                            if let (Some(ref mut health), Some(target_stats)) =
-                                (target_entity.health.as_mut(), target_entity.combat_stats)
-                            {
+                            if let Some(ref mut health) = target_entity.health.as_mut() {
+                                // Get target's armor, defaulting to unarmored for buildings
+                                let (armor_type, armor_value) = target_entity
+                                    .combat_stats
+                                    .map(|s| (s.armor_type, s.armor_value))
+                                    .unwrap_or((ArmorType::Unarmored, 0));
+
                                 let damage = calculate_damage(
                                     combat_stats.damage,
                                     combat_stats.damage_type,
-                                    target_stats.armor_type,
-                                    target_stats.armor_value,
+                                    armor_type,
+                                    armor_value,
                                 );
                                 health.apply_damage(damage);
 
