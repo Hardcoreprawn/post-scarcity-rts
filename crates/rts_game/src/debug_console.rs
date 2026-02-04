@@ -14,9 +14,13 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use rts_core::math::{Fixed, Vec2Fixed};
 
-use crate::bundles::{HarvesterBundle, UnitBundle};
+use crate::bundles::{
+    BarracksBundle, DepotBundle, HarvesterBundle, SupplyDepotBundle, TechLabBundle, TurretBundle,
+    UnitBundle,
+};
 use crate::components::{GameFaction, GameHealth, GamePosition, PlayerFaction, Selected};
 use crate::economy::PlayerResources;
+use crate::victory::GameState;
 
 /// Debug console plugin.
 ///
@@ -32,7 +36,7 @@ impl Plugin for DebugConsolePlugin {
 }
 
 /// State for the debug console.
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct DebugConsoleState {
     /// Whether the console is visible.
     pub visible: bool,
@@ -48,6 +52,20 @@ pub struct DebugConsoleState {
     pub god_mode: bool,
     /// Game speed multiplier.
     pub game_speed: f32,
+}
+
+impl Default for DebugConsoleState {
+    fn default() -> Self {
+        Self {
+            visible: false,
+            input: String::new(),
+            history: Vec::new(),
+            history_index: None,
+            output: Vec::new(),
+            god_mode: false,
+            game_speed: 1.0, // Normal speed
+        }
+    }
 }
 
 /// Output message level for console.
@@ -91,9 +109,11 @@ fn render_console(
     mut contexts: EguiContexts,
     mut resources: ResMut<PlayerResources>,
     player_faction: Res<PlayerFaction>,
-    mut selected: Query<(Entity, &GamePosition, &GameFaction), With<Selected>>,
+    mut selected: Query<(Entity, &mut GamePosition, &GameFaction), With<Selected>>,
     mut all_units: Query<(Entity, &mut GameHealth, &GameFaction)>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    mut game_state: ResMut<GameState>,
+    mut time: ResMut<Time<Virtual>>,
 ) {
     if !state.visible {
         return;
@@ -149,6 +169,8 @@ fn render_console(
                     &player_faction,
                     &mut selected,
                     &mut all_units,
+                    &mut game_state,
+                    &mut time,
                 );
 
                 state.input.clear();
@@ -180,13 +202,14 @@ fn render_console(
             ui.separator();
             ui.collapsing("Commands", |ui| {
                 ui.label("help - Show this help");
-                ui.label("spawn <type> [x] [y] - Spawn unit (infantry, harvester)");
+                ui.label("spawn <type> [x] [y] - Spawn unit (infantry, harvester, ranger)");
+                ui.label("building <type> [x] [y] - Spawn building (depot, barracks, supply, techlab, turret)");
                 ui.label("kill - Kill selected units");
                 ui.label("kill_all - Kill all enemy units");
                 ui.label("teleport <x> <y> - Teleport selected units");
                 ui.label("god - Toggle god mode (invincibility)");
                 ui.label("resources <amount> - Set feedstock");
-                ui.label("speed <multiplier> - Set game speed");
+                ui.label("speed <multiplier> - Set game speed (affects simulation)");
                 ui.label("win - Trigger victory");
                 ui.label("lose - Trigger defeat");
                 ui.label("clear - Clear console output");
@@ -195,16 +218,19 @@ fn render_console(
 }
 
 /// Execute a console command.
+#[allow(clippy::too_many_arguments)]
 fn execute_command(
     cmd: &str,
     commands: &mut Commands,
     state: &mut ResMut<DebugConsoleState>,
     resources: &mut ResMut<PlayerResources>,
     player_faction: &Res<PlayerFaction>,
-    selected: &mut Query<(Entity, &GamePosition, &GameFaction), With<Selected>>,
+    selected: &mut Query<(Entity, &mut GamePosition, &GameFaction), With<Selected>>,
     all_units: &mut Query<(Entity, &mut GameHealth, &GameFaction)>,
+    game_state: &mut ResMut<GameState>,
+    time: &mut ResMut<Time<Virtual>>,
 ) {
-    let parts: Vec<&str> = cmd.trim().split_whitespace().collect();
+    let parts: Vec<&str> = cmd.split_whitespace().collect();
     if parts.is_empty() {
         return;
     }
@@ -313,18 +339,25 @@ fn execute_command(
                 return;
             };
 
-            let _new_pos = Vec2Fixed::new(Fixed::from_num(x), Fixed::from_num(y));
-            let count = selected.iter().count();
+            let new_pos = Vec2Fixed::new(Fixed::from_num(x), Fixed::from_num(y));
+            let mut count = 0;
 
-            // Note: We can't mutate GamePosition here since we only have & not &mut
-            // This would require a separate system or different query structure
-            state.output.push((
-                OutputLevel::Warning,
-                format!(
-                    "Teleport not fully implemented - would move {} units to ({}, {})",
-                    count, x, y
-                ),
-            ));
+            for (_, mut pos, _) in selected.iter_mut() {
+                pos.value = new_pos;
+                count += 1;
+            }
+
+            if count > 0 {
+                state.output.push((
+                    OutputLevel::Success,
+                    format!("Teleported {} units to ({}, {})", count, x, y),
+                ));
+            } else {
+                state.output.push((
+                    OutputLevel::Warning,
+                    "No units selected to teleport".to_string(),
+                ));
+            }
         }
 
         "god" => {
@@ -382,34 +415,88 @@ fn execute_command(
 
             let new_speed = speed.clamp(0.1, 10.0);
             state.game_speed = new_speed;
+            time.set_relative_speed(new_speed);
             state.output.push((
                 OutputLevel::Success,
                 format!("Game speed set to {}x", new_speed),
             ));
-            state.output.push((
-                OutputLevel::Warning,
-                "Note: Speed change not yet wired to simulation".to_string(),
-            ));
         }
 
         "win" => {
+            **game_state = GameState::Victory;
             state
                 .output
                 .push((OutputLevel::Success, "Victory triggered!".to_string()));
-            state.output.push((
-                OutputLevel::Warning,
-                "Note: Victory trigger not yet wired to game state".to_string(),
-            ));
         }
 
         "lose" => {
+            **game_state = GameState::Defeat;
             state
                 .output
                 .push((OutputLevel::Success, "Defeat triggered!".to_string()));
-            state.output.push((
-                OutputLevel::Warning,
-                "Note: Defeat trigger not yet wired to game state".to_string(),
-            ));
+        }
+
+        "building" | "build" => {
+            if args.is_empty() {
+                state.output.push((
+                    OutputLevel::Error,
+                    "Usage: building <type> [x] [y]".to_string(),
+                ));
+                state.output.push((
+                    OutputLevel::Info,
+                    "Types: depot, barracks, supply, techlab, turret".to_string(),
+                ));
+                return;
+            }
+
+            let building_type = args[0].to_lowercase();
+            let x: f32 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(200.0);
+            let y: f32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(200.0);
+            let pos = Vec2::new(x, y);
+
+            match building_type.as_str() {
+                "depot" => {
+                    commands.spawn(DepotBundle::new(pos, player_faction.faction));
+                    state.output.push((
+                        OutputLevel::Success,
+                        format!("Spawned depot at ({}, {})", x, y),
+                    ));
+                }
+                "barracks" => {
+                    commands.spawn(BarracksBundle::new(pos, player_faction.faction));
+                    state.output.push((
+                        OutputLevel::Success,
+                        format!("Spawned barracks at ({}, {})", x, y),
+                    ));
+                }
+                "supply" | "supplydepot" => {
+                    commands.spawn(SupplyDepotBundle::new(pos, player_faction.faction));
+                    state.output.push((
+                        OutputLevel::Success,
+                        format!("Spawned supply depot at ({}, {})", x, y),
+                    ));
+                }
+                "techlab" | "tech" => {
+                    commands.spawn(TechLabBundle::new(pos, player_faction.faction));
+                    state.output.push((
+                        OutputLevel::Success,
+                        format!("Spawned tech lab at ({}, {})", x, y),
+                    ));
+                }
+                "turret" => {
+                    commands.spawn(TurretBundle::new(pos, player_faction.faction));
+                    state.output.push((
+                        OutputLevel::Success,
+                        format!("Spawned turret at ({}, {})", x, y),
+                    ));
+                }
+                _ => {
+                    state.output.push((
+                        OutputLevel::Error,
+                        format!("Unknown building type: {}", building_type),
+                    ));
+                }
+            }
         }
 
         "clear" => {
@@ -431,6 +518,7 @@ fn execute_command(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::components::BuildingType;
 
     #[test]
     fn test_output_level_colors() {
@@ -447,6 +535,14 @@ mod tests {
         assert!(state.history.is_empty());
         assert!(state.output.is_empty());
         assert!(!state.god_mode);
-        assert_eq!(state.game_speed, 0.0); // Default f32
+        assert_eq!(state.game_speed, 1.0); // Normal speed
+    }
+
+    #[test]
+    fn test_building_type_values() {
+        // Verify building types have expected costs
+        assert_eq!(BuildingType::Depot.cost(), 400);
+        assert_eq!(BuildingType::Barracks.cost(), 150);
+        assert_eq!(BuildingType::Turret.cost(), 75);
     }
 }
