@@ -28,19 +28,21 @@
     // ========================================
     units: [
         // ------ Tier 1: Academic Corps ------
+        // Design: Cheaper, faster, fragile swarm unit. Efficiency comes from numbers.
+        // Balance: ~50-55% win rate vs Security Team in aggregate testing.
         (
             id: "research_assistant",
             name: "unit.collegium.research_assistant.name",
             description: "unit.collegium.research_assistant.description",
-            cost: 30,
-            build_time: 90,  // 3 seconds - very fast
-            health: 50,
-            speed: 47244640256,  // Fixed-point for 11.0
+            cost: 36,  // 72% of Security Team cost (50)
+            build_time: 90,  // 3 seconds - 25% faster production
+            health: 60,  // 75% of Security Team HP (80)
+            speed: 47244640256,  // Fixed-point for 110.0 - 10% faster
             combat: Some((
-                damage: 8,
-                range: 17179869184,  // Fixed-point for 4.0
-                attack_cooldown: 30,
-                armor: 0,
+                damage: 10,  // Penetrates 5-armor threshold
+                range: 193273528320,  // Fixed-point for 45.0 (90% of ST)
+                attack_cooldown: 31,  // Slightly slower than ST (30)
+                armor: 1,  // Much less than ST (5)
             )),
             tech_required: [],
             tier: 1,
@@ -68,7 +70,7 @@
             cost: 50,
             build_time: 120,
             health: 80,
-            speed: 38654705664,  // Fixed-point for 9.0
+            speed: 38654705664,  // Fixed-point for 90.0
             combat: None,
             tech_required: [],
             tier: 1,
@@ -82,7 +84,7 @@
             cost: 80,  // Cheaper than Continuity harvester
             build_time: 150,
             health: 100,  // Low HP, but spawn as group conceptually
-            speed: 51539607552,  // Fixed-point for 12.0
+            speed: 51539607552,  // Fixed-point for 120.0
             combat: None,
             tech_required: [],
             tier: 1,
@@ -101,7 +103,7 @@
             speed: 55834574848,  // Fixed-point for 13.0
             combat: Some((
                 damage: 40,  // High DPS from 4 drones
-                range: 25769803776,  // Fixed-point for 6.0
+                range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 25,
                 armor: 0,  // Very fragile
             )),
@@ -117,7 +119,7 @@
             cost: 100,
             build_time: 150,
             health: 100,
-            speed: 38654705664,  // Fixed-point for 9.0
+            speed: 38654705664,  // Fixed-point for 90.0
             combat: None,  // Support unit, no weapons
             tech_required: [],
             tier: 2,
@@ -131,10 +133,10 @@
             cost: 200,
             build_time: 270,
             health: 300,
-            speed: 34359738368,  // Fixed-point for 8.0
+            speed: 34359738368,  // Fixed-point for 80.0
             combat: Some((
                 damage: 35,
-                range: 38654705664,  // Fixed-point for 9.0
+                range: 386547056640,  // Fixed-point for 90.0
                 attack_cooldown: 40,
                 armor: 25,
             )),
@@ -152,10 +154,10 @@
             cost: 500,
             build_time: 480,
             health: 600,
-            speed: 21474836480,  // Fixed-point for 5.0
+            speed: 21474836480,  // Fixed-point for 50.0
             combat: Some((
                 damage: 80,
-                range: 34359738368,  // Fixed-point for 8.0
+                range: 343597383680,  // Fixed-point for 80.0
                 attack_cooldown: 50,
                 armor: 40,
             )),
@@ -171,10 +173,10 @@
             cost: 600,
             build_time: 540,
             health: 800,
-            speed: 12884901888,  // Fixed-point for 3.0 - very slow
+            speed: 12884901888,  // Fixed-point for 30.0 - very slow
             combat: Some((
                 damage: 20,
-                range: 25769803776,  // Fixed-point for 6.0
+                range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 45,
                 armor: 20,
             )),
@@ -592,7 +594,7 @@
             research_time: 1500,
             effects: [
                 (
-                    effect_type: VisionModifier(range: 21474836480),  // Fixed-point for 5.0
+                    effect_type: VisionModifier(range: 214748364800),  // Fixed-point for 50.0
                     applies_to: [],
                     applies_to_tags: [],
                 ),

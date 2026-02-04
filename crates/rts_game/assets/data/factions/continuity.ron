@@ -35,10 +35,10 @@
             cost: 50,
             build_time: 120,  // 4 seconds at 30 ticks/sec
             health: 80,
-            speed: 42949672960,  // Fixed-point for 10.0
+            speed: 42949672960,  // Fixed-point for 100.0
             combat: Some((
                 damage: 12,
-                range: 21474836480,  // Fixed-point for 5.0
+                range: 214748364800,  // Fixed-point for 50.0
                 attack_cooldown: 30,
                 armor: 5,
             )),
@@ -54,10 +54,10 @@
             cost: 75,
             build_time: 150,
             health: 60,
-            speed: 38654705664,  // Fixed-point for 9.0
+            speed: 38654705664,  // Fixed-point for 90.0
             combat: Some((
                 damage: 18,
-                range: 17179869184,  // Fixed-point for 4.0
+                range: 171798691840,  // Fixed-point for 40.0
                 attack_cooldown: 25,
                 armor: 3,
             )),
@@ -76,7 +76,7 @@
             speed: 64424509440,  // Fixed-point for 15.0
             combat: Some((
                 damage: 8,
-                range: 25769803776,  // Fixed-point for 6.0
+                range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 20,
                 armor: 10,
             )),
@@ -92,7 +92,7 @@
             cost: 100,
             build_time: 180,
             health: 150,
-            speed: 30064771072,  // Fixed-point for 7.0
+            speed: 30064771072,  // Fixed-point for 70.0
             combat: None,
             tech_required: [],
             tier: 1,
@@ -108,10 +108,10 @@
             cost: 300,
             build_time: 360,  // 12 seconds
             health: 500,
-            speed: 21474836480,  // Fixed-point for 5.0
+            speed: 21474836480,  // Fixed-point for 50.0
             combat: Some((
                 damage: 45,
-                range: 30064771072,  // Fixed-point for 7.0
+                range: 300647710720,  // Fixed-point for 70.0
                 attack_cooldown: 45,
                 armor: 50,
             )),
@@ -127,10 +127,10 @@
             cost: 250,
             build_time: 300,
             health: 300,
-            speed: 17179869184,  // Fixed-point for 4.0
+            speed: 17179869184,  // Fixed-point for 40.0
             combat: Some((
                 damage: 60,
-                range: 51539607552,  // Fixed-point for 12.0
+                range: 515396075520,  // Fixed-point for 120.0
                 attack_cooldown: 90,
                 armor: 40,
             )),
@@ -146,10 +146,10 @@
             cost: 150,
             build_time: 240,
             health: 400,
-            speed: 38654705664,  // Fixed-point for 9.0
+            speed: 38654705664,  // Fixed-point for 90.0
             combat: Some((
                 damage: 15,
-                range: 21474836480,  // Fixed-point for 5.0
+                range: 214748364800,  // Fixed-point for 50.0
                 attack_cooldown: 30,
                 armor: 30,
             )),
@@ -167,10 +167,10 @@
             cost: 800,
             build_time: 600,  // 20 seconds
             health: 1200,
-            speed: 12884901888,  // Fixed-point for 3.0
+            speed: 12884901888,  // Fixed-point for 30.0
             combat: Some((
                 damage: 100,
-                range: 38654705664,  // Fixed-point for 9.0
+                range: 386547056640,  // Fixed-point for 90.0
                 attack_cooldown: 60,
                 armor: 80,
             )),
@@ -189,7 +189,7 @@
             speed: 68719476736,  // Fixed-point for 16.0
             combat: Some((
                 damage: 60,
-                range: 34359738368,  // Fixed-point for 8.0
+                range: 343597383680,  // Fixed-point for 80.0
                 attack_cooldown: 40,
                 armor: 30,
             )),
@@ -236,7 +236,7 @@
             tier: 1,
             targetable: true,
             armor: 15,
-            vision_range: Some(42949672960),  // Fixed-point for 10.0
+            vision_range: Some(42949672960),  // Fixed-point for 100.0
             tags: ["economy", "refinery"],
             is_harvester: true,
             is_main_base: false,
@@ -256,7 +256,7 @@
             tier: 1,
             targetable: true,
             armor: 10,
-            vision_range: Some(38654705664),  // Fixed-point for 9.0
+            vision_range: Some(38654705664),  // Fixed-point for 90.0
             tags: ["production", "infantry"],
             is_harvester: false,
             is_main_base: false,
@@ -310,7 +310,7 @@
             tier: 2,
             targetable: true,
             armor: 20,
-            vision_range: Some(51539607552),  // Fixed-point for 12.0
+            vision_range: Some(51539607552),  // Fixed-point for 120.0
             tags: ["production", "air"],
             is_harvester: false,
             is_main_base: false,
@@ -386,7 +386,7 @@
             tier: 1,
             targetable: true,
             armor: 20,
-            vision_range: Some(47244640256),  // Fixed-point for 11.0
+            vision_range: Some(47244640256),  // Fixed-point for 110.0
             tags: ["defense", "anti_ground"],
             is_harvester: false,
             is_main_base: false,

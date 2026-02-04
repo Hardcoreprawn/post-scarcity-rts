@@ -35,10 +35,10 @@
             cost: 45,
             build_time: 90,
             health: 70,
-            speed: 42949672960,  // Fixed-point for 10.0
+            speed: 42949672960,  // Fixed-point for 100.0
             combat: Some((
                 damage: 10,
-                range: 17179869184,  // Fixed-point for 4.0
+                range: 171798691840,  // Fixed-point for 40.0
                 attack_cooldown: 30,
                 armor: 5,
             )),
@@ -68,10 +68,10 @@
             cost: 60,
             build_time: 120,
             health: 60,
-            speed: 25769803776,  // Fixed-point for 6.0 - slow
+            speed: 25769803776,  // Fixed-point for 60.0 - slow
             combat: Some((
                 damage: 5,
-                range: 12884901888,  // Fixed-point for 3.0
+                range: 128849018880,  // Fixed-point for 30.0
                 attack_cooldown: 40,
                 armor: 5,
             )),
@@ -106,7 +106,7 @@
             speed: 55834574848,  // Fixed-point for 13.0
             combat: Some((
                 damage: 35,
-                range: 30064771072,  // Fixed-point for 7.0
+                range: 300647710720,  // Fixed-point for 70.0
                 attack_cooldown: 30,
                 armor: 20,
             )),
@@ -122,10 +122,10 @@
             cost: 275,
             build_time: 330,
             health: 400,
-            speed: 21474836480,  // Fixed-point for 5.0 - slow
+            speed: 21474836480,  // Fixed-point for 50.0 - slow
             combat: Some((
                 damage: 50,  // High area damage
-                range: 34359738368,  // Fixed-point for 8.0
+                range: 343597383680,  // Fixed-point for 80.0
                 attack_cooldown: 60,
                 armor: 25,
             )),
@@ -141,7 +141,7 @@
             cost: 175,
             build_time: 240,
             health: 350,
-            speed: 38654705664,  // Fixed-point for 9.0
+            speed: 38654705664,  // Fixed-point for 90.0
             combat: None,  // Troop carrier, no weapons
             tech_required: [],
             tier: 2,
@@ -157,10 +157,10 @@
             cost: 800,
             build_time: 600,
             health: 1200,
-            speed: 17179869184,  // Fixed-point for 4.0
+            speed: 17179869184,  // Fixed-point for 40.0
             combat: Some((
                 damage: 100,
-                range: 42949672960,  // Fixed-point for 10.0
+                range: 429496729600,  // Fixed-point for 100.0
                 attack_cooldown: 50,
                 armor: 50,
             )),
@@ -176,10 +176,10 @@
             cost: 700,
             build_time: 540,
             health: 800,
-            speed: 12884901888,  // Fixed-point for 3.0 - very slow
+            speed: 12884901888,  // Fixed-point for 30.0 - very slow
             combat: Some((
                 damage: 25,
-                range: 25769803776,  // Fixed-point for 6.0
+                range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 45,
                 armor: 30,
             )),
@@ -195,10 +195,10 @@
             cost: 650,
             build_time: 480,
             health: 600,
-            speed: 21474836480,  // Fixed-point for 5.0
+            speed: 21474836480,  // Fixed-point for 50.0
             combat: Some((
                 damage: 30,
-                range: 47244640256,  // Fixed-point for 11.0 - long range
+                range: 472446402560,  // Fixed-point for 110.0 - long range
                 attack_cooldown: 75,
                 armor: 40,
             )),
