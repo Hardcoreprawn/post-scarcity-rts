@@ -6,14 +6,50 @@ Combat in Post-Scarcity RTS emphasizes readability, tactical depth, and faction 
 
 ---
 
+## Design Philosophy (EVE Online Principles)
+
+The combat system draws inspiration from EVE Online's battle-tested balance:
+
+| Principle | Implementation |
+| --------- | -------------- |
+| **Multiplicative stacking** | Damage reduction is percentage-based, not flat |
+| **Diminishing returns** | Resistance capped at 75%; stacking armor has less value |
+| **Counter-play for everything** | Armor penetration, size modifiers, damage types |
+| **Rock/Paper/Scissors** | Every stat has a trade-off; no stat is universally best |
+| **Readable complexity** | Formulas are multiplicative chains, easy to mentally estimate |
+
+**Core Balance Loop:**
+
+```text
+Heavy Armor  →  countered by  →  Armor Penetration
+Light Speed  →  countered by  →  Tracking weapons, AOE
+High DPS     →  countered by  →  Resistance stacking
+Long Range   →  countered by  →  Fast closers, indirect fire
+```
+
+---
+
 ## Core Combat Mechanics
 
 ### Damage Calculation
 
+Damage uses multiplicative reduction (EVE Online-style) to avoid flat armor "cliffs":
+
 ```text
-Final Damage = (Base Damage × Damage Type Modifier) - Armor
-Minimum Damage = 1
+Effective Resistance = Armor Resistance × (1 - Armor Penetration)
+Damage Reduction     = Effective Resistance (capped at 75%)
+Final Damage         = Base Damage × Damage Type Modifier × (1 - Damage Reduction)
+Minimum Damage       = 1
 ```
+
+**Why Multiplicative?**  
+Flat armor subtraction creates non-linear balance cliffs (e.g., 10 damage - 5 armor = 5; 8 damage - 5 armor = 3 — a 20% damage reduction causes 40% DPS loss). Percentage-based reduction scales smoothly and is easier to balance.
+
+**Design Goals:**  
+
+- All stats have trade-offs (rock/paper/scissors)
+- Counter-play exists for every defensive stat
+- No single stat dominates at high values
 
 ### Damage Types
 
@@ -27,6 +63,8 @@ Minimum Damage = 1
 
 ### Damage Matrix
 
+Damage type modifiers stack multiplicatively with resistance:
+
 ```text
                     Target Armor Class
                  Light   Medium   Heavy   Air   Building
@@ -37,18 +75,64 @@ Bio-Acid         125%    100%     75%     100%  100%
 Fire             125%    100%     75%     100%  125%
 ```
 
-### Armor
+**Example Calculation:**
 
-Armor reduces incoming damage by a flat amount:
+- Kinetic weapon (base 50 damage) vs Heavy target (50% resistance, 0% pen):
+- `50 × 50% (Kinetic vs Heavy) × (1 - 50% resistance) = 50 × 0.5 × 0.5 = 12.5 → 13 damage`
 
-- 10 armor = -10 damage per hit
-- Armor penetration: some weapons ignore armor
+**Strategic Implication:**  
+Low damage type modifier + high resistance = very little damage. Players must match damage types OR bring armor penetration.
 
-| Armor Class | Typical Armor Value |
-| ----------- | ------------------- |
-| Light | 0-10 |
-| Medium | 15-30 |
-| Heavy | 40-80 |
+### Armor Resistance
+
+Armor provides **percentage-based damage reduction** (inspired by EVE Online):
+
+| Armor Class | Base Resistance | Max Resistance (Cap) |
+| ----------- | --------------- | -------------------- |
+| Light       | 10-20%          | 50%                  |
+| Medium      | 25-40%          | 65%                  |
+| Heavy       | 45-60%          | 75%                  |
+
+**Key Properties:**
+
+- Resistance is percentage-based, not flat
+- Hard cap at 75% prevents invulnerability
+- Higher resistance = slower movement (trade-off)
+- Armor penetration counters high resistance
+
+### Armor Penetration
+
+Weapons can have armor penetration to counter heavy armor:
+
+| Penetration | Effect | Typical Weapons |
+| ------------ | ------ | --------------- |
+| None (0%) | Full armor applies | Standard weapons |
+| Low (25%) | 25% of resistance ignored | Kinetic rounds |
+| Medium (50%) | 50% of resistance ignored | Armor-piercing |
+| High (75%) | 75% of resistance ignored | Anti-tank, siege |
+| Full (100%) | Ignore all armor | Pure energy, acids |
+
+**Example:**  
+Heavy unit with 60% resistance vs weapon with 50% penetration:  
+`Effective Resistance = 60% × (1 - 50%) = 30%`  
+Attacker deals 70% damage instead of 40%.
+
+### Size Class Modifiers
+
+Weapon tracking vs target size creates strategic trade-offs:
+
+| Weapon Size | vs Light | vs Medium | vs Heavy |
+| ----------- | -------- | --------- | -------- |
+| Light       | 100%     | 75%       | 50%      |
+| Medium      | 75%      | 100%      | 100%     |
+| Heavy       | 25%      | 75%       | 100%     |
+
+**Design Intent:**
+
+- Heavy weapons (artillery, siege) can't track fast light units
+- Light weapons (infantry rifles) struggle vs heavy armor
+- Medium weapons are versatile but not optimal
+- Creates "screen with light units" counter-play
 
 ---
 
