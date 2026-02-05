@@ -19,6 +19,7 @@ use crate::economy::PlayerResources;
 use crate::input::{calculate_formation_offset, InputMode};
 use crate::render::CommandFeedbackEvent;
 use crate::simulation::{ClientCommandSet, CoreCommandBuffer};
+use crate::unit_utils::is_ranged_unit;
 
 /// Supply cost for light units (infantry).
 const LIGHT_UNIT_SUPPLY: i32 = 1;
@@ -219,15 +220,12 @@ fn ui_combat_legend(
         });
 }
 
-/// Check if unit data indicates a ranged unit type.
-fn is_ranged_unit(unit_data: &rts_core::data::UnitData) -> bool {
-    unit_data.has_tag("ranged") || unit_data.has_tag("ranger")
-}
-
 /// Helper to get supply cost from unit data.
 /// 
-/// TODO: This should be stored in unit data RON files.
-/// For now, we determine it from tags for consistency.
+/// TODO: Move supply costs into unit data RON files once `UnitData` exposes an explicit
+/// `supply` field, so balance can be tuned in data instead of being inferred from tags.
+/// Until that migration is done, we derive supply from tags here to stay consistent with the
+/// existing unit definitions.
 fn get_unit_supply(unit_data: &rts_core::data::UnitData) -> i32 {
     if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
         HEAVY_UNIT_SUPPLY // Harvesters cost 2 supply
@@ -606,7 +604,18 @@ fn ui_command_panel(
                                         }
                                     });
                                 });
+                            } else {
+                                tracing::warn!(
+                                    "Harvester unit '{}' not found in faction {:?} data - production button not available",
+                                    harvester_id,
+                                    faction.faction
+                                );
                             }
+                        } else {
+                            tracing::warn!(
+                                "Faction {:?} data not loaded - Harvester production button not available",
+                                faction.faction
+                            );
                         }
 
                         render_production_queue(ui, &mut production, &mut resources, &faction_registry, faction.faction);
@@ -647,6 +656,12 @@ fn ui_command_panel(
                                             production.enqueue(infantry_id.to_string());
                                         }
                                     });
+                                } else {
+                                    tracing::warn!(
+                                        "Infantry unit '{}' not found in faction {:?} data - production button not available",
+                                        infantry_id,
+                                        faction.faction
+                                    );
                                 }
 
                                 // Ranger button
@@ -666,8 +681,19 @@ fn ui_command_panel(
                                             production.enqueue(ranger_id.to_string());
                                         }
                                     });
+                                } else {
+                                    tracing::warn!(
+                                        "Ranger unit '{}' not found in faction {:?} data - production button not available",
+                                        ranger_id,
+                                        faction.faction
+                                    );
                                 }
                             });
+                        } else {
+                            tracing::warn!(
+                                "Faction {:?} data not loaded - Infantry/Ranger production buttons not available",
+                                faction.faction
+                            );
                         }
 
                         render_production_queue(ui, &mut production, &mut resources, &faction_registry, faction.faction);
@@ -763,17 +789,28 @@ fn render_production_queue(
         });
 
         if ui.small_button("❌ Cancel Last").clicked() {
-            if let Some((cancelled_id, refund_rate)) = production.cancel_last() {
-                // Look up unit cost and supply for refund
-                if let Some(faction_data) = faction_registry.get(faction_id) {
+            // Check if faction data exists before mutating the production queue
+            if let Some(faction_data) = faction_registry.get(faction_id) {
+                if let Some((cancelled_id, refund_rate)) = production.cancel_last() {
+                    // Look up unit cost and supply for refund
                     if let Some(unit_data) = faction_data.get_unit(&cancelled_id) {
                         let refund = (unit_data.cost as f32 * refund_rate * 0.75) as i32;
                         resources.feedstock += refund;
                         // Also refund supply
                         let supply = get_unit_supply(unit_data);
                         resources.supply_used -= supply;
+                    } else {
+                        tracing::warn!(
+                            "Failed to find unit data for unit '{}' when canceling production; no refund applied",
+                            cancelled_id
+                        );
                     }
                 }
+            } else {
+                tracing::warn!(
+                    "Failed to find faction data for faction {:?}; not canceling last production queue item",
+                    faction_id
+                );
             }
         }
     }

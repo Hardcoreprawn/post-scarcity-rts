@@ -10,17 +10,14 @@ use crate::components::{
 };
 use crate::data_loader::{BevyUnitKindRegistry, FactionRegistry};
 use crate::economy::PlayerResources;
+use crate::unit_utils::is_ranged_unit;
 
 /// Ticks per second - used to convert build_time from ticks (stored in data) to seconds (used in calculations).
-const TICKS_PER_SECOND: f32 = 60.0;
+/// Matches rts_core::simulation::TICK_RATE which is 20 ticks per second.
+const TICKS_PER_SECOND: f32 = 20.0;
 
 /// Default build time in seconds when unit data is not found.
 const DEFAULT_BUILD_TIME_SECONDS: f32 = 5.0;
-
-/// Check if unit data indicates a ranged unit type.
-fn is_ranged_unit(unit_data: &rts_core::data::UnitData) -> bool {
-    unit_data.has_tag("ranged") || unit_data.has_tag("ranger")
-}
 
 /// Plugin that handles unit production from buildings.
 pub struct ProductionPlugin;
@@ -92,6 +89,7 @@ fn production_system(
                 let faction_data = faction_registry.get(faction.faction);
 
                 // Try to spawn with data-driven stats
+                let mut spawn_failed = false;
                 if let Some(data) = faction_data {
                     if let Some(unit_data) = data.get_unit(&unit_id) {
                         // Look up the UnitKindId from the registry
@@ -133,20 +131,50 @@ fn production_system(
                             faction.faction
                         );
                     } else {
-                        // Unit not found in data, log error
+                        // Unit not found in data, log error and mark for refund
                         tracing::error!(
-                            "Unit '{}' not found in faction {:?} data, cannot spawn",
+                            "Unit '{}' not found in faction {:?} data, cannot spawn - refunding resources",
                             unit_id,
                             faction.faction
                         );
+                        spawn_failed = true;
                     }
                 } else {
-                    // No faction data loaded, log error
+                    // No faction data loaded, log error and mark for refund
                     tracing::error!(
-                        "No faction data for {:?}, cannot spawn unit '{}'",
+                        "No faction data for {:?}, cannot spawn unit '{}' - refunding resources",
                         faction.faction,
                         unit_id
                     );
+                    spawn_failed = true;
+                }
+
+                // Refund resources if spawn failed and this is the player's faction
+                if spawn_failed && faction.faction == player_faction.faction {
+                    // Try to look up the unit cost for refund
+                    if let Some(data) = faction_registry.get(faction.faction) {
+                        if let Some(unit_data) = data.get_unit(&unit_id) {
+                            let refund = unit_data.cost as i32;
+                            resources.feedstock += refund;
+                            
+                            // Refund supply based on tags
+                            let supply = if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
+                                2
+                            } else if is_ranged_unit(unit_data) || unit_data.has_tag("heavy") {
+                                2
+                            } else {
+                                1
+                            };
+                            resources.supply_used -= supply;
+                            
+                            tracing::info!(
+                                "Refunded {} feedstock and {} supply for failed spawn of '{}'",
+                                refund,
+                                supply,
+                                unit_id
+                            );
+                        }
+                    }
                 }
             }
         }
