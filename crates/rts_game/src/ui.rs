@@ -14,6 +14,7 @@ use crate::components::{
     GameHealth, GamePosition, GameProductionQueue, PlayerFaction, Selected, UnitType,
 };
 use crate::construction::BuildingPlacement;
+use crate::data_loader::FactionRegistry;
 use crate::economy::PlayerResources;
 use crate::input::{calculate_formation_offset, InputMode};
 use crate::render::CommandFeedbackEvent;
@@ -517,6 +518,7 @@ fn ui_command_panel(
     >,
     mut resources: ResMut<PlayerResources>,
     player_faction: Res<PlayerFaction>,
+    faction_registry: Res<FactionRegistry>,
 ) {
     let Some(ctx) = contexts.try_ctx_mut() else {
         return;
@@ -553,29 +555,37 @@ fn ui_command_panel(
                         ui.label(egui::RichText::new("Command Center").strong());
                         ui.separator();
 
-                        ui.horizontal(|ui| {
-                            // Harvester button (only unit depot produces)
-                            let harv_cost = UnitType::Harvester.cost();
-                            let harv_supply = UnitType::Harvester.supply();
-                            let can_afford_harv = resources.feedstock >= harv_cost
-                                && resources.supply_used + harv_supply <= resources.supply_cap
-                                && production.can_queue();
-                            ui.add_enabled_ui(can_afford_harv, |ui| {
-                                let response = ui
-                                    .button(format!(
-                                        "🔧 Harvester\n{} ⚡{}",
-                                        harv_cost, harv_supply
-                                    ))
-                                    .on_hover_text(unit_tooltip(UnitType::Harvester));
-                                if response.clicked() {
-                                    resources.feedstock -= harv_cost;
-                                    resources.supply_used += harv_supply;
-                                    production.enqueue(UnitType::Harvester);
-                                }
-                            });
-                        });
+                        // Look up faction-specific harvester unit ID
+                        let harvester_id = UnitType::Harvester.to_unit_id(faction.faction);
+                        
+                        // Get unit data from registry
+                        if let Some(faction_data) = faction_registry.get(faction.faction) {
+                            if let Some(unit_data) = faction_data.get_unit(harvester_id) {
+                                ui.horizontal(|ui| {
+                                    // Harvester button (only unit depot produces)
+                                    let harv_cost = unit_data.cost as i32;
+                                    let harv_supply = 2; // TODO: Get from unit data when available
+                                    let can_afford_harv = resources.feedstock >= harv_cost
+                                        && resources.supply_used + harv_supply <= resources.supply_cap
+                                        && production.can_queue();
+                                    ui.add_enabled_ui(can_afford_harv, |ui| {
+                                        if ui
+                                            .button(format!(
+                                                "🔧 Harvester\n{} ⚡{}",
+                                                harv_cost, harv_supply
+                                            ))
+                                            .clicked()
+                                        {
+                                            resources.feedstock -= harv_cost;
+                                            resources.supply_used += harv_supply;
+                                            production.enqueue(harvester_id.to_string());
+                                        }
+                                    });
+                                });
+                            }
+                        }
 
-                        render_production_queue(ui, &mut production, &mut resources);
+                        render_production_queue(ui, &mut production, &mut resources, &faction_registry, faction.faction);
                         ui.separator();
                     }
                 }
@@ -590,43 +600,53 @@ fn ui_command_panel(
                         ui.label(egui::RichText::new("Barracks").strong());
                         ui.separator();
 
-                        ui.horizontal(|ui| {
-                            // Infantry button
-                            let inf_cost = UnitType::Infantry.cost();
-                            let inf_supply = UnitType::Infantry.supply();
-                            let can_afford_inf = resources.feedstock >= inf_cost
-                                && resources.supply_used + inf_supply <= resources.supply_cap
-                                && production.can_queue();
-                            ui.add_enabled_ui(can_afford_inf, |ui| {
-                                let response = ui
-                                    .button(format!("🗡 Infantry\n{} ⚡{}", inf_cost, inf_supply))
-                                    .on_hover_text(unit_tooltip(UnitType::Infantry));
-                                if response.clicked() {
-                                    resources.feedstock -= inf_cost;
-                                    resources.supply_used += inf_supply;
-                                    production.enqueue(UnitType::Infantry);
+                        // Look up faction-specific unit IDs
+                        let infantry_id = UnitType::Infantry.to_unit_id(faction.faction);
+                        let ranger_id = UnitType::Ranger.to_unit_id(faction.faction);
+                        
+                        if let Some(faction_data) = faction_registry.get(faction.faction) {
+                            ui.horizontal(|ui| {
+                                // Infantry button
+                                if let Some(unit_data) = faction_data.get_unit(infantry_id) {
+                                    let inf_cost = unit_data.cost as i32;
+                                    let inf_supply = 1; // TODO: Get from unit data when available
+                                    let can_afford_inf = resources.feedstock >= inf_cost
+                                        && resources.supply_used + inf_supply <= resources.supply_cap
+                                        && production.can_queue();
+                                    ui.add_enabled_ui(can_afford_inf, |ui| {
+                                        if ui
+                                            .button(format!("🗡 Infantry\n{} ⚡{}", inf_cost, inf_supply))
+                                            .clicked()
+                                        {
+                                            resources.feedstock -= inf_cost;
+                                            resources.supply_used += inf_supply;
+                                            production.enqueue(infantry_id.to_string());
+                                        }
+                                    });
+                                }
+
+                                // Ranger button
+                                if let Some(unit_data) = faction_data.get_unit(ranger_id) {
+                                    let rang_cost = unit_data.cost as i32;
+                                    let rang_supply = 2; // TODO: Get from unit data when available
+                                    let can_afford_rang = resources.feedstock >= rang_cost
+                                        && resources.supply_used + rang_supply <= resources.supply_cap
+                                        && production.can_queue();
+                                    ui.add_enabled_ui(can_afford_rang, |ui| {
+                                        if ui
+                                            .button(format!("🏹 Ranger\n{} ⚡{}", rang_cost, rang_supply))
+                                            .clicked()
+                                        {
+                                            resources.feedstock -= rang_cost;
+                                            resources.supply_used += rang_supply;
+                                            production.enqueue(ranger_id.to_string());
+                                        }
+                                    });
                                 }
                             });
+                        }
 
-                            // Ranger button
-                            let rang_cost = UnitType::Ranger.cost();
-                            let rang_supply = UnitType::Ranger.supply();
-                            let can_afford_rang = resources.feedstock >= rang_cost
-                                && resources.supply_used + rang_supply <= resources.supply_cap
-                                && production.can_queue();
-                            ui.add_enabled_ui(can_afford_rang, |ui| {
-                                let response = ui
-                                    .button(format!("🏹 Ranger\n{} ⚡{}", rang_cost, rang_supply))
-                                    .on_hover_text(unit_tooltip(UnitType::Ranger));
-                                if response.clicked() {
-                                    resources.feedstock -= rang_cost;
-                                    resources.supply_used += rang_supply;
-                                    production.enqueue(UnitType::Ranger);
-                                }
-                            });
-                        });
-
-                        render_production_queue(ui, &mut production, &mut resources);
+                        render_production_queue(ui, &mut production, &mut resources, &faction_registry, faction.faction);
                         ui.separator();
                     }
                 }
@@ -668,6 +688,8 @@ fn render_production_queue(
     ui: &mut egui::Ui,
     production: &mut GameProductionQueue,
     resources: &mut PlayerResources,
+    faction_registry: &FactionRegistry,
+    faction_id: FactionId,
 ) {
     if !production.queue.is_empty() {
         ui.separator();
@@ -675,10 +697,21 @@ fn render_production_queue(
 
         ui.horizontal(|ui| {
             for (i, queued) in production.queue.iter().enumerate() {
-                let icon = match queued.unit_type {
-                    UnitType::Infantry => "🗡",
-                    UnitType::Harvester => "🔧",
-                    UnitType::Ranger => "🏹",
+                // Determine icon based on unit tags
+                let icon = if let Some(faction_data) = faction_registry.get(faction_id) {
+                    if let Some(unit_data) = faction_data.get_unit(&queued.unit_id) {
+                        if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
+                            "🔧"
+                        } else if unit_data.has_tag("ranged") || queued.unit_id.contains("ranger") {
+                            "🏹"
+                        } else {
+                            "🗡"
+                        }
+                    } else {
+                        "❓"
+                    }
+                } else {
+                    "❓"
                 };
 
                 if i == 0 {
@@ -706,11 +739,23 @@ fn render_production_queue(
         });
 
         if ui.small_button("❌ Cancel Last").clicked() {
-            if let Some((cancelled, refund_rate)) = production.cancel_last() {
-                let refund = (cancelled.cost() as f32 * refund_rate * 0.75) as i32;
-                resources.feedstock += refund;
-                // Also refund supply
-                resources.supply_used -= cancelled.supply();
+            if let Some((cancelled_id, refund_rate)) = production.cancel_last() {
+                // Look up unit cost for refund
+                if let Some(faction_data) = faction_registry.get(faction_id) {
+                    if let Some(unit_data) = faction_data.get_unit(&cancelled_id) {
+                        let refund = (unit_data.cost as f32 * refund_rate * 0.75) as i32;
+                        resources.feedstock += refund;
+                        // Also refund supply (TODO: get from unit data when available)
+                        let supply = if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
+                            2
+                        } else if unit_data.has_tag("ranged") {
+                            2
+                        } else {
+                            1
+                        };
+                        resources.supply_used -= supply;
+                    }
+                }
             }
         }
     }
