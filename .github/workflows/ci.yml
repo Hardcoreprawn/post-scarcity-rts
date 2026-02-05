@@ -134,16 +134,16 @@ jobs:
 
       - name: Run determinism validation (batch 1)
         run: |
-          ./target/release/rts_headless batch --games 10 --seed 12345 --output run1.json
+          ./target/release/rts_headless batch --count 10 --seed 12345 --output run1 --quick
 
       - name: Run determinism validation (batch 2)
         run: |
-          ./target/release/rts_headless batch --games 10 --seed 12345 --output run2.json
+          ./target/release/rts_headless batch --count 10 --seed 12345 --output run2 --quick
 
       - name: Compare hashes
         run: |
-          HASH1=$(jq -r '.games | map(.final_hash) | sort | join(",")' run1.json)
-          HASH2=$(jq -r '.games | map(.final_hash) | sort | join(",")' run2.json)
+          HASH1=$(jq -r '.games | map(.final_hash) | sort | join(",")' run1/batch_results.json)
+          HASH2=$(jq -r '.games | map(.final_hash) | sort | join(",")' run2/batch_results.json)
           if [ "$HASH1" != "$HASH2" ]; then
             echo "❌ DETERMINISM FAILURE: Hashes differ between runs"
             echo "Run 1: $HASH1"
