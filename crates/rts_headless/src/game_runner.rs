@@ -242,7 +242,7 @@ pub fn run_game(config: GameConfig) -> GameResult {
         // Spawn initial units
         for unit_spawn in &faction_setup.starting_units {
             for _ in 0..unit_spawn.count {
-                let entity_id = spawn_unit_with_registry(
+                let (entity_id, resolved_name) = spawn_unit_with_registry(
                     &mut sim,
                     &unit_spawn.kind,
                     unit_spawn.position.0,
@@ -251,10 +251,7 @@ pub fn run_game(config: GameConfig) -> GameResult {
                     registry,
                 );
                 player.units.push(entity_id);
-                *player
-                    .units_produced
-                    .entry(unit_spawn.kind.clone())
-                    .or_insert(0) += 1;
+                *player.units_produced.entry(resolved_name).or_insert(0) += 1;
             }
         }
 
@@ -549,7 +546,7 @@ fn execute_ai_turn(
                         if let Some(depot_pos) = get_entity_position(sim, depot_id) {
                             let offset_x = (rng.next() % 50) as i32 - 25;
                             let offset_y = (rng.next() % 50) as i32 - 25;
-                            let entity_id = spawn_unit_with_registry(
+                            let (entity_id, resolved_name) = spawn_unit_with_registry(
                                 sim,
                                 &unit_type,
                                 depot_pos.x.to_num::<i32>() + offset_x,
@@ -559,7 +556,7 @@ fn execute_ai_turn(
                             );
                             player.units.push(entity_id);
                             player.resources -= cost;
-                            *player.units_produced.entry(unit_type).or_insert(0) += 1;
+                            *player.units_produced.entry(resolved_name).or_insert(0) += 1;
                         }
                     }
                 }
@@ -610,7 +607,7 @@ fn execute_ai_turn(
                     if let Some(depot_pos) = get_entity_position(sim, depot_id) {
                         let offset_x = (rng.next() % 50) as i32 - 25;
                         let offset_y = (rng.next() % 50) as i32 - 25;
-                        let entity_id = spawn_unit_with_registry(
+                        let (entity_id, resolved_name) = spawn_unit_with_registry(
                             sim,
                             best_unit,
                             depot_pos.x.to_num::<i32>() + offset_x,
@@ -620,7 +617,7 @@ fn execute_ai_turn(
                         );
                         player.units.push(entity_id);
                         player.resources -= cost;
-                        *player.units_produced.entry(best_unit.clone()).or_insert(0) += 1;
+                        *player.units_produced.entry(resolved_name).or_insert(0) += 1;
                     }
                 }
             }
@@ -737,6 +734,7 @@ fn execute_ai_turn(
 }
 
 /// Spawn a unit in the simulation using faction data if available.
+/// Returns (entity_id, resolved_unit_name) - the name is the actual faction unit ID, not the role.
 fn spawn_unit_with_registry(
     sim: &mut Simulation,
     unit_type: &str,
@@ -744,21 +742,26 @@ fn spawn_unit_with_registry(
     y: i32,
     faction: FactionId,
     registry: Option<&FactionRegistry>,
-) -> EntityId {
+) -> (EntityId, String) {
     // Try to get unit data from faction registry
     if let Some(reg) = registry {
         // First try exact ID match
         if let Some(unit_data) = reg.get_unit(faction, unit_type) {
-            return spawn_unit_from_data(sim, unit_data, x, y, faction);
+            let name = unit_data.id.clone();
+            return (spawn_unit_from_data(sim, unit_data, x, y, faction), name);
         }
         // Then try role-based lookup (e.g., "infantry" tag matches "security_team")
         if let Some(unit_data) = reg.get_unit_by_role(faction, unit_type) {
-            return spawn_unit_from_data(sim, unit_data, x, y, faction);
+            let name = unit_data.id.clone();
+            return (spawn_unit_from_data(sim, unit_data, x, y, faction), name);
         }
     }
 
     // Fall back to hardcoded generic units
-    spawn_unit(sim, unit_type, x, y, faction)
+    (
+        spawn_unit(sim, unit_type, x, y, faction),
+        unit_type.to_string(),
+    )
 }
 
 /// Spawn a unit from faction data definition.
