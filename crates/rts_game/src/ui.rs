@@ -213,6 +213,19 @@ fn ui_combat_legend(
         });
 }
 
+/// Helper to get supply cost from unit data.
+/// 
+/// TODO: This should be stored in unit data RON files.
+/// For now, we determine it from tags for consistency.
+fn get_unit_supply(unit_data: &rts_core::data::UnitData) -> i32 {
+    if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
+        2 // Harvesters cost 2 supply
+    } else if unit_data.has_tag("ranged") || unit_data.has_tag("heavy") {
+        2 // Rangers and heavy units cost 2 supply
+    } else {
+        1 // Infantry and light units cost 1 supply
+    }
+}
 /// Renders the top resource bar showing feedstock and supply.
 fn ui_resource_bar(mut contexts: EguiContexts, resources: Res<PlayerResources>) {
     let Some(ctx) = contexts.try_ctx_mut() else {
@@ -564,7 +577,7 @@ fn ui_command_panel(
                                 ui.horizontal(|ui| {
                                     // Harvester button (only unit depot produces)
                                     let harv_cost = unit_data.cost as i32;
-                                    let harv_supply = 2; // TODO: Get from unit data when available
+                                    let harv_supply = get_unit_supply(unit_data);
                                     let can_afford_harv = resources.feedstock >= harv_cost
                                         && resources.supply_used + harv_supply <= resources.supply_cap
                                         && production.can_queue();
@@ -609,7 +622,7 @@ fn ui_command_panel(
                                 // Infantry button
                                 if let Some(unit_data) = faction_data.get_unit(infantry_id) {
                                     let inf_cost = unit_data.cost as i32;
-                                    let inf_supply = 1; // TODO: Get from unit data when available
+                                    let inf_supply = get_unit_supply(unit_data);
                                     let can_afford_inf = resources.feedstock >= inf_cost
                                         && resources.supply_used + inf_supply <= resources.supply_cap
                                         && production.can_queue();
@@ -628,7 +641,7 @@ fn ui_command_panel(
                                 // Ranger button
                                 if let Some(unit_data) = faction_data.get_unit(ranger_id) {
                                     let rang_cost = unit_data.cost as i32;
-                                    let rang_supply = 2; // TODO: Get from unit data when available
+                                    let rang_supply = get_unit_supply(unit_data);
                                     let can_afford_rang = resources.feedstock >= rang_cost
                                         && resources.supply_used + rang_supply <= resources.supply_cap
                                         && production.can_queue();
@@ -702,7 +715,7 @@ fn render_production_queue(
                     if let Some(unit_data) = faction_data.get_unit(&queued.unit_id) {
                         if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
                             "🔧"
-                        } else if unit_data.has_tag("ranged") || queued.unit_id.contains("ranger") {
+                        } else if unit_data.has_tag("ranged") {
                             "🏹"
                         } else {
                             "🗡"
@@ -740,19 +753,13 @@ fn render_production_queue(
 
         if ui.small_button("❌ Cancel Last").clicked() {
             if let Some((cancelled_id, refund_rate)) = production.cancel_last() {
-                // Look up unit cost for refund
+                // Look up unit cost and supply for refund
                 if let Some(faction_data) = faction_registry.get(faction_id) {
                     if let Some(unit_data) = faction_data.get_unit(&cancelled_id) {
                         let refund = (unit_data.cost as f32 * refund_rate * 0.75) as i32;
                         resources.feedstock += refund;
-                        // Also refund supply (TODO: get from unit data when available)
-                        let supply = if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
-                            2
-                        } else if unit_data.has_tag("ranged") {
-                            2
-                        } else {
-                            1
-                        };
+                        // Also refund supply
+                        let supply = get_unit_supply(unit_data);
                         resources.supply_used -= supply;
                     }
                 }

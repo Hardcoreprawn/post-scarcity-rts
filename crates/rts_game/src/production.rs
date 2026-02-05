@@ -11,6 +11,9 @@ use crate::components::{
 use crate::data_loader::{BevyUnitKindRegistry, FactionRegistry};
 use crate::economy::PlayerResources;
 
+/// Ticks per second for build time conversions.
+const TICKS_PER_SECOND: f32 = 60.0;
+
 /// Plugin that handles unit production from buildings.
 pub struct ProductionPlugin;
 
@@ -50,8 +53,8 @@ fn production_system(
             let faction_data = faction_registry.get(faction.faction);
             let build_time = if let Some(data) = faction_data {
                 if let Some(unit_data) = data.get_unit(&current.unit_id) {
-                    // Convert ticks to seconds: build_time is in ticks, assuming 60 ticks/sec
-                    unit_data.build_time as f32 / 60.0
+                    // Convert ticks to seconds
+                    unit_data.build_time as f32 / TICKS_PER_SECOND
                 } else {
                     // Fallback if unit not found in data
                     tracing::warn!(
@@ -97,6 +100,13 @@ fn production_system(
                             // Supply was already reserved at queue time
                         } else {
                             // Combat units use data-driven stats
+                            // Determine appropriate UnitType for backward compatibility
+                            let unit_type = if unit_data.has_tag("ranged") || unit_data.has_tag("ranger") {
+                                UnitType::Ranger
+                            } else {
+                                UnitType::Infantry
+                            };
+                            
                             commands
                                 .spawn(UnitBundle::from_data(
                                     spawn_pos,
