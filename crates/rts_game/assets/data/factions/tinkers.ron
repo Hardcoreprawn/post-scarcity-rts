@@ -225,7 +225,7 @@
             description: "building.tinkers.workshop_hub.description",
             cost: 0,  // Starting building
             build_time: 0,
-            health: 1000,  // Slightly less HP, but mobile
+            health: 3300,  // Proportional increase - lower HP but mobile
             produces: ["field_engineer", "sprint_bike", "railgun_buggy", "utility_hauler"],
             tech_required: [],
             provides_tech: ["workshop_online"],
