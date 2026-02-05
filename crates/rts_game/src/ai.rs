@@ -8,7 +8,7 @@
 use bevy::prelude::*;
 use rts_core::factions::FactionId;
 use rts_core::math::Vec2Fixed;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::components::{
     CombatStats, GameDepot, GameFaction, GameHarvester, GameHarvesterState, GamePosition,
@@ -46,7 +46,7 @@ pub struct AiState {
 #[derive(Debug, Clone)]
 pub struct WaveState {
     /// Units accumulating at rally point for next wave.
-    pub rally_units: Vec<Entity>,
+    pub rally_units: HashSet<Entity>,
     /// Time when next wave can be launched.
     pub next_wave_time: f32,
     /// Number of waves launched so far.
@@ -58,7 +58,7 @@ pub struct WaveState {
 impl WaveState {
     fn new(rally_point: Vec2Fixed) -> Self {
         Self {
-            rally_units: Vec::new(),
+            rally_units: HashSet::new(),
             next_wave_time: 0.0,
             wave_number: 0,
             rally_point,
@@ -82,9 +82,26 @@ impl Default for AiState {
 const AI_GRACE_PERIOD: f32 = 60.0;
 
 /// Minimum units AI needs before launching a wave.
+///
+/// NOTE: This is currently a global default for all AI factions/personalities.
+/// According to the original design, this value should be provided per-strategy
+/// (as `min_wave_size` in the strategy config) so that different AI personalities
+/// can tune how "patient" they are before attacking.
+///
+/// When a per-strategy configuration system is wired in, this constant should be
+/// treated as a fallback/default and overridden by the strategy's `min_wave_size`.
 const MIN_WAVE_SIZE: usize = 8;
 
 /// Time between waves (seconds).
+///
+/// NOTE: This is currently a global default for all AI factions/personalities.
+/// The intended design is to make this configurable per-strategy via a
+/// `wave_interval` field in the strategy config, allowing different AI
+/// personalities to attack more or less frequently.
+///
+/// When per-strategy configuration is implemented, this constant should serve
+/// only as a fallback/default and be overridden by the strategy's
+/// `wave_interval` value.
 const WAVE_INTERVAL: f32 = 20.0;
 
 /// Rally point offset from depot (horizontal).
@@ -246,6 +263,7 @@ fn ai_attack_orders(
         (Entity, &GameFaction, &GamePosition, &CombatStats),
         Without<MovementTarget>,
     >,
+    all_units: Query<Entity, With<CombatStats>>,
     enemies: Query<(Entity, &GameFaction, &GamePosition), With<CombatStats>>,
     depots: Query<(&GameFaction, &GamePosition), With<GameDepot>>,
 ) {
@@ -274,9 +292,18 @@ fn ai_attack_orders(
             .wave_state
             .entry(faction.faction)
             .or_insert_with(|| {
-                // Place rally point offset from depot
+                // Place rally point offset from depot with faction-specific variation
                 let depot_vec = depot_pos.as_vec2();
-                let rally_offset = Vec2::new(RALLY_OFFSET_X, RALLY_OFFSET_Y);
+                // Use a hash of the faction to create unique offsets to prevent rally point clustering
+                let faction_hash = match faction.faction {
+                    FactionId::Continuity => 0.0,
+                    FactionId::Collegium => 1.0,
+                    FactionId::Tinkers => 2.0,
+                    FactionId::BioSovereigns => 3.0,
+                    FactionId::Zephyr => 4.0,
+                };
+                let faction_offset = faction_hash * 50.0;
+                let rally_offset = Vec2::new(RALLY_OFFSET_X + faction_offset, RALLY_OFFSET_Y);
                 let rally_pos = depot_vec + rally_offset;
                 WaveState::new(Vec2Fixed::new(
                     rts_core::math::Fixed::from_num(rally_pos.x),
@@ -307,10 +334,16 @@ fn ai_attack_orders(
             continue;
         };
 
+        // Clean up dead or despawned entities from rally_units
+        wave_state.rally_units.retain(|&entity| {
+            // Check if entity still exists by querying all units
+            all_units.get(entity).is_ok()
+        });
+
         // Add newly idle units to rally
         for &unit in &idle_units {
             if !wave_state.rally_units.contains(&unit) {
-                wave_state.rally_units.push(unit);
+                wave_state.rally_units.insert(unit);
                 // Send unit to rally point
                 commands.entity(unit).insert(MovementTarget {
                     target: wave_state.rally_point,
@@ -329,12 +362,12 @@ fn ai_attack_orders(
         let wave_ready = current_game_time >= wave_state.next_wave_time;
 
         if has_enough_units && wave_ready {
-            // Find nearest enemy to launch the wave at
-            let first_unit = wave_state.rally_units[0];
-            let Ok((_, _, first_pos, _)) = combat_units.get(first_unit) else {
-                continue;
-            };
-            let my_pos = first_pos.as_vec2();
+            // Use rally point as origin to find nearest enemy
+            // (units at rally have MovementTarget so can't be queried from combat_units)
+            let my_pos = Vec2::new(
+                wave_state.rally_point.x.to_num(),
+                wave_state.rally_point.y.to_num(),
+            );
 
             let nearest_enemy = enemies
                 .iter()
@@ -366,6 +399,15 @@ fn ai_attack_orders(
                 wave_state.wave_number += 1;
                 wave_state.next_wave_time = current_game_time + WAVE_INTERVAL;
                 wave_state.rally_units.clear();
+            } else {
+                // No enemy found - update timer to retry later
+                // This prevents units from being stuck indefinitely
+                wave_state.next_wave_time = current_game_time + WAVE_INTERVAL;
+                tracing::debug!(
+                    "AI {:?} wave ready but no enemy found, will retry in {}s",
+                    faction_id,
+                    WAVE_INTERVAL
+                );
             }
         }
     }
