@@ -47,7 +47,7 @@
             tech_required: [],
             tier: 1,
             produced_at: ["drone_bay"],
-            tags: ["infantry", "ground", "cheap"],
+            tags: ["infantry", "ground", "cheap", "battleline"],
         ),
         (
             id: "scout_drone",
@@ -110,7 +110,7 @@
             tech_required: [],
             tier: 2,
             produced_at: ["fabricator_array"],
-            tags: ["drone", "air", "swarm", "signature"],
+            tags: ["drone", "air", "swarm", "signature", "battleline"],
         ),
         (
             id: "shield_drone",
@@ -143,7 +143,7 @@
             tech_required: [],
             tier: 2,
             produced_at: ["fabricator_array"],
-            tags: ["vehicle", "ground", "anti_armor", "hover"],
+            tags: ["vehicle", "ground", "anti_armor", "hover", "battleline"],
         ),
 
         // ------ Tier 3: Knowledge Ascendant ------
@@ -164,7 +164,7 @@
             tech_required: ["research_campus"],
             tier: 3,
             produced_at: ["ascension_spire"],
-            tags: ["drone", "air", "super_heavy", "command"],
+            tags: ["drone", "air", "super_heavy", "command", "battleline"],
         ),
         (
             id: "zeppelin_lab",
@@ -183,7 +183,7 @@
             tech_required: ["research_campus"],
             tier: 3,
             produced_at: ["ascension_spire"],
-            tags: ["air", "production", "mobile_base"],
+            tags: ["air", "production", "mobile_base", "battleline"],
         ),
     ],
 

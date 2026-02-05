@@ -45,7 +45,7 @@
             tech_required: [],
             tier: 1,
             produced_at: ["training_center"],
-            tags: ["infantry", "ground"],
+            tags: ["infantry", "ground", "battleline"],
         ),
         (
             id: "crowd_management_unit",
@@ -64,7 +64,7 @@
             tech_required: [],
             tier: 1,
             produced_at: ["training_center"],
-            tags: ["infantry", "ground", "area_denial"],
+            tags: ["infantry", "ground", "area_denial", "battleline"],
         ),
         (
             id: "patrol_vehicle",
@@ -83,7 +83,7 @@
             tech_required: [],
             tier: 1,
             produced_at: ["vehicle_depot"],
-            tags: ["vehicle", "ground", "scout"],
+            tags: ["vehicle", "ground", "scout", "battleline"],
         ),
         (
             id: "collection_vehicle",
@@ -118,7 +118,7 @@
             tech_required: [],
             tier: 2,
             produced_at: ["walker_facility"],
-            tags: ["mech", "ground", "heavy", "signature"],
+            tags: ["mech", "ground", "heavy", "signature", "battleline"],
         ),
         (
             id: "pacification_platform",
@@ -137,7 +137,7 @@
             tech_required: [],
             tier: 2,
             produced_at: ["walker_facility"],
-            tags: ["vehicle", "ground", "artillery", "siege"],
+            tags: ["vehicle", "ground", "artillery", "siege", "battleline"],
         ),
         (
             id: "protected_transport",
@@ -156,7 +156,7 @@
             tech_required: [],
             tier: 2,
             produced_at: ["vehicle_depot"],
-            tags: ["vehicle", "ground", "transport"],
+            tags: ["vehicle", "ground", "transport", "battleline"],
         ),
 
         // ------ Tier 3: Strategic Assets ------
@@ -177,7 +177,7 @@
             tech_required: ["strategic_operations"],
             tier: 3,
             produced_at: ["walker_facility"],
-            tags: ["mech", "ground", "super_heavy", "command"],
+            tags: ["mech", "ground", "super_heavy", "command", "battleline"],
         ),
         (
             id: "rapid_response_squadron",
@@ -196,7 +196,7 @@
             tech_required: ["strategic_operations"],
             tier: 3,
             produced_at: ["air_operations"],
-            tags: ["air", "gunship"],
+            tags: ["air", "gunship", "battleline"],
         ),
     ],
 

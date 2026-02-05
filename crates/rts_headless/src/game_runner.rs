@@ -11,7 +11,7 @@
 //! - Failure modes are explicit, not silent
 //! - Resource usage is tracked and reported
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, trace, warn};
@@ -98,6 +98,18 @@ struct PlayerState {
     total_damage_taken: i64,
     first_attack_tick: Option<u64>,
     peak_army_size: u32,
+    /// Technologies that have been fully researched.
+    researched_techs: HashSet<String>,
+    /// Current research in progress: (tech_id, ticks_remaining).
+    current_research: Option<(String, u64)>,
+    /// Track unit kinds by entity ID for salvage calculation.
+    unit_kinds: HashMap<EntityId, String>,
+    /// Resources gained from passive income (harvest simulation).
+    resources_from_harvest: i64,
+    /// Resources gained from salvaging enemy wrecks.
+    resources_from_salvage: i64,
+    /// Salvage value given to enemy when our units died.
+    salvage_given_to_enemy: i64,
 }
 
 impl PlayerState {
@@ -119,6 +131,12 @@ impl PlayerState {
             total_damage_taken: 0,
             first_attack_tick: None,
             peak_army_size: 0,
+            researched_techs: HashSet::new(),
+            current_research: None,
+            unit_kinds: HashMap::new(),
+            resources_from_harvest: 0,
+            resources_from_salvage: 0,
+            salvage_given_to_enemy: 0,
         }
     }
 
@@ -177,6 +195,60 @@ const TICK_TIMEOUT_MS: u128 = 5_000;
 /// Grace period before logging "slow tick" warnings (ms).
 /// Ticks taking > 100ms are concerning but not fatal.
 const SLOW_TICK_THRESHOLD_MS: u128 = 100;
+
+// =============================================================================
+// SALVAGE SYSTEM CONSTANTS
+// =============================================================================
+
+/// Radius within which units can collect salvage from wrecks.
+const SALVAGE_RADIUS: f32 = 100.0;
+
+/// Percentage of unit cost that becomes salvageable.
+const SALVAGE_PERCENT: f32 = 0.25;
+
+/// How long wrecks persist before despawning (ticks). 600 = 10 seconds at 60 TPS.
+const WRECK_LIFETIME: u64 = 600;
+
+/// Threshold below which we consider economy "tight" and prefer cheap units.
+const ECONOMY_TIGHT_THRESHOLD: i64 = 100;
+
+/// Threshold above which we consider economy "comfortable" for any unit.
+/// Reserved for future tier-gating logic.
+#[allow(dead_code)]
+const ECONOMY_COMFORTABLE_THRESHOLD: i64 = 300;
+
+/// Salvage collection rate multiplier based on unit tier.
+/// Tier 1 = 1 resource/tick, Tier 2 = 2/tick, Tier 3 = 4/tick
+fn salvage_rate_for_tier(tier: u32) -> i64 {
+    match tier {
+        1 => 1,
+        2 => 2,
+        3 => 4,
+        _ => 1,
+    }
+}
+
+/// Represents a wreck that can be salvaged.
+#[derive(Debug, Clone)]
+struct WreckState {
+    /// Position of the wreck.
+    position: (f32, f32),
+    /// Remaining salvage value (resources).
+    salvage_remaining: i64,
+    /// Tick when the wreck was created.
+    spawn_tick: u64,
+    /// Unit kind for logging purposes.
+    unit_kind: String,
+}
+
+/// Tracks an active salvage operation by a unit.
+#[derive(Debug, Clone)]
+struct SalvageAction {
+    /// Index of the wreck being salvaged.
+    wreck_index: usize,
+    /// Ticks spent salvaging so far.
+    ticks_salvaging: u64,
+}
 
 /// Run a complete game simulation.
 ///
@@ -251,6 +323,7 @@ pub fn run_game(config: GameConfig) -> GameResult {
                     registry,
                 );
                 player.units.push(entity_id);
+                player.unit_kinds.insert(entity_id, resolved_name.clone());
                 *player.units_produced.entry(resolved_name).or_insert(0) += 1;
             }
         }
@@ -262,6 +335,11 @@ pub fn run_game(config: GameConfig) -> GameResult {
     // Track events with bounded capacity
     let mut events: Vec<TimedEvent> = Vec::with_capacity(1024);
     let mut screenshot_manager = config.screenshot_config.map(ScreenshotManager::new);
+
+    // Salvage system: track wrecks and active salvage operations
+    let mut wrecks: Vec<WreckState> = Vec::new();
+    let mut salvage_actions_a: HashMap<EntityId, SalvageAction> = HashMap::new();
+    let mut salvage_actions_b: HashMap<EntityId, SalvageAction> = HashMap::new();
 
     // Pre-game diagnostics
     let initial_entity_count = sim.entities().len();
@@ -299,6 +377,14 @@ pub fn run_game(config: GameConfig) -> GameResult {
         // Execute AI for each player
         execute_ai_turn(&mut sim, &mut player_a, tick, &mut rng, registry);
         execute_ai_turn(&mut sim, &mut player_b, tick, &mut rng, registry);
+
+        // Cache unit positions BEFORE tick (entities are removed during tick when they die)
+        let mut cached_positions: HashMap<EntityId, (f32, f32)> = HashMap::new();
+        for &unit_id in player_a.units.iter().chain(player_b.units.iter()) {
+            if let Some(pos) = get_entity_position(&sim, unit_id) {
+                cached_positions.insert(unit_id, (pos.x.to_num(), pos.y.to_num()));
+            }
+        }
 
         // Advance simulation
         let tick_events = sim.tick();
@@ -372,11 +458,47 @@ pub fn run_game(config: GameConfig) -> GameResult {
             }
         }
 
-        // Process deaths
+        // Process deaths - spawn wrecks for salvage
         for dead_id in &tick_events.deaths {
+            // Get cached position (entity is already removed from sim by this point)
+            let cached_pos = cached_positions.get(dead_id).copied();
+
+            // Skip entities not tracked as player units (might be a building)
+            let in_a = player_a.units.contains(dead_id);
+            let in_b = player_b.units.contains(dead_id);
+            if !in_a && !in_b {
+                continue;
+            }
+
             // Remove from player unit lists
             if player_a.units.contains(dead_id) {
                 player_a.units.retain(|&id| id != *dead_id);
+
+                // Spawn wreck if we know the unit kind and have cached position
+                if let (Some(unit_kind), Some(pos)) =
+                    (player_a.unit_kinds.remove(dead_id), cached_pos)
+                {
+                    let cost =
+                        get_unit_cost_with_registry(&unit_kind, player_a.faction_id, registry);
+                    let salvage_value = (cost as f32 * SALVAGE_PERCENT) as i64;
+                    if salvage_value > 0 {
+                        // Track salvage given to enemy (player_b can salvage this)
+                        player_a.salvage_given_to_enemy += salvage_value;
+                        wrecks.push(WreckState {
+                            position: pos,
+                            salvage_remaining: salvage_value,
+                            spawn_tick: tick,
+                            unit_kind: unit_kind.clone(),
+                        });
+                        trace!(
+                            faction = "continuity",
+                            unit_kind = %unit_kind,
+                            salvage = salvage_value,
+                            "Spawned wreck"
+                        );
+                    }
+                }
+
                 *player_a.units_lost.entry("unit".to_string()).or_insert(0) += 1;
                 events.push(TimedEvent {
                     tick,
@@ -390,6 +512,32 @@ pub fn run_game(config: GameConfig) -> GameResult {
             }
             if player_b.units.contains(dead_id) {
                 player_b.units.retain(|&id| id != *dead_id);
+
+                // Spawn wreck if we know the unit kind and have cached position
+                if let (Some(unit_kind), Some(pos)) =
+                    (player_b.unit_kinds.remove(dead_id), cached_pos)
+                {
+                    let cost =
+                        get_unit_cost_with_registry(&unit_kind, player_b.faction_id, registry);
+                    let salvage_value = (cost as f32 * SALVAGE_PERCENT) as i64;
+                    if salvage_value > 0 {
+                        // Track salvage given to enemy (player_a can salvage this)
+                        player_b.salvage_given_to_enemy += salvage_value;
+                        wrecks.push(WreckState {
+                            position: pos,
+                            salvage_remaining: salvage_value,
+                            spawn_tick: tick,
+                            unit_kind: unit_kind.clone(),
+                        });
+                        trace!(
+                            faction = "collegium",
+                            unit_kind = %unit_kind,
+                            salvage = salvage_value,
+                            "Spawned wreck"
+                        );
+                    }
+                }
+
                 *player_b.units_lost.entry("unit".to_string()).or_insert(0) += 1;
                 events.push(TimedEvent {
                     tick,
@@ -408,6 +556,31 @@ pub fn run_game(config: GameConfig) -> GameResult {
             if player_b.depot_entity == Some(*dead_id) {
                 player_b.depot_entity = None;
             }
+        }
+
+        // Expire old wrecks
+        wrecks.retain(|w| tick - w.spawn_tick < WRECK_LIFETIME);
+
+        // Process salvage collection for both players
+        // Battleline units near wrecks will auto-collect salvage (if not in combat)
+        if !wrecks.is_empty() {
+            process_salvage_for_player(
+                &sim,
+                &mut player_a,
+                &mut wrecks,
+                &mut salvage_actions_a,
+                registry,
+            );
+            process_salvage_for_player(
+                &sim,
+                &mut player_b,
+                &mut wrecks,
+                &mut salvage_actions_b,
+                registry,
+            );
+
+            // Remove fully salvaged wrecks
+            wrecks.retain(|w| w.salvage_remaining > 0);
         }
 
         // Check for screenshot triggers
@@ -523,6 +696,29 @@ fn execute_ai_turn(
     rng: &mut SimpleRng,
     registry: Option<&FactionRegistry>,
 ) {
+    // =========================================================================
+    // RESEARCH: Progress any active research
+    // =========================================================================
+    if let Some((ref tech_id, ref mut ticks_remaining)) = player.current_research {
+        if *ticks_remaining > 0 {
+            *ticks_remaining -= 1;
+            if *ticks_remaining == 0 {
+                // Research complete!
+                let completed_tech = tech_id.clone();
+                player.researched_techs.insert(completed_tech.clone());
+                trace!(
+                    faction = ?player.faction_id,
+                    tech = %completed_tech,
+                    "Research completed"
+                );
+            }
+        }
+    }
+    // Clear completed research
+    if matches!(&player.current_research, Some((_, 0))) {
+        player.current_research = None;
+    }
+
     // Get current unit count for strategy decisions
     let current_resources = player.resources;
     let unit_counts: HashMap<String, u32> = player.units_produced.clone();
@@ -555,6 +751,7 @@ fn execute_ai_turn(
                                 registry,
                             );
                             player.units.push(entity_id);
+                            player.unit_kinds.insert(entity_id, resolved_name.clone());
                             player.resources -= cost;
                             *player.units_produced.entry(resolved_name).or_insert(0) += 1;
                         }
@@ -587,19 +784,68 @@ fn execute_ai_turn(
                     }
                 }
             }
+            BuildOrderItem::Research(tech_id) => {
+                // Start research if not already researching and we don't have this tech
+                if player.current_research.is_none() && !player.researched_techs.contains(&tech_id)
+                {
+                    // Look up tech data for cost and duration
+                    if let Some(reg) = registry {
+                        if let Some(tech_data) = reg.get_technology(player.faction_id, &tech_id) {
+                            let cost = tech_data.cost as i64;
+                            if player.resources >= cost {
+                                // Check prerequisites
+                                let prereqs_met = tech_data
+                                    .prerequisites
+                                    .iter()
+                                    .all(|prereq| player.researched_techs.contains(prereq));
+                                if prereqs_met {
+                                    player.resources -= cost;
+                                    // Convert research time to ticks (assume time is in seconds, 60 tps)
+                                    let ticks = (tech_data.research_time as f32 * 60.0) as u64;
+                                    player.current_research = Some((tech_id.clone(), ticks));
+                                    trace!(
+                                        faction = ?player.faction_id,
+                                        tech = %tech_id,
+                                        cost = cost,
+                                        ticks = ticks,
+                                        "Started research"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             _ => {}
         }
     } else {
         // Build order exhausted - continuous production based on composition
-        // Prioritize combat units based on strategy composition
+        // With economy-aware unit selection!
         let composition = player.executor.composition();
 
-        // Find the unit type we need most
-        if let Some((best_unit, _)) = composition
-            .iter()
-            .filter(|(unit, _)| *unit != "harvester") // Skip harvesters for combat focus
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        // Economy-aware selection: when tight, prefer cheap tier 1 units
+        let economy_is_tight = player.resources < ECONOMY_TIGHT_THRESHOLD;
+
+        // Find the best unit to build
+        let selected_unit = if economy_is_tight {
+            // Tight economy: find cheapest unit in composition
+            composition
+                .iter()
+                .filter(|(unit, _)| *unit != "harvester")
+                .min_by_key(|(unit, _)| {
+                    get_unit_cost_with_registry(unit, player.faction_id, registry)
+                })
+                .map(|(unit, _)| unit.as_str())
+        } else {
+            // Comfortable economy: use normal priority
+            composition
+                .iter()
+                .filter(|(unit, _)| *unit != "harvester")
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|(unit, _)| unit.as_str())
+        };
+
+        if let Some(best_unit) = selected_unit {
             let cost = get_unit_cost_with_registry(best_unit, player.faction_id, registry);
             // Only build if we have resources AND supply
             if player.resources >= cost && can_build_units {
@@ -616,6 +862,7 @@ fn execute_ai_turn(
                             registry,
                         );
                         player.units.push(entity_id);
+                        player.unit_kinds.insert(entity_id, resolved_name.clone());
                         player.resources -= cost;
                         *player.units_produced.entry(resolved_name).or_insert(0) += 1;
                     }
@@ -639,6 +886,7 @@ fn execute_ai_turn(
     // TODO: Replace with actual harvester simulation for realistic economy
     if tick % 6 == 0 {
         player.resources += 1;
+        player.resources_from_harvest += 1;
     }
 
     // Target acquisition - find and attack nearby enemies
@@ -1094,6 +1342,181 @@ fn get_building_cost(building_type: &str) -> i64 {
     }
 }
 
+// =============================================================================
+// SALVAGE SYSTEM
+// =============================================================================
+
+/// Check if a unit kind is a "battleline" unit that can collect salvage.
+/// Uses the "battleline" tag from unit data if registry is available.
+fn is_battleline_unit(
+    unit_kind: &str,
+    registry: Option<&FactionRegistry>,
+    faction: FactionId,
+) -> bool {
+    // Try to get from registry first (data-driven)
+    if let Some(reg) = registry {
+        if let Some(unit_data) = reg.get_unit(faction, unit_kind) {
+            return unit_data.tags.iter().any(|t| t == "battleline");
+        }
+        if let Some(unit_data) = reg.get_unit_by_role(faction, unit_kind) {
+            return unit_data.tags.iter().any(|t| t == "battleline");
+        }
+    }
+
+    // Fallback: hardcoded check for when registry not available
+    let kind_lower = unit_kind.to_lowercase();
+
+    // Exclude obvious non-combat units
+    let excluded = ["harvester", "collection", "constructor", "scout_drone"];
+    for excl in &excluded {
+        if kind_lower.contains(excl) {
+            return false;
+        }
+    }
+
+    // Include obvious combat units
+    let combat_indicators = [
+        "security", "crowd", "patrol", "guardian", "attack", "mech", "tank", "infantry",
+        "platform", "archon", "response",
+    ];
+    for indicator in &combat_indicators {
+        if kind_lower.contains(indicator) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Get the tier of a unit based on its kind (for salvage rate calculation).
+/// Tier 1: Basic infantry, Tier 2: Mid-tier vehicles/mechs, Tier 3: Heavy units
+fn get_unit_tier(unit_kind: &str, registry: Option<&FactionRegistry>, faction: FactionId) -> u32 {
+    // Try to get tier from registry
+    if let Some(reg) = registry {
+        if let Some(unit_data) = reg.get_unit(faction, unit_kind) {
+            return unit_data.tier as u32;
+        }
+        if let Some(unit_data) = reg.get_unit_by_role(faction, unit_kind) {
+            return unit_data.tier as u32;
+        }
+    }
+
+    // Fallback based on hardcoded cost tiers
+    let kind_lower = unit_kind.to_lowercase();
+    if kind_lower.contains("sovereign")
+        || kind_lower.contains("strategic")
+        || kind_lower.contains("rapid_response")
+    {
+        3
+    } else if kind_lower.contains("tank")
+        || kind_lower.contains("guardian")
+        || kind_lower.contains("pacification")
+        || kind_lower.contains("walker")
+    {
+        2
+    } else {
+        1
+    }
+}
+
+/// Process salvage collection for a player's units.
+/// Battleline units near wrecks will collect salvage (auto-behavior).
+fn process_salvage_for_player(
+    sim: &Simulation,
+    player: &mut PlayerState,
+    wrecks: &mut [WreckState],
+    salvage_actions: &mut HashMap<EntityId, SalvageAction>,
+    registry: Option<&FactionRegistry>,
+) {
+    // Clean up salvage actions for dead units
+    salvage_actions.retain(|unit_id, _| player.units.contains(unit_id));
+
+    for &unit_id in &player.units {
+        // Skip units that aren't battleline
+        let Some(unit_kind) = player.unit_kinds.get(&unit_id) else {
+            continue;
+        };
+        if !is_battleline_unit(unit_kind, registry, player.faction_id) {
+            continue;
+        }
+
+        // Check if unit is in active combat (has attack target)
+        // Units in combat collect salvage at half rate
+        let in_combat = sim
+            .get_entity(unit_id)
+            .map(|e| e.attack_target.is_some())
+            .unwrap_or(false);
+
+        // Get unit position
+        let Some(unit_pos) = get_entity_position(sim, unit_id) else {
+            continue;
+        };
+        let unit_x: f32 = unit_pos.x.to_num();
+        let unit_y: f32 = unit_pos.y.to_num();
+
+        // Find closest wreck within range
+        let mut closest_wreck_idx: Option<usize> = None;
+        let mut closest_dist_sq = SALVAGE_RADIUS * SALVAGE_RADIUS;
+
+        for (idx, wreck) in wrecks.iter().enumerate() {
+            if wreck.salvage_remaining > 0 {
+                let dx = wreck.position.0 - unit_x;
+                let dy = wreck.position.1 - unit_y;
+                let dist_sq = dx * dx + dy * dy;
+                if dist_sq < closest_dist_sq {
+                    closest_dist_sq = dist_sq;
+                    closest_wreck_idx = Some(idx);
+                }
+            }
+        }
+
+        if let Some(wreck_idx) = closest_wreck_idx {
+            // Get tier-based salvage rate
+            let tier = get_unit_tier(unit_kind, registry, player.faction_id);
+            let mut rate = salvage_rate_for_tier(tier);
+
+            // Units in combat collect at half rate
+            if in_combat {
+                rate /= 2;
+                if rate == 0 {
+                    rate = 1; // Minimum 1 per tick
+                }
+            }
+
+            // Collect salvage
+            let wreck = &mut wrecks[wreck_idx];
+            let collected = rate.min(wreck.salvage_remaining);
+            wreck.salvage_remaining -= collected;
+            player.resources += collected;
+            player.resources_from_salvage += collected;
+
+            // Track salvage action (could be used for animation in future)
+            salvage_actions
+                .entry(unit_id)
+                .and_modify(|a| {
+                    a.wreck_index = wreck_idx;
+                    a.ticks_salvaging += 1;
+                })
+                .or_insert(SalvageAction {
+                    wreck_index: wreck_idx,
+                    ticks_salvaging: 1,
+                });
+
+            trace!(
+                unit = ?unit_id,
+                wreck_idx = wreck_idx,
+                wreck_type = %wreck.unit_kind,
+                collected = collected,
+                remaining = wreck.salvage_remaining,
+                "Unit collecting salvage"
+            );
+        } else {
+            // No wreck nearby, clear salvage action
+            salvage_actions.remove(&unit_id);
+        }
+    }
+}
+
 /// Create a visual state snapshot from the current simulation.
 fn create_visual_state(game_id: &str, tick: u64, sim: &Simulation) -> VisualState {
     let trigger = ScreenshotTrigger::TimedSnapshot { tick };
@@ -1157,12 +1580,7 @@ fn build_faction_metrics(player: &PlayerState, _duration: u64) -> FactionMetrics
             _ => "unknown".to_string(),
         },
         final_score: (player.total_damage_dealt - player.total_damage_taken + player.resources),
-        total_resources_gathered: player.resources
-            + player
-                .units_produced
-                .values()
-                .map(|&c| c as i64 * 75)
-                .sum::<i64>(),
+        total_resources_gathered: player.resources_from_harvest + player.resources_from_salvage,
         total_resources_spent: player
             .units_produced
             .values()
@@ -1170,6 +1588,10 @@ fn build_faction_metrics(player: &PlayerState, _duration: u64) -> FactionMetrics
             .sum::<i64>(),
         peak_income_rate: 0.0,    // Would need tracking
         resource_efficiency: 0.8, // Placeholder
+        resources_from_harvest: player.resources_from_harvest,
+        resources_from_salvage: player.resources_from_salvage,
+        salvage_given_to_enemy: player.salvage_given_to_enemy,
+        net_salvage_advantage: player.resources_from_salvage - player.salvage_given_to_enemy,
         units_produced: player.units_produced.clone(),
         units_lost: player.units_lost.clone(),
         units_killed: player.units_killed.clone(),

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use rts_core::data::{BuildingData, FactionData, UnitData};
+use rts_core::data::{BuildingData, FactionData, TechData, UnitData};
 use rts_core::factions::FactionId;
 
 /// Registry holding loaded faction data for headless testing.
@@ -84,6 +84,21 @@ impl FactionRegistry {
         self.factions
             .get(&faction)
             .and_then(|f| f.get_building(building_id))
+    }
+
+    /// Get a technology definition from a faction.
+    pub fn get_technology(&self, faction: FactionId, tech_id: &str) -> Option<&TechData> {
+        self.factions
+            .get(&faction)
+            .and_then(|f| f.get_technology(tech_id))
+    }
+
+    /// Get all tier 1 technologies for a faction.
+    pub fn tier1_technologies(&self, faction: FactionId) -> Vec<&TechData> {
+        self.factions
+            .get(&faction)
+            .map(|f| f.technologies_at_tier(1).collect())
+            .unwrap_or_default()
     }
 
     /// Get all units for a faction at a specific tier.

@@ -284,6 +284,47 @@ impl Strategy {
             aggression: 1.0,
         }
     }
+
+    /// Create a "Tech Push" strategy (research then attack with upgraded units).
+    /// This strategy builds economy first, researches key upgrades, then attacks
+    /// with a more powerful mixed-tier army.
+    #[must_use]
+    pub fn tech_push() -> Self {
+        Self {
+            name: "TechPush".to_string(),
+            description: "Research upgrades before building advanced units".to_string(),
+            build_order: vec![
+                BuildOrderItem::Unit("harvester".to_string()),
+                BuildOrderItem::Building("barracks".to_string()),
+                BuildOrderItem::Unit("infantry".to_string()),
+                BuildOrderItem::Unit("infantry".to_string()),
+                BuildOrderItem::Building("tech_lab".to_string()),
+                // Research tier 1 upgrade (generic name - faction-specific techs are looked up)
+                BuildOrderItem::Research("enhanced_training".to_string()),
+                BuildOrderItem::Unit("infantry".to_string()),
+                BuildOrderItem::Unit("ranger".to_string()),
+                BuildOrderItem::WaitForResources(200),
+                BuildOrderItem::Building("vehicle_depot".to_string()),
+                BuildOrderItem::Unit("tank".to_string()),
+            ],
+            attack_timing: 15000,  // 250 seconds - later timing for tech
+            attack_interval: 4800, // 80 seconds between attacks
+            composition: [
+                ("infantry".to_string(), 0.4),
+                ("ranger".to_string(), 0.3),
+                ("tank".to_string(), 0.2),
+                ("harvester".to_string(), 0.1),
+            ]
+            .into_iter()
+            .collect(),
+            economy: EconomyTargets {
+                target_harvesters: 2,
+                target_supply_depots: 1,
+                expand_at_resources: 2000,
+            },
+            aggression: 0.6,
+        }
+    }
 }
 
 /// A single item in a build order.
@@ -293,6 +334,8 @@ pub enum BuildOrderItem {
     Unit(String),
     /// Construct a building.
     Building(String),
+    /// Research a technology.
+    Research(String),
     /// Wait for a certain amount of resources.
     WaitForResources(i64),
     /// Wait for a certain number of a unit type.

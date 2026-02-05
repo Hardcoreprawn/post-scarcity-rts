@@ -84,6 +84,14 @@ pub struct FactionMetrics {
     pub peak_income_rate: f64,
     /// Resource efficiency (gathered / potential).
     pub resource_efficiency: f64,
+    /// Resources gained from passive income (harvesting simulation).
+    pub resources_from_harvest: i64,
+    /// Resources gained from salvaging enemy wrecks.
+    pub resources_from_salvage: i64,
+    /// Salvage value given to enemy when our units died.
+    pub salvage_given_to_enemy: i64,
+    /// Net salvage advantage (our salvage - enemy salvage from us).
+    pub net_salvage_advantage: i64,
 
     // === Military ===
     /// Units produced by type.
