@@ -20,6 +20,12 @@ use crate::input::{calculate_formation_offset, InputMode};
 use crate::render::CommandFeedbackEvent;
 use crate::simulation::{ClientCommandSet, CoreCommandBuffer};
 
+/// Supply cost for light units (infantry).
+const LIGHT_UNIT_SUPPLY: i32 = 1;
+
+/// Supply cost for heavy/specialized units (rangers, harvesters).
+const HEAVY_UNIT_SUPPLY: i32 = 2;
+
 /// Plugin for game UI using egui.
 ///
 /// Provides:
@@ -213,17 +219,22 @@ fn ui_combat_legend(
         });
 }
 
+/// Check if unit data indicates a ranged unit type.
+fn is_ranged_unit(unit_data: &rts_core::data::UnitData) -> bool {
+    unit_data.has_tag("ranged") || unit_data.has_tag("ranger")
+}
+
 /// Helper to get supply cost from unit data.
 /// 
 /// TODO: This should be stored in unit data RON files.
 /// For now, we determine it from tags for consistency.
 fn get_unit_supply(unit_data: &rts_core::data::UnitData) -> i32 {
     if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
-        2 // Harvesters cost 2 supply
-    } else if unit_data.has_tag("ranged") || unit_data.has_tag("heavy") {
-        2 // Rangers and heavy units cost 2 supply
+        HEAVY_UNIT_SUPPLY // Harvesters cost 2 supply
+    } else if is_ranged_unit(unit_data) || unit_data.has_tag("heavy") {
+        HEAVY_UNIT_SUPPLY // Rangers and heavy units cost 2 supply
     } else {
-        1 // Infantry and light units cost 1 supply
+        LIGHT_UNIT_SUPPLY // Infantry and light units cost 1 supply
     }
 }
 /// Renders the top resource bar showing feedstock and supply.
@@ -715,7 +726,7 @@ fn render_production_queue(
                     if let Some(unit_data) = faction_data.get_unit(&queued.unit_id) {
                         if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
                             "🔧"
-                        } else if unit_data.has_tag("ranged") {
+                        } else if is_ranged_unit(unit_data) {
                             "🏹"
                         } else {
                             "🗡"

@@ -11,8 +11,16 @@ use crate::components::{
 use crate::data_loader::{BevyUnitKindRegistry, FactionRegistry};
 use crate::economy::PlayerResources;
 
-/// Ticks per second for build time conversions.
+/// Ticks per second - used to convert build_time from ticks (stored in data) to seconds (used in calculations).
 const TICKS_PER_SECOND: f32 = 60.0;
+
+/// Default build time in seconds when unit data is not found.
+const DEFAULT_BUILD_TIME_SECONDS: f32 = 5.0;
+
+/// Check if unit data indicates a ranged unit type.
+fn is_ranged_unit(unit_data: &rts_core::data::UnitData) -> bool {
+    unit_data.has_tag("ranged") || unit_data.has_tag("ranger")
+}
 
 /// Plugin that handles unit production from buildings.
 pub struct ProductionPlugin;
@@ -62,10 +70,10 @@ fn production_system(
                         current.unit_id,
                         faction.faction
                     );
-                    5.0 // Default fallback
+                    DEFAULT_BUILD_TIME_SECONDS
                 }
             } else {
-                5.0 // Default fallback if no faction data
+                DEFAULT_BUILD_TIME_SECONDS
             };
 
             current.progress += dt / build_time;
@@ -101,7 +109,7 @@ fn production_system(
                         } else {
                             // Combat units use data-driven stats
                             // Determine appropriate UnitType for backward compatibility
-                            let unit_type = if unit_data.has_tag("ranged") || unit_data.has_tag("ranger") {
+                            let unit_type = if is_ranged_unit(unit_data) {
                                 UnitType::Ranger
                             } else {
                                 UnitType::Infantry
