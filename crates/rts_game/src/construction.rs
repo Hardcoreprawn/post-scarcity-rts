@@ -52,6 +52,8 @@ impl Plugin for PlacementGhostPlugin {
 pub struct BuildingPlacement {
     /// Currently selected building type to place (if any).
     pub placing: Option<BuildingType>,
+    /// Whether the build menu is open.
+    pub menu_open: bool,
     /// Whether placement is valid at current cursor position.
     pub valid_placement: bool,
     /// Preview position.
@@ -349,33 +351,81 @@ fn building_hotkeys(
     mut placement: ResMut<BuildingPlacement>,
     resources: Res<PlayerResources>,
 ) {
-    // Only process if not already placing
-    if placement.placing.is_some() {
+    // Only process when menu is open and not already placing
+    if !placement.menu_open || placement.placing.is_some() {
         return;
     }
 
-    // B + number keys for building selection
-    if keyboard.pressed(KeyCode::KeyB) {
-        if keyboard.just_pressed(KeyCode::Digit1) {
-            let building = BuildingType::SupplyDepot;
-            if resources.feedstock >= building.cost() {
-                placement.placing = Some(building);
-            }
-        } else if keyboard.just_pressed(KeyCode::Digit2) {
-            let building = BuildingType::Barracks;
-            if resources.feedstock >= building.cost() {
-                placement.placing = Some(building);
-            }
-        } else if keyboard.just_pressed(KeyCode::Digit3) {
-            let building = BuildingType::TechLab;
-            if resources.feedstock >= building.cost() {
-                placement.placing = Some(building);
-            }
-        } else if keyboard.just_pressed(KeyCode::Digit4) {
-            let building = BuildingType::Turret;
-            if resources.feedstock >= building.cost() {
-                placement.placing = Some(building);
-            }
+    if keyboard.just_pressed(KeyCode::Digit1) {
+        let building = BuildingType::SupplyDepot;
+        if resources.feedstock >= building.cost() {
+            placement.placing = Some(building);
+            placement.menu_open = false;
         }
+    } else if keyboard.just_pressed(KeyCode::Digit2) {
+        let building = BuildingType::Barracks;
+        if resources.feedstock >= building.cost() {
+            placement.placing = Some(building);
+            placement.menu_open = false;
+        }
+    } else if keyboard.just_pressed(KeyCode::Digit3) {
+        let building = BuildingType::TechLab;
+        if resources.feedstock >= building.cost() {
+            placement.placing = Some(building);
+            placement.menu_open = false;
+        }
+    } else if keyboard.just_pressed(KeyCode::Digit4) {
+        let building = BuildingType::Turret;
+        if resources.feedstock >= building.cost() {
+            placement.placing = Some(building);
+            placement.menu_open = false;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(ButtonInput::<KeyCode>::default());
+        app.insert_resource(PlayerResources::default());
+        app.insert_resource(BuildingPlacement::default());
+        app.add_systems(Update, building_hotkeys);
+        app
+    }
+
+    #[test]
+    fn build_hotkeys_require_menu_open() {
+        let mut app = setup_app();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Digit1);
+
+        app.update();
+
+        let placement = app.world().resource::<BuildingPlacement>();
+        assert!(placement.placing.is_none());
+    }
+
+    #[test]
+    fn build_hotkeys_select_when_menu_open() {
+        let mut app = setup_app();
+        {
+            let mut placement = app.world_mut().resource_mut::<BuildingPlacement>();
+            placement.menu_open = true;
+        }
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Digit1);
+
+        app.update();
+
+        let placement = app.world().resource::<BuildingPlacement>();
+        assert_eq!(placement.placing, Some(BuildingType::SupplyDepot));
+        assert!(!placement.menu_open);
     }
 }

@@ -167,6 +167,7 @@ fn test_spawn_unit_from_data_has_correct_health() {
         Vec2::ZERO,
         FactionId::Continuity,
         unit_data,
+        rts_core::unit_kind::UnitKindId::NONE, // Tests don't need valid ID
     ));
     let entity_id = entity.id();
 
@@ -196,6 +197,7 @@ fn test_spawn_unit_from_data_vs_legacy_differs() {
             Vec2::ZERO,
             FactionId::Continuity,
             unit_data,
+            rts_core::unit_kind::UnitKindId::NONE,
         ))
         .id();
 

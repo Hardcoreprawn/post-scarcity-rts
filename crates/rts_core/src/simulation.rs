@@ -45,15 +45,47 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{
-    AttackTarget, CombatStats, Command, CommandQueue, EntityId, Health, Movement, Position,
-    ProductionQueue, Velocity,
+    AttackTarget, CombatStats, Command, CommandQueue, EntityId, FactionMember, Health, Movement,
+    PatrolState, Position, Projectile, Velocity,
 };
+use crate::economy::Depot;
 use crate::error::{GameError, Result};
+use crate::factions::FactionId;
 use crate::math::{Fixed, Vec2Fixed};
-use crate::systems::{
-    command_processing_system, health_system, movement_system, production_system, DamageEvent,
-    PositionLookup, ProductionComplete,
+use crate::pathfinding::{find_path, NavGrid};
+use crate::production::{
+    production_system, Building as ProductionBuilding, ProductionEvent, ProductionQueue,
 };
+use crate::systems::{
+    command_processing_system, health_system, movement_system, CombatEvent, DamageEvent,
+    PositionLookup,
+};
+
+/// Serde support for Option<Fixed>.
+mod option_fixed_serde {
+    use crate::math::Fixed;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Serialize an optional fixed-point number.
+    pub fn serialize<S>(value: &Option<Fixed>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(v) => v.to_bits().serialize(serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    /// Deserialize an optional fixed-point number.
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Fixed>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt = Option::<i64>::deserialize(deserializer)?;
+        Ok(opt.map(Fixed::from_bits))
+    }
+}
 
 /// Ticks per second for the simulation.
 pub const TICK_RATE: u32 = 20;
@@ -86,6 +118,21 @@ pub struct Entity {
     pub combat_stats: Option<CombatStats>,
     /// Production queue for buildings.
     pub production_queue: Option<ProductionQueue>,
+    /// Patrol state for units executing patrol commands.
+    pub patrol_state: Option<PatrolState>,
+    /// Building component with construction state.
+    pub building: Option<ProductionBuilding>,
+    /// Projectile data for projectile entities.
+    pub projectile: Option<Projectile>,
+    /// Faction membership for ownership.
+    pub faction: Option<FactionMember>,
+    /// Marker for depot buildings.
+    pub depot: Option<Depot>,
+    /// Waypoints for path-following movement.
+    pub path_waypoints: Option<Vec<Vec2Fixed>>,
+    /// Vision range for visibility calculations. If None, uses 2× attack range.
+    #[serde(default, with = "option_fixed_serde")]
+    pub vision_range: Option<Fixed>,
 }
 
 impl Entity {
@@ -102,6 +149,13 @@ impl Entity {
             attack_target: None,
             combat_stats: None,
             production_queue: None,
+            patrol_state: None,
+            building: None,
+            projectile: None,
+            faction: None,
+            depot: None,
+            path_waypoints: None,
+            vision_range: None,
         }
     }
 }
@@ -124,6 +178,12 @@ pub struct EntitySpawnParams {
     pub combat_stats: Option<CombatStats>,
     /// Whether this entity has a production queue.
     pub has_production_queue: bool,
+    /// Faction membership for the entity.
+    pub faction: Option<FactionMember>,
+    /// Whether this entity is a depot.
+    pub is_depot: bool,
+    /// Vision range for visibility calculations.
+    pub vision_range: Option<Fixed>,
 }
 
 /// Storage for all entities in the simulation.
@@ -220,10 +280,12 @@ pub struct TickEvents {
     pub damage_events: Vec<DamageEvent>,
     /// Entities that died this tick.
     pub deaths: Vec<EntityId>,
-    /// Production completions.
-    pub production_complete: Vec<ProductionComplete>,
+    /// Production events this tick.
+    pub production_events: Vec<ProductionEvent>,
     /// Entities spawned this tick.
     pub spawned: Vec<EntityId>,
+    /// Winning faction if the match ended.
+    pub game_end: Option<FactionId>,
 }
 
 /// The core game simulation.
@@ -247,6 +309,9 @@ pub struct Simulation {
     tick: u64,
     /// All entities in the simulation.
     entities: EntityStorage,
+    /// Navigation grid for pathfinding.
+    #[serde(skip)]
+    nav_grid: NavGrid,
 }
 
 impl Simulation {
@@ -264,10 +329,41 @@ impl Simulation {
     /// ```
     #[must_use]
     pub fn new() -> Self {
+        // Create a default nav grid (2000x2000 world units, 32 unit cells)
+        // All cells start as walkable; buildings will block cells when placed
+        let nav_grid = NavGrid::new(64, 64, Fixed::from_num(32));
         Self {
             tick: 0,
             entities: EntityStorage::new(),
+            nav_grid,
         }
+    }
+
+    /// Create a new simulation with a custom nav grid size.
+    ///
+    /// # Arguments
+    /// * `grid_width` - Width of nav grid in cells
+    /// * `grid_height` - Height of nav grid in cells  
+    /// * `cell_size` - Size of each cell in world units
+    #[must_use]
+    pub fn with_nav_grid(grid_width: u32, grid_height: u32, cell_size: Fixed) -> Self {
+        let nav_grid = NavGrid::new(grid_width, grid_height, cell_size);
+        Self {
+            tick: 0,
+            entities: EntityStorage::new(),
+            nav_grid,
+        }
+    }
+
+    /// Get a reference to the navigation grid.
+    #[must_use]
+    pub fn nav_grid(&self) -> &NavGrid {
+        &self.nav_grid
+    }
+
+    /// Get a mutable reference to the navigation grid.
+    pub fn nav_grid_mut(&mut self) -> &mut NavGrid {
+        &mut self.nav_grid
     }
 
     /// Get the current tick number.
@@ -316,11 +412,21 @@ impl Simulation {
         // 1. Command Processing System
         self.run_command_processing_system(&entity_ids);
 
+        // 1.5 Patrol System
+        self.run_patrol_system(&entity_ids);
+
+        // 1.6 Attack Chase System
+        self.run_attack_chase_system(&entity_ids);
+
         // 2. Movement System
         self.run_movement_system(&entity_ids);
 
         // 3. Combat System
         events.damage_events = self.run_combat_system(&entity_ids);
+
+        // 3.5 Projectile System
+        let mut projectile_damage = self.run_projectile_system(&entity_ids);
+        events.damage_events.append(&mut projectile_damage);
 
         // 4. Health System - identify and remove dead entities
         events.deaths = self.run_health_system(&entity_ids);
@@ -328,13 +434,41 @@ impl Simulation {
             self.entities.remove(*dead_id);
         }
 
+        events.game_end = self.determine_winner();
+
         // 5. Production System
-        events.production_complete = self.run_production_system(&entity_ids);
+        events.production_events = self.run_production_system(&entity_ids);
 
         // Increment tick counter
         self.tick += 1;
 
+        #[cfg(debug_assertions)]
+        {
+            let hash = self.state_hash();
+            tracing::debug!(tick = self.tick, state_hash = hash, "Simulation state hash");
+        }
+
         events
+    }
+
+    fn determine_winner(&self) -> Option<FactionId> {
+        let mut factions = std::collections::HashSet::new();
+
+        for (_, entity) in self.entities.iter() {
+            if entity.depot.is_some() {
+                if let (Some(health), Some(faction)) = (&entity.health, &entity.faction) {
+                    if health.current > 0 {
+                        factions.insert(faction.faction);
+                    }
+                }
+            }
+        }
+
+        if factions.len() == 1 {
+            factions.iter().copied().next()
+        } else {
+            None
+        }
     }
 
     /// Run the command processing system on all applicable entities.
@@ -354,10 +488,159 @@ impl Simulation {
                     let position = entity.position.as_ref().unwrap();
                     let velocity = entity.velocity.as_mut().unwrap();
                     let movement = entity.movement.as_ref().unwrap();
+                    let path_waypoints = &mut entity.path_waypoints;
 
-                    let mut single = vec![(id, command_queue, position, velocity, movement)];
+                    let mut single = vec![(
+                        id,
+                        command_queue,
+                        position,
+                        velocity,
+                        movement,
+                        path_waypoints,
+                    )];
                     command_processing_system(&mut single);
                 }
+            }
+        }
+    }
+
+    /// Run patrol movement logic for entities with patrol commands.
+    fn run_patrol_system(&mut self, entity_ids: &[EntityId]) {
+        let arrival_threshold_sq = Fixed::from_num(1);
+
+        for &id in entity_ids {
+            let Some(entity) = self.entities.get_mut(id) else {
+                continue;
+            };
+
+            let Some(command_queue) = entity.command_queue.as_mut() else {
+                continue;
+            };
+
+            let Some(position) = entity.position.as_ref() else {
+                continue;
+            };
+
+            let Some(velocity) = entity.velocity.as_mut() else {
+                continue;
+            };
+
+            let Some(movement) = entity.movement.as_ref() else {
+                continue;
+            };
+
+            match command_queue.current() {
+                Some(Command::Patrol(target)) => {
+                    let target = *target;
+                    let mut state = entity.patrol_state.unwrap_or(PatrolState {
+                        origin: position.value,
+                        target,
+                        heading_to_target: true,
+                    });
+
+                    if state.target != target {
+                        state = PatrolState {
+                            origin: position.value,
+                            target,
+                            heading_to_target: true,
+                        };
+                    }
+
+                    let desired = if state.heading_to_target {
+                        state.target
+                    } else {
+                        state.origin
+                    };
+
+                    let dist_sq = position.value.distance_squared(desired);
+                    if dist_sq <= arrival_threshold_sq {
+                        state.heading_to_target = !state.heading_to_target;
+                        velocity.value = Vec2Fixed::ZERO;
+                    } else {
+                        let diff = desired - position.value;
+                        let direction = crate::systems::normalize_vec2(diff);
+                        velocity.value = Vec2Fixed::new(
+                            direction.x * movement.speed,
+                            direction.y * movement.speed,
+                        );
+                    }
+
+                    entity.patrol_state = Some(state);
+                }
+                _ => {
+                    entity.patrol_state = None;
+                }
+            }
+        }
+    }
+
+    /// Run attack chase logic for entities with attack commands.
+    fn run_attack_chase_system(&mut self, entity_ids: &[EntityId]) {
+        let arrival_threshold_sq = Fixed::from_num(1);
+
+        for &id in entity_ids {
+            let Some(Command::Attack(target_id)) = self
+                .entities
+                .get(id)
+                .and_then(|entity| entity.command_queue.as_ref())
+                .and_then(|queue| queue.current().cloned())
+            else {
+                continue;
+            };
+
+            let Some(target_pos) = self
+                .entities
+                .get(target_id)
+                .and_then(|target| target.position.map(|pos| pos.value))
+            else {
+                if let Some(entity) = self.entities.get_mut(id) {
+                    if let Some(command_queue) = entity.command_queue.as_mut() {
+                        command_queue.pop();
+                    }
+                    if let Some(velocity) = entity.velocity.as_mut() {
+                        velocity.value = Vec2Fixed::ZERO;
+                    }
+                }
+                continue;
+            };
+
+            let Some(entity) = self.entities.get_mut(id) else {
+                continue;
+            };
+
+            let Some(command_queue) = entity.command_queue.as_mut() else {
+                continue;
+            };
+
+            let Some(position) = entity.position.as_ref() else {
+                continue;
+            };
+
+            let Some(velocity) = entity.velocity.as_mut() else {
+                continue;
+            };
+
+            let Some(movement) = entity.movement.as_ref() else {
+                continue;
+            };
+
+            if let Some(attack_target) = entity.attack_target.as_mut() {
+                attack_target.target = Some(target_id);
+            }
+
+            if command_queue.current().cloned() != Some(Command::Attack(target_id)) {
+                velocity.value = Vec2Fixed::ZERO;
+                continue;
+            };
+
+            let dist_sq = position.value.distance_squared(target_pos);
+            if dist_sq <= arrival_threshold_sq {
+                velocity.value = Vec2Fixed::ZERO;
+            } else {
+                let diff = target_pos - position.value;
+                let direction = crate::systems::normalize_vec2(diff);
+                velocity.value =
+                    Vec2Fixed::new(direction.x * movement.speed, direction.y * movement.speed);
             }
         }
     }
@@ -432,10 +715,29 @@ impl Simulation {
                     let dist_sq = position.value.distance_squared(target_pos.value);
 
                     if dist_sq <= range_sq && combat_stats.cooldown_remaining == 0 {
-                        // Apply damage to target
-                        if let Some(target_entity) = self.entities.get_mut(target_id) {
-                            if let Some(ref mut health) = target_entity.health {
-                                let damage = combat_stats.damage;
+                        if combat_stats.uses_projectiles() {
+                            let projectile = Projectile::new(
+                                attacker_id,
+                                target_id,
+                                combat_stats.damage,
+                                combat_stats.damage_type,
+                                combat_stats.projectile_speed,
+                            );
+                            self.spawn_projectile(position.value, projectile);
+                            combat_stats.cooldown_remaining = combat_stats.attack_cooldown;
+                        } else if let Some(target_entity) = self.entities.get_mut(target_id) {
+                            if let Some(ref mut health) = target_entity.health.as_mut() {
+                                // Use resistance-based damage calculation
+                                let weapon_stats = combat_stats.to_weapon_stats();
+                                let target_stats = target_entity
+                                    .combat_stats
+                                    .map(|s| s.to_resistance_stats())
+                                    .unwrap_or_default();
+
+                                let damage = crate::combat::calculate_resistance_damage(
+                                    &weapon_stats,
+                                    &target_stats,
+                                );
                                 health.apply_damage(damage);
 
                                 all_damage_events.push(DamageEvent {
@@ -470,6 +772,90 @@ impl Simulation {
         all_damage_events
     }
 
+    /// Run the projectile system on all active projectiles.
+    fn run_projectile_system(&mut self, entity_ids: &[EntityId]) -> Vec<DamageEvent> {
+        let positions: Vec<(EntityId, Position)> = entity_ids
+            .iter()
+            .filter_map(|&id| {
+                self.entities
+                    .get(id)
+                    .and_then(|e| e.position.map(|p| (id, p)))
+            })
+            .collect();
+        let pos_lookup = PositionLookup::new(&positions);
+
+        let mut projectile_data: Vec<(EntityId, Position, Projectile)> = entity_ids
+            .iter()
+            .filter_map(|&id| {
+                self.entities
+                    .get(id)
+                    .and_then(|entity| Some((id, entity.position?, entity.projectile?)))
+            })
+            .collect();
+
+        if projectile_data.is_empty() {
+            return Vec::new();
+        }
+
+        let mut target_data: Vec<(EntityId, Health, CombatStats)> = entity_ids
+            .iter()
+            .filter_map(|&id| {
+                self.entities
+                    .get(id)
+                    .and_then(|entity| Some((id, entity.health?, entity.combat_stats?)))
+            })
+            .collect();
+
+        let mut projectile_refs: Vec<(EntityId, &mut Position, &Projectile)> = projectile_data
+            .iter_mut()
+            .map(|(id, position, projectile)| (*id, position, &*projectile))
+            .collect();
+
+        let mut target_refs: Vec<(EntityId, &mut Health, &CombatStats)> = target_data
+            .iter_mut()
+            .map(|(id, health, combat_stats)| (*id, health, &*combat_stats))
+            .collect();
+
+        let updates =
+            crate::systems::projectile_system(&mut projectile_refs, &mut target_refs, &pos_lookup);
+
+        let mut position_map: std::collections::HashMap<EntityId, Position> = projectile_data
+            .iter()
+            .map(|(id, position, _)| (*id, *position))
+            .collect();
+
+        let mut damage_events = Vec::new();
+
+        for update in updates {
+            if update.hit {
+                if let Some(CombatEvent::ProjectileHit {
+                    source,
+                    target,
+                    damage,
+                }) = update.event
+                {
+                    damage_events.push(DamageEvent {
+                        attacker: source,
+                        target,
+                        damage,
+                    });
+                    if let Some(entity) = self.entities.get_mut(target) {
+                        if let Some(health) = entity.health.as_mut() {
+                            health.apply_damage(damage);
+                        }
+                    }
+                }
+                self.entities.remove(update.projectile_id);
+            } else if let Some(new_pos) = position_map.remove(&update.projectile_id) {
+                if let Some(entity) = self.entities.get_mut(update.projectile_id) {
+                    entity.position = Some(new_pos);
+                }
+            }
+        }
+
+        damage_events
+    }
+
     /// Run the health system and return dead entity IDs.
     fn run_health_system(&self, entity_ids: &[EntityId]) -> Vec<EntityId> {
         let health_data: Vec<(EntityId, &Health)> = entity_ids
@@ -484,23 +870,57 @@ impl Simulation {
         health_system(&health_data)
     }
 
-    /// Run the production system and return completed productions.
-    fn run_production_system(&mut self, entity_ids: &[EntityId]) -> Vec<ProductionComplete> {
-        let mut completions = Vec::new();
+    /// Run the production system and return production events.
+    fn run_production_system(&mut self, entity_ids: &[EntityId]) -> Vec<ProductionEvent> {
+        use crate::production::BlueprintRegistry;
+
+        // Collect buildings with production queues
+        let mut buildings_data: Vec<(EntityId, ProductionQueue, ProductionBuilding, Position)> =
+            Vec::new();
 
         for &id in entity_ids {
-            if let Some(entity) = self.entities.get_mut(id) {
-                if let (Some(position), Some(queue)) =
-                    (entity.position.as_ref(), entity.production_queue.as_mut())
-                {
-                    let mut single = vec![(id, position, queue)];
-                    let mut results = production_system(&mut single);
-                    completions.append(&mut results);
+            if let Some(entity) = self.entities.get(id) {
+                if let (Some(position), Some(queue), Some(building)) = (
+                    entity.position.as_ref(),
+                    entity.production_queue.as_ref(),
+                    entity.building.as_ref(),
+                ) {
+                    buildings_data.push((id, queue.clone(), building.clone(), *position));
                 }
             }
         }
 
-        completions
+        // Build mutable reference slice
+        let mut buildings_refs: Vec<(
+            EntityId,
+            &mut ProductionQueue,
+            &ProductionBuilding,
+            &Position,
+        )> = buildings_data
+            .iter_mut()
+            .map(|(id, q, b, p)| (*id, q, b as &ProductionBuilding, p as &Position))
+            .collect();
+
+        // Run the production system
+        let blueprints = BlueprintRegistry::new();
+        let events = production_system(&mut buildings_refs, &blueprints, self.tick);
+
+        // Write back updated queues
+        for (id, queue, _, _) in buildings_data {
+            if let Some(entity) = self.entities.get_mut(id) {
+                entity.production_queue = Some(queue);
+            }
+        }
+
+        events
+    }
+
+    /// Spawn a projectile entity at the given position.
+    fn spawn_projectile(&mut self, position: Vec2Fixed, projectile: Projectile) -> EntityId {
+        let mut entity = Entity::new(0);
+        entity.position = Some(Position::new(position));
+        entity.projectile = Some(projectile);
+        self.entities.insert(entity)
     }
 
     /// Spawn a new entity with the given parameters.
@@ -560,6 +980,16 @@ impl Simulation {
         if params.has_production_queue {
             entity.production_queue = Some(ProductionQueue::new());
         }
+
+        if let Some(faction) = params.faction {
+            entity.faction = Some(faction);
+        }
+
+        if params.is_depot {
+            entity.depot = Some(Depot);
+        }
+
+        entity.vision_range = params.vision_range;
 
         self.entities.insert(entity)
     }
@@ -628,6 +1058,37 @@ impl Simulation {
     /// ))).unwrap();
     /// ```
     pub fn apply_command(&mut self, entity: EntityId, command: Command) -> Result<()> {
+        // For MoveTo commands, calculate path and store waypoints
+        if let Command::MoveTo(target) = &command {
+            if let Some(ent) = self.entities.get(entity) {
+                if let Some(pos) = &ent.position {
+                    // Try to find a path; if pathfinding fails, fall back to direct movement
+                    if let Ok(path) = find_path(&self.nav_grid, pos.value, *target) {
+                        // Store path (skip first waypoint if it's the start position)
+                        let waypoints: Vec<Vec2Fixed> = if path.len() > 1 {
+                            path.into_iter().skip(1).collect()
+                        } else {
+                            path
+                        };
+
+                        if let Some(ent_mut) = self.entities.get_mut(entity) {
+                            ent_mut.path_waypoints = Some(waypoints);
+                        }
+                    } else {
+                        // Clear waypoints if path fails - will move directly
+                        if let Some(ent_mut) = self.entities.get_mut(entity) {
+                            ent_mut.path_waypoints = None;
+                        }
+                    }
+                }
+            }
+        } else {
+            // For non-MoveTo commands, clear any existing path
+            if let Some(ent) = self.entities.get_mut(entity) {
+                ent.path_waypoints = None;
+            }
+        }
+
         let ent = self
             .entities
             .get_mut(entity)
@@ -683,6 +1144,26 @@ impl Simulation {
         Ok(())
     }
 
+    /// Clear an entity's attack target.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the entity doesn't exist or has no combat capability.
+    pub fn clear_attack_target(&mut self, entity: EntityId) -> Result<()> {
+        let ent = self
+            .entities
+            .get_mut(entity)
+            .ok_or(GameError::EntityNotFound(entity))?;
+
+        let attack_target = ent
+            .attack_target
+            .as_mut()
+            .ok_or_else(|| GameError::InvalidState(format!("Entity {} cannot attack", entity)))?;
+
+        attack_target.clear();
+        Ok(())
+    }
+
     /// Get an entity by ID.
     #[must_use]
     pub fn get_entity(&self, id: EntityId) -> Option<&Entity> {
@@ -724,6 +1205,24 @@ impl Simulation {
                 if let Some(ref vel) = entity.velocity {
                     vel.value.x.to_bits().hash(&mut hasher);
                     vel.value.y.to_bits().hash(&mut hasher);
+                }
+
+                // Hash projectile
+                if let Some(ref projectile) = entity.projectile {
+                    projectile.source.hash(&mut hasher);
+                    projectile.target.hash(&mut hasher);
+                    projectile.damage.hash(&mut hasher);
+                    projectile.damage_type.hash(&mut hasher);
+                    projectile.speed.to_bits().hash(&mut hasher);
+                }
+
+                // Hash patrol state
+                if let Some(ref patrol) = entity.patrol_state {
+                    patrol.origin.x.to_bits().hash(&mut hasher);
+                    patrol.origin.y.to_bits().hash(&mut hasher);
+                    patrol.target.x.to_bits().hash(&mut hasher);
+                    patrol.target.y.to_bits().hash(&mut hasher);
+                    patrol.heading_to_target.hash(&mut hasher);
                 }
             }
         }
@@ -833,6 +1332,54 @@ mod tests {
     }
 
     #[test]
+    fn test_patrol_toggles_heading() {
+        let mut sim = Simulation::new();
+        let id = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            movement: Some(Fixed::from_num(2)),
+            ..Default::default()
+        });
+
+        let target = Vec2Fixed::new(Fixed::from_num(10), Fixed::from_num(0));
+        sim.apply_command(id, Command::Patrol(target)).unwrap();
+
+        sim.tick();
+        let state = sim.get_entity(id).unwrap().patrol_state.unwrap();
+        assert!(state.heading_to_target);
+
+        if let Some(entity) = sim.entities.get_mut(id) {
+            entity.position = Some(Position::new(target));
+        }
+
+        sim.tick();
+        let state = sim.get_entity(id).unwrap().patrol_state.unwrap();
+        assert!(!state.heading_to_target);
+    }
+
+    #[test]
+    fn test_attack_command_chases_target() {
+        let mut sim = Simulation::new();
+        let attacker = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            movement: Some(Fixed::from_num(3)),
+            ..Default::default()
+        });
+
+        let target = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(20), Fixed::from_num(0))),
+            ..Default::default()
+        });
+
+        sim.apply_command(attacker, Command::Attack(target))
+            .unwrap();
+        sim.tick();
+
+        let entity = sim.get_entity(attacker).unwrap();
+        let pos = entity.position.unwrap();
+        assert!(pos.value.x > Fixed::from_num(0));
+    }
+
+    #[test]
     fn test_deterministic_hash() {
         let mut sim1 = Simulation::new();
         let mut sim2 = Simulation::new();
@@ -867,6 +1414,44 @@ mod tests {
 
         // Hashes must be identical
         assert_eq!(sim1.state_hash(), sim2.state_hash());
+    }
+
+    #[test]
+    fn test_projectile_hits_target() {
+        let mut sim = Simulation::new();
+        let attacker = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            health: Some(100),
+            movement: Some(Fixed::from_num(1)),
+            combat_stats: Some(
+                CombatStats::new(10, Fixed::from_num(10), 10)
+                    .with_projectile_speed(Fixed::from_num(10)),
+            ),
+            ..Default::default()
+        });
+
+        let target = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(5), Fixed::from_num(0))),
+            health: Some(5),
+            combat_stats: Some(CombatStats::default()),
+            ..Default::default()
+        });
+
+        sim.set_attack_target(attacker, target).unwrap();
+
+        sim.tick();
+        sim.tick();
+
+        if let Some(entity) = sim.get_entity(target) {
+            let target_health = entity.health.unwrap().current;
+            assert!(target_health < 5);
+        }
+
+        let has_projectiles = sim
+            .entities()
+            .iter()
+            .any(|(_, entity)| entity.projectile.is_some());
+        assert!(!has_projectiles);
     }
 
     #[test]

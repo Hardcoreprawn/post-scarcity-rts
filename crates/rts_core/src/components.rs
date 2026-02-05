@@ -7,6 +7,7 @@ use std::collections::VecDeque;
 
 use serde::{Deserialize, Serialize};
 
+use crate::combat::{ArmorClass, ExtendedDamageType, ResistanceStats, WeaponSize, WeaponStats};
 use crate::factions::FactionId;
 use crate::math::{fixed_serde, Fixed, Vec2Fixed};
 
@@ -382,6 +383,17 @@ pub struct Movement {
     pub target: Option<Vec2Fixed>,
 }
 
+/// Component tracking patrol behavior between two points.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PatrolState {
+    /// Patrol origin (starting point).
+    pub origin: Vec2Fixed,
+    /// Patrol target (destination point).
+    pub target: Vec2Fixed,
+    /// Whether the unit is heading toward the target.
+    pub heading_to_target: bool,
+}
+
 /// Health component for damageable entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Health {
@@ -448,15 +460,26 @@ pub struct Owned {
 }
 
 /// Combat stats component.
+///
+/// This component uses the resistance-based damage system:
+/// - `resistance` is a percentage (0-75%) damage reduction
+/// - `armor_penetration` ignores a percentage of target resistance
+/// - `weapon_size` affects tracking modifiers vs different armor classes
+/// - `armor_class` determines base resistance ranges and damage type effectiveness
+///
+/// Legacy `armor_type` and `armor_value` fields are deprecated. Use `armor_class`
+/// and `resistance` instead. The legacy fields will be converted automatically.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CombatStats {
     /// Base attack damage.
     pub damage: u32,
-    /// Type of damage this unit deals.
+    /// Type of damage this unit deals (use extended damage type internally).
     pub damage_type: DamageType,
-    /// Type of armor this unit has.
+    /// Type of armor this unit has (legacy - use armor_class instead).
+    #[deprecated(note = "Use armor_class and resistance instead")]
     pub armor_type: ArmorType,
-    /// Flat armor reduction (applied after multipliers).
+    /// Flat armor reduction (legacy - use resistance instead).
+    #[deprecated(note = "Use resistance instead")]
     pub armor_value: u32,
     /// Attack range in world units.
     #[serde(with = "fixed_serde")]
@@ -468,11 +491,24 @@ pub struct CombatStats {
     /// Projectile speed (0 = instant/hitscan).
     #[serde(with = "fixed_serde")]
     pub projectile_speed: Fixed,
+    /// Armor class for resistance-based damage (new system).
+    #[serde(default)]
+    pub armor_class: ArmorClass,
+    /// Resistance percentage (0-75) for damage reduction.
+    #[serde(default)]
+    pub resistance: u8,
+    /// Armor penetration percentage (0-100) ignores target resistance.
+    #[serde(default)]
+    pub armor_penetration: u8,
+    /// Weapon size class affects tracking vs different armor classes.
+    #[serde(default)]
+    pub weapon_size: WeaponSize,
 }
 
 impl CombatStats {
     /// Create new combat stats with default types.
     #[must_use]
+    #[allow(deprecated)]
     pub fn new(damage: u32, range: Fixed, attack_cooldown: u32) -> Self {
         Self {
             damage,
@@ -483,6 +519,10 @@ impl CombatStats {
             attack_cooldown,
             cooldown_remaining: 0,
             projectile_speed: Fixed::ZERO,
+            armor_class: ArmorClass::Light,
+            resistance: 0,
+            armor_penetration: 0,
+            weapon_size: WeaponSize::Medium,
         }
     }
 
@@ -493,8 +533,10 @@ impl CombatStats {
         self
     }
 
-    /// Builder method to set armor type and value.
+    /// Builder method to set armor type and value (legacy - prefer with_resistance).
     #[must_use]
+    #[deprecated(note = "Use with_resistance instead")]
+    #[allow(deprecated)]
     pub const fn with_armor(mut self, armor_type: ArmorType, armor_value: u32) -> Self {
         self.armor_type = armor_type;
         self.armor_value = armor_value;
@@ -505,6 +547,35 @@ impl CombatStats {
     #[must_use]
     pub fn with_projectile_speed(mut self, speed: Fixed) -> Self {
         self.projectile_speed = speed;
+        self
+    }
+
+    /// Builder method to set armor class and resistance (new system).
+    #[must_use]
+    pub const fn with_resistance(mut self, armor_class: ArmorClass, resistance: u8) -> Self {
+        self.armor_class = armor_class;
+        self.resistance = if resistance > 75 { 75 } else { resistance };
+        self
+    }
+
+    /// Builder method to set armor penetration.
+    #[must_use]
+    pub const fn with_armor_penetration(mut self, penetration: u8) -> Self {
+        self.armor_penetration = if penetration > 100 { 100 } else { penetration };
+        self
+    }
+
+    /// Builder method to set weapon size.
+    #[must_use]
+    pub const fn with_weapon_size(mut self, size: WeaponSize) -> Self {
+        self.weapon_size = size;
+        self
+    }
+
+    /// Builder method to set armor class.
+    #[must_use]
+    pub const fn with_armor_class(mut self, armor_class: ArmorClass) -> Self {
+        self.armor_class = armor_class;
         self
     }
 
@@ -531,9 +602,39 @@ impl CombatStats {
             self.cooldown_remaining -= 1;
         }
     }
+
+    /// Convert to WeaponStats for resistance-based damage calculation.
+    #[must_use]
+    pub fn to_weapon_stats(&self) -> WeaponStats {
+        WeaponStats::new(
+            self.damage,
+            ExtendedDamageType::from_damage_type(self.damage_type),
+        )
+        .with_size(self.weapon_size)
+        .with_penetration(self.armor_penetration)
+    }
+
+    /// Convert to ResistanceStats for resistance-based damage calculation.
+    ///
+    /// If resistance is 0 and legacy armor_value is set, automatically converts
+    /// using the flat armor to resistance formula.
+    #[must_use]
+    #[allow(deprecated)]
+    pub fn to_resistance_stats(&self) -> ResistanceStats {
+        let effective_resistance = if self.resistance > 0 {
+            self.resistance
+        } else if self.armor_value > 0 {
+            // Convert legacy flat armor to resistance
+            crate::combat::convert_flat_armor_to_resistance(self.armor_value, self.armor_class)
+        } else {
+            0
+        };
+        ResistanceStats::new(self.armor_class, effective_resistance)
+    }
 }
 
 impl Default for CombatStats {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             damage: 10,
@@ -544,6 +645,10 @@ impl Default for CombatStats {
             attack_cooldown: 30,
             cooldown_remaining: 0,
             projectile_speed: Fixed::ZERO,
+            armor_class: ArmorClass::Light,
+            resistance: 0,
+            armor_penetration: 0,
+            weapon_size: WeaponSize::Medium,
         }
     }
 }
@@ -597,105 +702,4 @@ pub struct Building {
     pub height: u8,
 }
 
-/// An item being produced in a production queue.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProductionItem {
-    /// Identifier for what's being produced.
-    pub unit_id: String,
-    /// Total ticks required to produce this item.
-    pub build_time: u32,
-}
-
-/// Production queue component for buildings that produce units.
-///
-/// Buildings with this component can queue up units/items for production.
-/// The first item in the queue is actively being produced.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct ProductionQueue {
-    /// Items waiting to be produced.
-    pub queue: VecDeque<ProductionItem>,
-    /// Current production progress in ticks (0 to item's build_time).
-    pub progress: u32,
-    /// Rally point for produced units.
-    pub rally_point: Option<Vec2Fixed>,
-}
-
-impl ProductionQueue {
-    /// Create an empty production queue.
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            queue: VecDeque::new(),
-            progress: 0,
-            rally_point: None,
-        }
-    }
-
-    /// Create a production queue with a rally point.
-    #[must_use]
-    pub fn with_rally_point(rally_point: Vec2Fixed) -> Self {
-        Self {
-            queue: VecDeque::new(),
-            progress: 0,
-            rally_point: Some(rally_point),
-        }
-    }
-
-    /// Add an item to the production queue.
-    pub fn enqueue(&mut self, unit_id: String, build_time: u32) {
-        self.queue.push_back(ProductionItem {
-            unit_id,
-            build_time,
-        });
-    }
-
-    /// Get the currently producing item.
-    #[must_use]
-    pub fn current(&self) -> Option<&ProductionItem> {
-        self.queue.front()
-    }
-
-    /// Check if production is complete for the current item.
-    #[must_use]
-    pub fn is_complete(&self) -> bool {
-        self.queue
-            .front()
-            .map(|item| self.progress >= item.build_time)
-            .unwrap_or(false)
-    }
-
-    /// Complete the current item and return it.
-    pub fn complete(&mut self) -> Option<ProductionItem> {
-        if self.is_complete() {
-            self.progress = 0;
-            self.queue.pop_front()
-        } else {
-            None
-        }
-    }
-
-    /// Advance production by one tick.
-    pub fn tick(&mut self) {
-        if !self.queue.is_empty() {
-            self.progress += 1;
-        }
-    }
-
-    /// Check if the queue is empty.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.queue.is_empty()
-    }
-
-    /// Get the number of items in the queue.
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.queue.len()
-    }
-
-    /// Cancel all production.
-    pub fn clear(&mut self) {
-        self.queue.clear();
-        self.progress = 0;
-    }
-}
+// ProductionQueue moved to production.rs module for better organization

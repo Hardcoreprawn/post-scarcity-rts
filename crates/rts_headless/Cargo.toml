@@ -1,0 +1,35 @@
+[package]
+name = "rts_headless"
+description = "Headless game runner for AI testing and CI verification"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+rts_core.workspace = true
+rts_game.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ron.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap = { version = "4.5", features = ["derive"] }
+rayon = "1.10"
+bevy = { workspace = true, default-features = false, features = [
+    "bevy_asset",
+    "bevy_state",
+    "multi_threaded",
+] }
+
+[dev-dependencies]
+rts_test_utils.workspace = true
+tempfile = "3.10"
+
+[lints]
+workspace = true

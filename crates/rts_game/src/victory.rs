@@ -5,7 +5,8 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
-use crate::components::{GameDepot, GameFaction, GameHealth, PlayerFaction};
+use crate::components::PlayerFaction;
+use crate::simulation::CoreSimulation;
 
 /// Plugin for victory/defeat conditions.
 pub struct VictoryPlugin;
@@ -55,9 +56,9 @@ pub struct MatchStats {
 pub fn check_victory_conditions(
     mut game_state: ResMut<GameState>,
     player_faction: Res<PlayerFaction>,
-    depots: Query<(&GameFaction, &GameHealth), With<GameDepot>>,
     time: Res<Time>,
     mut stats: ResMut<MatchStats>,
+    core: Res<CoreSimulation>,
 ) {
     // Don't check if game already ended
     if *game_state != GameState::Playing {
@@ -67,28 +68,14 @@ pub fn check_victory_conditions(
     // Track match duration
     stats.match_duration += time.delta_seconds();
 
-    let player_faction_id = player_faction.faction;
-    let mut player_has_depot = false;
-    let mut enemy_has_depot = false;
-
-    for (faction, health) in depots.iter() {
-        // Only count living depots
-        if health.current > 0 {
-            if faction.faction == player_faction_id {
-                player_has_depot = true;
-            } else {
-                enemy_has_depot = true;
-            }
+    if let Some(winner) = core.last_events.game_end {
+        if winner == player_faction.faction {
+            *game_state = GameState::Victory;
+            tracing::info!("VICTORY - Winning faction {:?}", winner);
+        } else {
+            *game_state = GameState::Defeat;
+            tracing::info!("DEFEAT - Winning faction {:?}", winner);
         }
-    }
-
-    // Check victory/defeat
-    if !player_has_depot {
-        *game_state = GameState::Defeat;
-        tracing::info!("DEFEAT - Player depot destroyed!");
-    } else if !enemy_has_depot {
-        *game_state = GameState::Victory;
-        tracing::info!("VICTORY - Enemy depot destroyed!");
     }
 }
 

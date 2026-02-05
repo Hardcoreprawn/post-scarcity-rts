@@ -1,0 +1,27 @@
+// Rush Strategy
+// Early aggression with mass infantry
+Strategy(
+    name: "Rush",
+    description: "Early aggression with cheap units - overwhelm before defenses are up",
+    build_order: [
+        Unit("infantry"),
+        Unit("infantry"),
+        Building("barracks"),
+        Unit("infantry"),
+        Unit("infantry"),
+        Unit("infantry"),
+        WaitForUnits("infantry", 5),
+    ],
+    attack_timing: 6000,   // 100 seconds at 60 tps
+    attack_interval: 1800, // 30 seconds between waves
+    composition: {
+        "infantry": 0.9,
+        "harvester": 0.1,
+    },
+    economy: EconomyTargets(
+        target_harvesters: 1,
+        target_supply_depots: 0,
+        expand_at_resources: 2000,
+    ),
+    aggression: 0.9,
+)

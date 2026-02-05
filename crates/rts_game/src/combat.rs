@@ -7,13 +7,18 @@ use crate::components::{
     GamePosition, MovementTarget, PlayerFaction, Regeneration, Unit,
 };
 use crate::economy::PlayerResources;
-use rts_core::math::{Fixed, Vec2Fixed};
 
 /// Range at which units will auto-acquire targets.
 pub const AUTO_ATTACK_RANGE: f32 = 200.0;
 
 /// Duration weapon fire effects persist (seconds).
 const WEAPON_FIRE_DURATION: f32 = 0.15;
+/// Delay before despawning dead units (seconds).
+const DEATH_DESPAWN_DELAY: f32 = 0.6;
+/// Duration of the death effect visual (seconds).
+const DEATH_EFFECT_DURATION: f32 = 0.4;
+/// Size of the death effect sprite.
+const DEATH_EFFECT_SIZE: f32 = 18.0;
 
 /// Component for weapon fire visual effects.
 #[derive(Component)]
@@ -26,6 +31,20 @@ pub struct WeaponFire {
     pub timer: f32,
     /// Color of the weapon fire.
     pub color: Color,
+}
+
+/// Component for death effect visual.
+#[derive(Component)]
+pub struct DeathEffect {
+    /// Time remaining before despawn.
+    pub timer: f32,
+}
+
+/// Component storing despawn delay for dead units.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct DeathTimer {
+    /// Time remaining before despawn.
+    pub timer: f32,
 }
 
 /// Get weapon fire color based on damage type.
@@ -49,9 +68,9 @@ impl Plugin for CombatPlugin {
                 update_attack_cooldowns,
                 regenerate_health,
                 acquire_attack_targets,
-                chase_attack_targets,
                 execute_attacks,
                 process_deaths,
+                update_death_effects,
                 cleanup_dead_entities,
             )
                 .chain(),
@@ -143,41 +162,6 @@ fn acquire_attack_targets(
     }
 }
 
-/// Moves units toward their attack targets if out of range.
-fn chase_attack_targets(
-    mut commands: Commands,
-    mut attackers: Query<(Entity, &GamePosition, &CombatStats, &AttackTarget), Without<Dead>>,
-    targets: Query<&GamePosition, Without<Dead>>,
-) {
-    for (attacker_entity, attacker_pos, stats, attack_target) in attackers.iter_mut() {
-        // Check if target still exists
-        let Ok(target_pos) = targets.get(attack_target.target) else {
-            // Target is gone, remove attack target
-            commands.entity(attacker_entity).remove::<AttackTarget>();
-            continue;
-        };
-
-        let my_pos = attacker_pos.as_vec2();
-        let target_world = target_pos.as_vec2();
-        let dist = my_pos.distance(target_world);
-
-        // If out of range, move toward target
-        if dist > stats.range {
-            // Stop a bit inside weapon range
-            let approach_dist = dist - stats.range * 0.8;
-            let direction = (target_world - my_pos).normalize();
-            let move_to = my_pos + direction * approach_dist;
-
-            commands.entity(attacker_entity).insert(MovementTarget {
-                target: Vec2Fixed::new(Fixed::from_num(move_to.x), Fixed::from_num(move_to.y)),
-            });
-        } else {
-            // In range - stop moving
-            commands.entity(attacker_entity).remove::<MovementTarget>();
-        }
-    }
-}
-
 /// Execute attacks on targets in range when cooldown is ready.
 fn execute_attacks(
     mut commands: Commands,
@@ -191,17 +175,13 @@ fn execute_attacks(
         ),
         Without<Dead>,
     >,
-    mut targets: Query<
-        (&GamePosition, &mut GameHealth, Option<&Armor>, &GameFaction),
-        Without<Dead>,
-    >,
+    mut targets: Query<(&GamePosition, Option<&Armor>, &GameFaction), Without<Dead>>,
 ) {
     for (attacker_entity, attacker_pos, mut stats, attack_target, attacker_faction) in
         attackers.iter_mut()
     {
         // Check if target still exists and is valid
-        let Ok((target_pos, mut target_health, target_armor, target_faction)) =
-            targets.get_mut(attack_target.target)
+        let Ok((target_pos, target_armor, target_faction)) = targets.get_mut(attack_target.target)
         else {
             // Target is gone
             commands.entity(attacker_entity).remove::<AttackTarget>();
@@ -225,8 +205,6 @@ fn execute_attacks(
             let modifier = armor_type.damage_modifier(stats.damage_type);
             let final_damage = (stats.damage as f32 * modifier).round() as u32;
 
-            // Apply damage
-            target_health.apply_damage(final_damage);
             stats.start_cooldown();
 
             // Spawn weapon fire visual
@@ -243,11 +221,44 @@ fn execute_attacks(
 }
 
 /// Marks units with zero health as dead.
-fn process_deaths(mut commands: Commands, dying: Query<(Entity, &GameHealth), Without<Dead>>) {
-    for (entity, health) in dying.iter() {
+fn process_deaths(
+    mut commands: Commands,
+    dying: Query<(Entity, &GameHealth, &GamePosition), Without<Dead>>,
+) {
+    for (entity, health, position) in dying.iter() {
         if health.current == 0 {
-            commands.entity(entity).insert(Dead);
+            commands.entity(entity).insert(Dead).insert(DeathTimer {
+                timer: DEATH_DESPAWN_DELAY,
+            });
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgba(1.0, 0.3, 0.1, 0.8),
+                        custom_size: Some(Vec2::splat(DEATH_EFFECT_SIZE)),
+                        ..default()
+                    },
+                    transform: Transform::from_translation(position.as_vec2().extend(0.5)),
+                    ..default()
+                },
+                DeathEffect {
+                    timer: DEATH_EFFECT_DURATION,
+                },
+            ));
             tracing::info!("Entity {:?} died", entity);
+        }
+    }
+}
+
+fn update_death_effects(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut effects: Query<(Entity, &mut DeathEffect)>,
+) {
+    let dt = time.delta_seconds();
+    for (entity, mut effect) in effects.iter_mut() {
+        effect.timer -= dt;
+        if effect.timer <= 0.0 {
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
@@ -255,17 +266,24 @@ fn process_deaths(mut commands: Commands, dying: Query<(Entity, &GameHealth), Wi
 /// Cleans up dead entities after a short delay.
 fn cleanup_dead_entities(
     mut commands: Commands,
-    dead: Query<(Entity, Option<&Unit>, Option<&GameFaction>), With<Dead>>,
+    time: Res<Time>,
+    mut dead: Query<(Entity, &mut DeathTimer, Option<&Unit>, Option<&GameFaction>), With<Dead>>,
     attack_targets: Query<(Entity, &AttackTarget)>,
     player_faction: Res<PlayerFaction>,
     mut resources: ResMut<PlayerResources>,
 ) {
-    for (dead_entity, unit, faction) in dead.iter() {
+    let dt = time.delta_seconds();
+    for (dead_entity, mut timer, unit, faction) in dead.iter_mut() {
         // Clear any attack targets pointing to this entity
         for (attacker, target) in attack_targets.iter() {
             if target.target == dead_entity {
                 commands.entity(attacker).remove::<AttackTarget>();
             }
+        }
+
+        timer.timer -= dt;
+        if timer.timer > 0.0 {
+            continue;
         }
 
         // Release supply for player units
@@ -305,5 +323,39 @@ fn render_weapon_fire(mut gizmos: Gizmos, fires: Query<&WeaponFire>) {
         gizmos.line_2d(fire.from, fire.to, color);
         // Draw impact hit marker
         gizmos.circle_2d(fire.to, 5.0, color);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rts_core::math::{Fixed, Vec2Fixed};
+
+    #[test]
+    fn death_effect_spawns_for_dead_units() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, process_deaths);
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                GameHealth {
+                    current: 0,
+                    max: 100,
+                },
+                GamePosition::new(Vec2Fixed::new(Fixed::from_num(0), Fixed::from_num(0))),
+            ))
+            .id();
+
+        app.update();
+
+        let world = app.world();
+        assert!(world.get::<Dead>(entity).is_some());
+        assert!(world.get::<DeathTimer>(entity).is_some());
+
+        let world = app.world_mut();
+        let effects_count = world.query::<&DeathEffect>().iter(world).count();
+        assert_eq!(effects_count, 1);
     }
 }

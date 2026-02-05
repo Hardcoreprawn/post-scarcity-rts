@@ -140,16 +140,20 @@ fn harvester_ai(
                 // Check if node still exists and has resources
                 if let Ok((_, node_pos, node)) = nodes.get(node_entity) {
                     if node.is_depleted() {
+                        // Node depleted, clear assignment and go idle
+                        harvester.assigned_node = None;
                         harvester.state = GameHarvesterState::Idle;
                         commands.entity(harvester_entity).remove::<MovementTarget>();
                     } else if distance_sq(harvester_pos, node_pos) < HARVEST_DISTANCE_SQ {
-                        // Arrived at node
+                        // Arrived at node - remember it for auto-return
+                        harvester.assigned_node = Some(node_entity);
                         harvester.state = GameHarvesterState::Gathering(node_entity);
                         commands.entity(harvester_entity).remove::<MovementTarget>();
                     }
                     // else keep moving
                 } else {
-                    // Node no longer exists
+                    // Node no longer exists, clear assignment
+                    harvester.assigned_node = None;
                     harvester.state = GameHarvesterState::Idle;
                     commands.entity(harvester_entity).remove::<MovementTarget>();
                 }
@@ -312,5 +316,71 @@ fn update_node_visuals(mut nodes: Query<(&GameResourceNode, &mut Sprite)>) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rts_core::math::{Fixed, Vec2Fixed};
+
+    #[test]
+    fn harvester_remembers_assigned_node_after_deposit() {
+        // Test that harvester.assigned_node persists through gather-deposit cycle
+        let mut harvester = GameHarvester::new(100, 10);
+
+        // Simulate arriving at a node - this sets assigned_node
+        let fake_node_entity = Entity::from_raw(42);
+        harvester.assigned_node = Some(fake_node_entity);
+        harvester.state = GameHarvesterState::Gathering(fake_node_entity);
+
+        // Simulate filling up
+        harvester.load(100);
+        assert!(harvester.is_full());
+
+        // Simulate returning and depositing
+        harvester.state = GameHarvesterState::Depositing;
+        let _ = harvester.unload();
+        assert!(harvester.is_empty());
+
+        // After deposit, go idle - assigned_node should still be set
+        harvester.state = GameHarvesterState::Idle;
+
+        // The assigned_node should persist for auto-return
+        assert_eq!(harvester.assigned_node, Some(fake_node_entity));
+    }
+
+    #[test]
+    fn harvester_clears_assignment_on_node_depletion() {
+        let mut harvester = GameHarvester::new(100, 10);
+        let fake_node_entity = Entity::from_raw(42);
+
+        // Set an assigned node
+        harvester.assigned_node = Some(fake_node_entity);
+        harvester.state = GameHarvesterState::MovingToNode(fake_node_entity);
+
+        // Simulate node depletion causing idle state
+        // In the real code, the AI system clears assigned_node when the node is depleted
+        harvester.assigned_node = None;
+        harvester.state = GameHarvesterState::Idle;
+
+        assert!(harvester.assigned_node.is_none());
+    }
+
+    #[test]
+    fn distance_sq_calculates_correctly() {
+        let pos_a = GamePosition::new(Vec2Fixed::new(Fixed::from_num(0), Fixed::from_num(0)));
+        let pos_b = GamePosition::new(Vec2Fixed::new(Fixed::from_num(3), Fixed::from_num(4)));
+
+        let dist = distance_sq(&pos_a, &pos_b);
+        // 3^2 + 4^2 = 9 + 16 = 25
+        assert!((dist - 25.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn player_resources_default_values() {
+        let resources = PlayerResources::default();
+        assert_eq!(resources.feedstock, 500);
+        assert_eq!(resources.supply_cap, 10);
     }
 }

@@ -27,7 +27,6 @@ If primary elements are ever obscured by secondary/tertiary elements, the build 
 - Health bars (units/buildings)
 - Selection rings/highlights
 - Damage feedback (hit flash or impact VFX)
-- Damage feedback (hit flash or impact VFX, visible at strategic zoom)
 - Command confirmation (sound + small UI ping)
 
 ---

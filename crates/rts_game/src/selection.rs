@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 
 use crate::camera::MainCamera;
-use crate::components::{GameFaction, PlayerFaction, Selectable, Selected};
+use crate::components::{GameFaction, PlayerFaction, Selectable, Selected, UnitDataId};
 use crate::construction::BuildingPlacement;
 
 /// Plugin for unit selection mechanics.
@@ -21,6 +21,7 @@ pub struct SelectionPlugin;
 impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectionState>()
+            .init_resource::<DoubleClickState>()
             .init_resource::<PlayerFaction>()
             .add_systems(Update, handle_selection_input)
             .add_systems(Update, update_selection_box)
@@ -38,6 +39,35 @@ pub struct SelectionState {
     pub is_dragging: bool,
 }
 
+/// Tracks double-click timing for selection.
+#[derive(Resource, Default)]
+struct DoubleClickState {
+    last_click_time: f32,
+    last_clicked_unit: Option<String>,
+}
+
+const DOUBLE_CLICK_THRESHOLD: f32 = 0.3;
+
+fn double_click_unit_id(
+    state: &mut DoubleClickState,
+    clicked_unit: Option<&UnitDataId>,
+    now: f32,
+) -> Option<String> {
+    let clicked_id = clicked_unit.map(|id| id.as_str().to_string());
+    let is_double_click = clicked_id.is_some()
+        && clicked_id == state.last_clicked_unit
+        && (now - state.last_click_time) <= DOUBLE_CLICK_THRESHOLD;
+
+    state.last_click_time = now;
+    state.last_clicked_unit = clicked_id.clone();
+
+    if is_double_click {
+        clicked_id
+    } else {
+        None
+    }
+}
+
 /// Visual component for selection highlight.
 #[derive(Component)]
 pub struct SelectionHighlight;
@@ -49,12 +79,22 @@ fn handle_selection_input(
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut selection_state: ResMut<SelectionState>,
+    mut double_click_state: ResMut<DoubleClickState>,
     mut commands: Commands,
-    player_faction: Res<PlayerFaction>,
-    selectables: Query<(Entity, &Transform, &GameFaction), With<Selectable>>,
+    selectables: Query<
+        (
+            Entity,
+            &Transform,
+            Option<&Sprite>,
+            &GameFaction,
+            Option<&UnitDataId>,
+        ),
+        With<Selectable>,
+    >,
     selected: Query<Entity, With<Selected>>,
     placement: Res<BuildingPlacement>,
     mut egui_contexts: EguiContexts,
+    time: Res<Time>,
 ) {
     // Skip selection when in building placement mode
     if placement.placing.is_some() {
@@ -115,23 +155,31 @@ fn handle_selection_input(
                 }
             }
 
-            // Find and select unit under cursor (only player faction)
-            let click_radius = 20.0;
-            let mut closest: Option<(Entity, f32)> = None;
+            // Find and select unit under cursor
+            let mut closest: Option<(Entity, f32, Option<&UnitDataId>)> = None;
 
-            for (entity, transform, faction) in selectables.iter() {
-                // Only allow selecting player's own units
-                if faction.faction != player_faction.faction {
-                    continue;
-                }
+            for (entity, transform, sprite, _faction, unit_data_id) in selectables.iter() {
+                let click_radius = selection_radius(sprite);
                 let distance = transform.translation.truncate().distance(world_position);
-                if distance < click_radius && closest.map_or(true, |(_, d)| distance < d) {
-                    closest = Some((entity, distance));
+                if distance < click_radius && closest.map_or(true, |(_, d, _)| distance < d) {
+                    closest = Some((entity, distance, unit_data_id));
                 }
             }
 
-            if let Some((entity, _)) = closest {
-                commands.entity(entity).insert(Selected);
+            if let Some((entity, _, unit_data_id)) = closest {
+                let now = time.elapsed_seconds();
+                let double_click_id =
+                    double_click_unit_id(&mut double_click_state, unit_data_id, now);
+
+                if let Some(unit_id) = double_click_id {
+                    for (candidate, _, _sprite, _faction, candidate_id) in selectables.iter() {
+                        if candidate_id.map(|id| id.as_str()) == Some(unit_id.as_str()) {
+                            commands.entity(candidate).insert(Selected);
+                        }
+                    }
+                } else {
+                    commands.entity(entity).insert(Selected);
+                }
             }
         }
 
@@ -189,7 +237,6 @@ fn apply_box_selection(
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut commands: Commands,
-    player_faction: Res<PlayerFaction>,
     selectables: Query<(Entity, &Transform, &GameFaction), With<Selectable>>,
     selected: Query<Entity, With<Selected>>,
 ) {
@@ -226,16 +273,12 @@ fn apply_box_selection(
         }
     }
 
-    // Select all units within the box (only player faction)
+    // Select all units within the box
     let min = start.min(end);
     let max = start.max(end);
     let selection_rect = Rect::from_corners(min, max);
 
-    for (entity, transform, faction) in selectables.iter() {
-        // Only allow selecting player's own units
-        if faction.faction != player_faction.faction {
-            continue;
-        }
+    for (entity, transform, _faction) in selectables.iter() {
         let pos = transform.translation.truncate();
         if selection_rect.contains(pos) {
             commands.entity(entity).insert(Selected);
@@ -257,5 +300,60 @@ fn sync_selection_visuals(
     // Remove highlight from deselected entities
     for entity in deselected.iter() {
         commands.entity(entity).remove::<SelectionHighlight>();
+    }
+}
+
+fn selection_radius(sprite: Option<&Sprite>) -> f32 {
+    const FALLBACK_RADIUS: f32 = 20.0;
+    let size = sprite
+        .and_then(|sprite| sprite.custom_size)
+        .unwrap_or(Vec2::new(FALLBACK_RADIUS * 2.0, FALLBACK_RADIUS * 2.0));
+    let radius = size.x.max(size.y) / 2.0;
+    radius.max(FALLBACK_RADIUS)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn double_click_detects_same_unit_type() {
+        let mut state = DoubleClickState::default();
+        let unit_id = UnitDataId::new("infantry");
+
+        let first = double_click_unit_id(&mut state, Some(&unit_id), 1.0);
+        assert!(first.is_none());
+
+        let second = double_click_unit_id(&mut state, Some(&unit_id), 1.2);
+        assert_eq!(second.as_deref(), Some("infantry"));
+    }
+
+    #[test]
+    fn double_click_ignores_delayed_clicks() {
+        let mut state = DoubleClickState::default();
+        let unit_id = UnitDataId::new("infantry");
+
+        let _ = double_click_unit_id(&mut state, Some(&unit_id), 1.0);
+        let second = double_click_unit_id(&mut state, Some(&unit_id), 2.0);
+        assert!(second.is_none());
+    }
+
+    #[test]
+    fn selection_radius_scales_with_sprite_size() {
+        let small = Sprite {
+            custom_size: Some(Vec2::new(20.0, 20.0)),
+            ..Default::default()
+        };
+        let large = Sprite {
+            custom_size: Some(Vec2::new(80.0, 40.0)),
+            ..Default::default()
+        };
+
+        let small_radius = selection_radius(Some(&small));
+        let large_radius = selection_radius(Some(&large));
+        let fallback_radius = selection_radius(None);
+
+        assert!(large_radius > small_radius);
+        assert!(small_radius >= fallback_radius);
     }
 }

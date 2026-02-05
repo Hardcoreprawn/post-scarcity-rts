@@ -6,9 +6,10 @@
 //! All systems are pure functions that operate on component data.
 //! They use fixed-point math for deterministic simulation.
 
+use crate::combat::calculate_resistance_damage;
 use crate::components::{
     ArmorType, AttackTarget, CombatStats, Command, CommandQueue, DamageType, EntityId, Health,
-    Movement, Position, ProductionItem, ProductionQueue, Projectile, Velocity,
+    Movement, Position, Projectile, Velocity,
 };
 use crate::math::{Fixed, Vec2Fixed};
 
@@ -45,7 +46,7 @@ pub fn movement_system(entities: &mut [(EntityId, &mut Position, &Velocity)]) {
 /// the command is popped from the queue.
 ///
 /// # Arguments
-/// * `entities` - Slice of entities with their command queues, positions, velocities, and movement stats
+/// * `entities` - Slice of entities with their command queues, positions, velocities, movement stats, and path waypoints
 pub fn command_processing_system(
     entities: &mut [(
         EntityId,
@@ -53,25 +54,57 @@ pub fn command_processing_system(
         &Position,
         &mut Velocity,
         &Movement,
+        &mut Option<Vec<Vec2Fixed>>,
     )],
 ) {
     // Threshold for considering arrival at destination (squared distance)
     let arrival_threshold_sq = Fixed::from_num(1);
 
-    for (_entity_id, command_queue, position, velocity, movement) in entities.iter_mut() {
+    for (_entity_id, command_queue, position, velocity, movement, path_waypoints) in
+        entities.iter_mut()
+    {
         match command_queue.current() {
             Some(Command::MoveTo(target)) => {
-                let target = *target;
-                let diff = target - position.value;
-                let dist_sq = position.value.distance_squared(target);
+                // If we have waypoints, follow them; otherwise go directly to target
+                let next_target = if let Some(waypoints) = path_waypoints.as_mut() {
+                    if let Some(first) = waypoints.first() {
+                        *first
+                    } else {
+                        // No waypoints left, go to final target
+                        *target
+                    }
+                } else {
+                    *target
+                };
 
-                // Check if we've arrived
+                let diff = next_target - position.value;
+                let dist_sq = position.value.distance_squared(next_target);
+
+                // Check if we've arrived at current waypoint/target
                 if dist_sq <= arrival_threshold_sq {
+                    // Check if we have more waypoints
+                    if let Some(waypoints) = path_waypoints.as_mut() {
+                        if !waypoints.is_empty() {
+                            // Remove first waypoint, continue to next
+                            waypoints.remove(0);
+                            if waypoints.is_empty() {
+                                // No more waypoints, check if at final target
+                                let final_dist_sq = position.value.distance_squared(*target);
+                                if final_dist_sq <= arrival_threshold_sq {
+                                    velocity.value = Vec2Fixed::ZERO;
+                                    command_queue.pop();
+                                    **path_waypoints = None;
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                    // Arrived at final destination
                     velocity.value = Vec2Fixed::ZERO;
                     command_queue.pop();
+                    **path_waypoints = None;
                 } else {
                     // Calculate direction and set velocity
-                    // Using fast inverse sqrt approximation via fixed-point
                     let direction = normalize_vec2(diff);
                     velocity.value =
                         Vec2Fixed::new(direction.x * movement.speed, direction.y * movement.speed);
@@ -79,14 +112,17 @@ pub fn command_processing_system(
             }
             Some(Command::Stop) => {
                 velocity.value = Vec2Fixed::ZERO;
+                **path_waypoints = None;
                 command_queue.pop();
             }
             Some(Command::HoldPosition) => {
                 velocity.value = Vec2Fixed::ZERO;
+                **path_waypoints = None;
                 // HoldPosition stays active (don't pop)
             }
             Some(Command::AttackMove(target)) => {
                 // Move toward position (attack logic handled by combat system)
+                // TODO: Implement pathfinding for AttackMove
                 let target = *target;
                 let diff = target - position.value;
                 let dist_sq = position.value.distance_squared(target);
@@ -383,14 +419,11 @@ pub fn combat_system(
             });
             combat_stats.reset_cooldown();
         } else {
-            // Hitscan weapon - apply damage immediately
+            // Hitscan weapon - apply damage immediately using resistance-based system
             let base_damage = combat_stats.damage;
-            let final_damage = calculate_damage(
-                base_damage,
-                combat_stats.damage_type,
-                target_combat.armor_type,
-                target_combat.armor_value,
-            );
+            let weapon_stats = combat_stats.to_weapon_stats();
+            let target_stats = target_combat.to_resistance_stats();
+            let final_damage = calculate_resistance_damage(&weapon_stats, &target_stats);
 
             target_health.apply_damage(final_damage);
 
@@ -482,12 +515,14 @@ pub fn projectile_system(
                 .iter_mut()
                 .find(|(id, _, _)| *id == projectile.target)
             {
-                let final_damage = calculate_damage(
+                // Create weapon stats from projectile data using resistance-based system
+                use crate::combat::{ExtendedDamageType, WeaponStats};
+                let weapon_stats = WeaponStats::new(
                     projectile.damage,
-                    projectile.damage_type,
-                    target_combat.armor_type,
-                    target_combat.armor_value,
+                    ExtendedDamageType::from_damage_type(projectile.damage_type),
                 );
+                let target_stats = target_combat.to_resistance_stats();
+                let final_damage = calculate_resistance_damage(&weapon_stats, &target_stats);
 
                 target_health.apply_damage(final_damage);
 
@@ -602,64 +637,13 @@ where
     targets_acquired
 }
 
-/// Result of production completion.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProductionComplete {
-    /// The building that completed production.
-    pub producer: EntityId,
-    /// The produced item details.
-    pub item: ProductionItem,
-    /// Position where the unit should spawn (producer position).
-    pub spawn_position: Position,
-    /// Rally point for the new unit (if set).
-    pub rally_point: Option<Vec2Fixed>,
-}
-
-/// Handles building production queues.
-///
-/// For each building with a production queue:
-/// 1. Advances production progress by one tick
-/// 2. If production is complete, removes the item from queue and returns it
-///
-/// # Arguments
-/// * `producers` - Buildings with production queues (mutable for progress updates)
-///
-/// # Returns
-/// Vector of completed production events with spawner entity and produced unit info
-pub fn production_system(
-    producers: &mut [(EntityId, &Position, &mut ProductionQueue)],
-) -> Vec<ProductionComplete> {
-    let mut completions = Vec::new();
-
-    for (producer_id, position, queue) in producers.iter_mut() {
-        if queue.is_empty() {
-            continue;
-        }
-
-        // Advance production
-        queue.tick();
-
-        // Check if complete
-        if let Some(completed_item) = queue.complete() {
-            completions.push(ProductionComplete {
-                producer: *producer_id,
-                item: completed_item,
-                spawn_position: **position,
-                rally_point: queue.rally_point,
-            });
-        }
-    }
-
-    completions
-}
-
 /// Normalizes a 2D vector using fixed-point math.
 ///
 /// Uses integer square root approximation to avoid floating-point
 /// operations while maintaining determinism.
 ///
 /// Returns zero vector if input has zero length.
-fn normalize_vec2(v: Vec2Fixed) -> Vec2Fixed {
+pub(crate) fn normalize_vec2(v: Vec2Fixed) -> Vec2Fixed {
     let len_sq = v.x * v.x + v.y * v.y;
 
     if len_sq == Fixed::ZERO {
@@ -744,24 +728,6 @@ mod tests {
         assert!(dead_list.contains(&2u64));
         assert!(dead_list.contains(&3u64));
         assert!(!dead_list.contains(&1u64));
-    }
-
-    #[test]
-    fn test_production_system_completes_item() {
-        let pos = Position::new(Vec2Fixed::new(Fixed::from_num(50), Fixed::from_num(50)));
-        let mut queue = ProductionQueue::new();
-        queue.enqueue("infantry".to_string(), 3);
-
-        // Tick 1-2: still building
-        let mut producers = vec![(1u64, &pos, &mut queue)];
-        assert!(production_system(&mut producers).is_empty());
-        assert!(production_system(&mut producers).is_empty());
-
-        // Tick 3: complete
-        let completions = production_system(&mut producers);
-        assert_eq!(completions.len(), 1);
-        assert_eq!(completions[0].producer, 1u64);
-        assert_eq!(completions[0].item.unit_id, "infantry");
     }
 
     #[test]
@@ -916,11 +882,15 @@ mod tests {
         let target_pos = Position::new(Vec2Fixed::new(Fixed::from_num(3), Fixed::from_num(0)));
 
         let mut attack_target = AttackTarget::with_target(2);
-        let mut attacker_stats =
-            CombatStats::new(100, Fixed::from_num(10), 30).with_damage_type(DamageType::Explosive);
+        // Use the new resistance-based system: Explosive damage with Heavy weapon (bonus vs buildings)
+        let mut attacker_stats = CombatStats::new(100, Fixed::from_num(10), 30)
+            .with_damage_type(DamageType::Explosive)
+            .with_weapon_size(crate::combat::WeaponSize::Heavy);
 
         let mut target_health = Health::new(200);
-        let target_stats = CombatStats::default().with_armor(ArmorType::Building, 0);
+        // Use new armor_class field instead of legacy armor_type
+        let target_stats =
+            CombatStats::default().with_armor_class(crate::combat::ArmorClass::Building);
 
         let positions = [(2u64, target_pos)];
         let position_lookup = PositionLookup::new(&positions);
@@ -931,9 +901,10 @@ mod tests {
         let (damage_events, combat_events) =
             combat_system(&mut attackers, &mut targets, &position_lookup);
 
-        // Explosive vs Building = 150%
+        // New resistance-based system: Explosive vs Building = 150%, Heavy weapon vs Building = 150%
+        // 100 * 1.5 * 1.5 = 225 damage
         assert_eq!(damage_events.len(), 1);
-        assert_eq!(damage_events[0].damage, 150);
+        assert_eq!(damage_events[0].damage, 225);
 
         // Should have AttackStarted and DamageDealt events
         assert!(combat_events
@@ -942,7 +913,7 @@ mod tests {
         assert!(combat_events.iter().any(|e| matches!(
             e,
             CombatEvent::DamageDealt {
-                final_damage: 150,
+                final_damage: 225,
                 ..
             }
         )));
@@ -1057,15 +1028,17 @@ mod tests {
 
     #[test]
     fn test_combat_stats_builder() {
+        use crate::combat::{ArmorClass, WeaponSize};
         let stats = CombatStats::new(50, Fixed::from_num(8), 20)
             .with_damage_type(DamageType::Energy)
-            .with_armor(ArmorType::Heavy, 15)
+            .with_resistance(ArmorClass::Heavy, 45)
+            .with_weapon_size(WeaponSize::Medium)
             .with_projectile_speed(Fixed::from_num(2));
 
         assert_eq!(stats.damage, 50);
         assert_eq!(stats.damage_type, DamageType::Energy);
-        assert_eq!(stats.armor_type, ArmorType::Heavy);
-        assert_eq!(stats.armor_value, 15);
+        assert_eq!(stats.armor_class, ArmorClass::Heavy);
+        assert_eq!(stats.resistance, 45);
         assert_eq!(stats.range, Fixed::from_num(8));
         assert_eq!(stats.attack_cooldown, 20);
         assert_eq!(stats.projectile_speed, Fixed::from_num(2));

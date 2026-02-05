@@ -169,6 +169,20 @@ Input Events
 └─────────────┘
 ```
 
+## Component Mirroring (Core ↔ View)
+
+The view layer mirrors core simulation state into Bevy components for rendering and UI. This keeps
+deterministic logic in `rts_core` while allowing `rts_game` to remain visual-only.
+
+| Category | Examples | Notes |
+| --- | --- | --- |
+| **Core-mirrored (read-only)** | `CoreEntityId`, `GamePosition`, `GameHealth`, `GameFaction` | Updated from `rts_core::Simulation` in sync systems. Never mutated by view logic. |
+| **View-only (visual/UX)** | `Selected`, `SelectionHighlight`, `UnitOutline`, `RangeIndicator`, `DamageFlash`, `WeaponFire` | UI/visual state only; safe to mutate in view systems. |
+| **Hybrid (input intent)** | `GameCommandQueue`, `AttackTarget` | Used to translate player intent into core commands. View logic should avoid mutating core state directly. |
+
+When adding new view components, decide whether they mirror simulation state or are purely visual,
+and document accordingly to avoid drift between core and client.
+
 ## Key Design Principles
 
 1. **Determinism First**: All game logic must be deterministic for multiplayer

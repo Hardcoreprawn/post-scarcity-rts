@@ -7,9 +7,11 @@ use bevy::prelude::*;
 
 use crate::bundles::faction_color;
 use crate::components::{
-    CombatStats, GameFaction, GameHealth, GamePosition, Selectable, Selected, UnderConstruction,
+    Building, CombatStats, GameFaction, GameHealth, GamePosition, Selectable, Selected,
+    UnderConstruction,
 };
 use crate::selection::SelectionHighlight;
+use crate::simulation::CoreSimulationSet;
 
 /// Plugin for basic sprite rendering.
 ///
@@ -20,13 +22,29 @@ use crate::selection::SelectionHighlight;
 pub struct RenderPlugin;
 
 /// Plugin for damage flash feedback only (no gizmo dependencies).
+///
+/// Testing helper: `RenderPlugin` already registers these systems.
+/// Avoid adding both in the same app to prevent duplicate registrations.
 pub struct DamageFlashPlugin;
 
 /// Plugin for range indicator updates only (no gizmo dependencies).
+///
+/// Testing helper: `RenderPlugin` already registers these systems.
+/// Avoid adding both in the same app to prevent duplicate registrations.
 pub struct RangeIndicatorPlugin;
 
 /// Plugin for outline updates only (no gizmo dependencies).
+///
+/// Testing helper: `RenderPlugin` already registers these systems.
+/// Avoid adding both in the same app to prevent duplicate registrations.
 pub struct OutlinePlugin;
+
+/// Event emitted when a command is issued for feedback.
+#[derive(Event, Debug, Clone, Copy)]
+pub struct CommandFeedbackEvent {
+    /// World position for feedback.
+    pub position: Vec2,
+}
 
 impl Plugin for DamageFlashPlugin {
     fn build(&self, app: &mut App) {
@@ -49,7 +67,11 @@ impl Plugin for OutlinePlugin {
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, sync_transform_from_position)
+        app.add_event::<CommandFeedbackEvent>()
+            .add_systems(
+                Update,
+                sync_transform_from_position.after(CoreSimulationSet::SyncOut),
+            )
             .add_systems(Update, render_selection_highlight)
             .add_systems(Update, render_health_bars)
             .add_systems(Update, update_range_indicators)
@@ -60,8 +82,21 @@ impl Plugin for RenderPlugin {
             .add_systems(Update, update_unit_outlines)
             .add_systems(Update, render_unit_outlines.after(update_unit_outlines))
             .add_systems(Update, track_damage_flash)
-            .add_systems(Update, update_damage_flash.after(track_damage_flash));
+            .add_systems(Update, update_damage_flash.after(track_damage_flash))
+            .add_systems(Update, spawn_command_pings)
+            .add_systems(Update, update_command_pings.after(spawn_command_pings))
+            .add_systems(Update, render_command_pings);
     }
+}
+
+/// Duration of command ping feedback (seconds).
+const COMMAND_PING_DURATION: f32 = 0.45;
+
+/// Component for command ping visuals.
+#[derive(Component, Debug, Clone, Copy)]
+struct CommandPing {
+    position: Vec2,
+    timer: f32,
 }
 
 /// Duration of the damage flash effect (seconds).
@@ -126,18 +161,23 @@ fn render_selection_highlight(
 
 /// Renders health bars above units.
 fn render_health_bars(
-    units: Query<(&Transform, &Sprite, &GameHealth, Option<&UnderConstruction>)>,
+    units: Query<(
+        &Transform,
+        &Sprite,
+        &GameHealth,
+        Option<&UnderConstruction>,
+        Option<&Building>,
+    )>,
     mut gizmos: Gizmos,
 ) {
     const BAR_HEIGHT: f32 = 4.0;
     const BAR_PADDING: f32 = 8.0;
 
-    for (transform, sprite, health, under_construction) in units.iter() {
-        // Always show bar for buildings under construction
+    for (transform, sprite, health, under_construction, building) in units.iter() {
         let is_constructing = under_construction.is_some();
+        let is_building = building.is_some();
 
-        // Skip full health units (unless under construction)
-        if health.is_full() && !is_constructing {
+        if !should_render_health_bar(health, is_constructing, is_building) {
             continue;
         }
 
@@ -183,6 +223,18 @@ fn render_health_bars(
             );
         }
     }
+}
+
+fn should_render_health_bar(health: &GameHealth, is_constructing: bool, is_building: bool) -> bool {
+    if is_building {
+        return true;
+    }
+
+    if is_constructing {
+        return true;
+    }
+
+    !health.is_full()
 }
 
 /// Updates range indicators for selected combat units.
@@ -311,5 +363,72 @@ fn update_damage_flash(
             sprite.color = flash.base_color;
             commands.entity(entity).remove::<DamageFlash>();
         }
+    }
+}
+
+fn spawn_command_pings(mut commands: Commands, mut events: EventReader<CommandFeedbackEvent>) {
+    for event in events.read() {
+        commands.spawn(CommandPing {
+            position: event.position,
+            timer: COMMAND_PING_DURATION,
+        });
+    }
+}
+
+fn update_command_pings(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut pings: Query<(Entity, &mut CommandPing)>,
+) {
+    let dt = time.delta_seconds();
+    for (entity, mut ping) in pings.iter_mut() {
+        ping.timer -= dt;
+        if ping.timer <= 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn render_command_pings(pings: Query<&CommandPing>, mut gizmos: Gizmos) {
+    for ping in pings.iter() {
+        let alpha = (ping.timer / COMMAND_PING_DURATION).clamp(0.0, 1.0);
+        let radius = 18.0 + (1.0 - alpha) * 10.0;
+        gizmos.circle_2d(
+            ping.position,
+            radius,
+            Color::srgba(0.1, 0.8, 1.0, 0.6 * alpha),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_ping_spawns_from_event() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_event::<CommandFeedbackEvent>();
+        app.add_systems(Update, spawn_command_pings);
+
+        app.world_mut().send_event(CommandFeedbackEvent {
+            position: Vec2::new(5.0, -3.0),
+        });
+
+        app.update();
+
+        let mut pings = app.world_mut().query::<&CommandPing>();
+        let ping = pings.single(app.world());
+        assert_eq!(ping.position, Vec2::new(5.0, -3.0));
+    }
+
+    #[test]
+    fn health_bars_always_show_for_buildings() {
+        let full_health = GameHealth::new(100);
+
+        assert!(should_render_health_bar(&full_health, false, true));
+        assert!(!should_render_health_bar(&full_health, false, false));
+        assert!(should_render_health_bar(&full_health, true, false));
     }
 }

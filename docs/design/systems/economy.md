@@ -63,6 +63,70 @@ All factions share supply mechanics:
 
 ---
 
+## Universal Salvage
+
+All factions can recover resources from battlefield wrecks. This creates tactical decisions around controlling wreck-littered areas.
+
+### Wreck Generation
+
+When a unit dies, its wreck persists on the battlefield:
+
+| Unit Tier | Salvage Value | Wreck Lifetime |
+| --------- | ------------- | -------------- |
+| Tier 1 | 25% of cost | 10 seconds |
+| Tier 2 | 25% of cost | 10 seconds |
+| Tier 3 | 25% of cost | 10 seconds |
+| Building | 15% of cost | 15 seconds |
+
+**Example:** A Tier 2 Guardian Mech (300 cost) leaves a wreck worth 75 feedstock.
+
+### Salvage Collection
+
+Any **battleline unit** (infantry, mech, vehicle — not harvesters, scouts, or drones) can collect from nearby wrecks:
+
+| Property | Value |
+| -------- | ----- |
+| Collection Radius | 100 units |
+| Auto-collect | Yes (when idle and in range) |
+| Interrupts on | Enemy contact (combat priority) |
+
+**Tier-Scaled Collection Rate:**
+
+| Collector Tier | Rate | Time for 50-value wreck |
+| -------------- | ---- | ----------------------- |
+| Tier 1 | 1/tick | 50 ticks (~0.8 sec) |
+| Tier 2 | 2/tick | 25 ticks (~0.4 sec) |
+| Tier 3 | 4/tick | 12 ticks (~0.2 sec) |
+
+Higher-tier units salvage faster, giving them utility beyond raw combat power.
+
+### Salvage Behavior
+
+1. **Unit stops moving** while salvaging (vulnerability window)
+2. **Cannot attack** until salvage complete or interrupted
+3. **Combat interrupts salvage** — unit will engage if enemies approach
+4. **Partial collection** — if interrupted, collected resources are kept, remaining stay in wreck
+5. **Contested wrecks** — both sides can race to collect
+
+### Tactical Implications
+
+- **Push to deny salvage** — Secure kill zones to collect enemy wrecks
+- **Hold ground after battles** — Recoup losses by salvaging both sides
+- **Tier advantage** — High-tier units clear battlefields 4x faster
+- **Risk vs reward** — Salvaging units are vulnerable; protect them or lose tempo
+
+### Faction Bonuses
+
+The Tinkers' Union has **enhanced salvage** as a faction identity:
+
+| Tinkers Bonus | Effect |
+| ------------- | ------ |
+| Salvage value | +50% (37.5% of cost instead of 25%) |
+| Collection rate | +100% (double speed at all tiers) |
+| Salvage Rig | Can also collect, treats all wrecks as +25% value |
+
+---
+
 ## Harvesting by Faction
 
 ### The Continuity Authority

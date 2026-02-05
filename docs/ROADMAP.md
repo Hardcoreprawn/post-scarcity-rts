@@ -1,333 +1,167 @@
 # Development Roadmap
 
-**Last Updated:** January 26, 2026
-**Status:** Phase 2.7 (In Progress)
+**Last Updated:** February 5, 2026  
+**Status:** Phase 3.0 (In Progress) — Testing Infrastructure operational
 
-## Overview
+## Vision
 
-This roadmap outlines the development phases for Post-Scarcity RTS. Following the [January 2026 Review](review-2026-01-26.md), we have rebaselined to prioritize **gameplay readability**, a **vertical slice**, and **sustainable testing** before expanding to multiple factions.
+**Target:** Continuity Authority vs Collegium of Minds — asymmetric balance with full tech trees.
 
-## Non-Negotiables (Critical)
+This roadmap defines the *what* and *why*. Task tracking lives in **GitHub Issues**.
 
-**If these are not met, the project will fail in playtests and external reviews.**
-
-1. **Readable Combat at Strategic Zoom**
-
-- Units, team ownership, and combat state must be understood at a glance.
-- Health, selection, and damage feedback are mandatory before content expansion.
-
-1. **Responsive RTS Controls**
-
-- Core commands must be reliable and predictable (Attack-Move, Hold, Patrol, Stop).
-
-1. **Cohesive Visual Identity**
-
-- A consistent style guide, faction silhouettes, and VFX language are required for retention and marketing.
-
-1. **UX Clarity Over Feature Count**
-
-- Features that reduce clarity or add cognitive load are deferred until UX is proven.
+See [github-labels.md](github-labels.md) for label scheme and milestone structure.
 
 ---
 
-## Roadmap Governance (Must Follow)
+## Non-Negotiables
 
-To avoid random phase switching, we will **follow the roadmap** unless it is explicitly updated.
-
-**Rules:**
-
-1. **Single Active Phase:** Only one phase may be “In Progress” at a time.
-2. **Change Requires Update:** Any deviation requires updating this roadmap first.
-3. **Issue Intake Cadence:** Review open GitHub issues weekly and map them into the correct phase.
-4. **Gate Before Advance:** A phase is not complete until its exit criteria are met or formally revised.
-5. **Scope Discipline:** New work must align to the current phase unless the roadmap changes.
-
-### Guiding Principles
-
-- **Vertical Slice First** — Prove the "fun" with one polished faction before scaling.
-- **Readable Chaos** — Visual clarity is a gameplay requirement, not just polish.
-- **Automated Balance** — No new factions until we can test them automatically.
-- **Steam-Ready** — Architecture supports Steam integration from the start.
+1. **Readable Combat** — Units, ownership, and combat state understood at a glance
+2. **Responsive Controls** — Attack-Move, Hold, Patrol, Stop work reliably
+3. **Cohesive Visuals** — Faction silhouettes and VFX language before content expansion
+4. **UX Over Features** — Clarity-reducing features deferred until UX is proven
 
 ---
 
-## Phase 0: Foundation (Complete) ✅
+## Guiding Principles
 
-Establish development infrastructure and project skeleton.
-
-- [x] Repository & Workspace Setup
-- [x] CI/CD Pipeline (Windows/Linux/macOS)
-- [x] Pre-commit hooks & formatting
-
-## Phase 1: Core Engine (Complete) ✅
-
-Build the fundamental game systems.
-
-- [x] ECS Foundation (Bevy)
-- [x] Rendering Pipeline (Sprites, Camera, Zoom)
-- [x] Deterministic Simulation Loop
-- [x] Flowfield Pathfinding & Avoidance
-
-## Phase 2: Gameplay Foundation (Complete) ✅
-
-Implement core RTS mechanics with minimal assets.
-
-- [x] Resource System (Gathering, Economy, Storage)
-- [x] Unit Production & queues
-- [x] Combat System (Health, Damage, Armor)
-- [x] Building Construction & Tech gating
-- [x] Basic UI (HUD, Command Card)
-- [x] Basic AI (Attack/Defend thresholds)
+- **Two-Faction Vertical Slice** — Prove asymmetric "fun" before scaling
+- **8 Tiers, 5-10 Units Each** — Strategic depth via tech trees
+- **Readable Chaos** — Visual clarity is gameplay, not polish
+- **Automated Balance** — No new factions until tooling can test them
+- **Steam-Ready** — Architecture supports Steam from day one
 
 ---
 
-## Phase 2.7: Readability & Control (Weeks 12-15) 🔄 IN PROGRESS
+## Phase Summary
 
-**Goal:** The game must be readable and controllable. No new features until the current ones feel responsive.
-
-### 2.7.1 Visual Feedback (Priority High)
-
-- [x] Health bars (units & buildings)
-- [x] Selection circles & highlighting
-- [x] Damage feedback (flash on hit)
-- [x] Building placement ghost fix
-- [x] Range indicators (attack/vision) when selected
-- [x] Faction silhouette/readability pass (strategic zoom target)
-  - [x] Unit outline ring for readability
-  - [ ] Faction-specific silhouette art pass (deferred to Phase 3.2)
-- [x] VFX language baseline (damage types, critical hits, ability activations)
-  - [x] Damage-type weapon fire tinting baseline
-  - [ ] Ability/critical-hit VFX pass (deferred to Phase 3.2)
-
-### 2.7.2 Core Controls (Priority High)
-
-- [ ] Attack-Move (A-Click)
-- [ ] Stop (S) / Hold Position (H)
-- [ ] Patrol (P)
-- [ ] Double-click to select all of type
-- [ ] Minimap interaction (click to move/pan)
-- [ ] UI feedback for issued commands (acknowledgement cues)
-
-### 2.7.3 Accessibility Base
-
-- [ ] UI Scaling support
-- [ ] Rebindable keys foundation
-- [ ] Basic UI contrast mode (minimum viable for readability)
-
-### 2.7.4 Determinism & Core Wiring (Priority High)
-
-- [ ] **Core Simulation Drives Client:** Bevy client renders state from `rts_core::Simulation` (no parallel float sim)
-- [ ] **Projectile System Integrated:** `projectile_system` runs in core tick loop
-- [ ] **Determinism Hashing:** Per-tick state hash logged in dev builds
-- [ ] **Replay-Ready Command Stream:** Commands are the only sim inputs (UI/render never mutates sim state)
-
-**Exit Criteria:**
-
-- [ ] A new player can understand combat state at a glance.
-- [ ] All standard RTS commands function reliably.
-- [ ] Unit tests for command issuance logic.
-- [ ] Client visuals reflect core sim state (no sim drift).
-- [ ] Readability baseline hit: units/teams/health identifiable in < 2 seconds.
+| Phase | Name | Status | Key Milestone |
+|-------|------|--------|---------------|
+| 0 | Foundation | ✅ Complete | Repo, CI, hooks |
+| 1 | Core Engine | ✅ Complete | ECS, rendering, pathfinding |
+| 2 | Gameplay Foundation | ✅ Complete | Resources, production, combat, UI |
+| 2.7 | Readability & Control | ✅ Complete | Health bars, commands, determinism |
+| 2.8 | Critical Gameplay Fixes | ✅ Complete | Pathfinding, damage sync, harvesting |
+| **3** | **Vertical Slice** | 🔄 In Progress | Two factions, 8 tiers, tooling |
+| 4 | Faction Expansion | 📅 Planned | Tinkers, Sculptors, Zephyr |
+| 5 | Advanced Simulation | 📅 Planned | Height, cover, veterancy |
+| 6 | Multiplayer | 📅 Planned | Lockstep networking |
+| 7 | Campaign | 📅 Planned | Story missions |
 
 ---
 
-## Backlog Alignment (GitHub Issues)
+## Vertical Slice Gate
 
-These issues are actively tracked and mapped to the roadmap phases for clarity and prioritization.
+**Must pass before external demo or Phase 4.**
 
-### Phase 2.7 (Readability, Control, Determinism)
+**Factions:**
+- Continuity Authority: 8 tiers, 5-10 units per tier, fully data-driven
+- Collegium of Minds: 8 tiers, 5-10 units per tier, fully data-driven
+- Balance: 45-55% win rate validated via automated testing
 
-- [Issue #6](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/6) — Health bars (combat readability)
-- [Issue #22](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/22) — Death feedback (delay despawn / effect)
-- [Issue #12](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/12) — Build placement ghost visuals (duplicates: #16, #19)
-- [Issue #13](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/13) — Resource bar/tooltips polish (duplicates: #17, #20)
-- [Issue #11](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/11) — Allow selection of enemy units (duplicates: #15, #18)
-- [Issue #14](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/14) — Input conflict on B key for build menu
-- [Issue #23](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/23) — Selection radius should use collider/size
-- [Issue #21](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/21) — Attack commands should honor shift-queue
-- [Issue #8](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/8) — Attack-move / Stop / Hold / Patrol commands
-- [Issue #24](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/24) — Resolve simulation duplication (core authoritative)
-- [Issue #29](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/29) — Determinism leak in `Vec2Fixed`
-- [Issue #26](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/26) — Consolidate component definitions (core ↔ view mirroring)
-- [Issue #30](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/30) — Decouple victory logic from view layer
+**Architecture:**
+- PlayerFacade unifies AI and human player interfaces
+- AI cannot see or target non-visible enemies
+- All commands flow through Command enum
 
-### Phase 3.4 (Infrastructure Catch-up)
-
-- [Issue #34](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/34) — Headless runner & fixed timestep for AI/CI
-- [Issue #7](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/7) — CI determinism validation
-
-### Phase 3.1 (Data Wiring / Combat Depth)
-
-- [Issue #25](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/25) — Replace legacy `UnitType` with data-driven `UnitKindId`
-- [Issue #1](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/1) — Projectiles & splash damage (combat depth)
-
-### Quality & Process (Immediate)
-
-- [Issue #32](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/32) — Replace mock simulation tests with real engine tests
-- [Issue #33](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/33) — Enforce determinism testing standards in CONTRIBUTING
-- [Issue #31](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/31) — Tighten clippy lints + security audit guidance
-
-### Hygiene / Maintenance
-
-- [Issue #27](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/27) — Stub/unused crates cleanup
-- [Issue #28](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/28) — Externalize AI parameters into config
-- [Issue #35](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/35) — Windows clippy incremental access warning
-- [Issue #3](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/3) — Component duplication audit (post-Phase 3)
-
-### Phase 4 (AI Depth)
-
-- [Issue #9](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/9) — AI improvements beyond thresholds
-
-### Phase 5 (Pathfinding Scale)
-
-- [Issue #4](https://github.com/Hardcoreprawn/post-scarcity-rts/issues/4) — Flowfield/formation pathfinding for mass movement
+**Tooling:**
+- Headless batch runner (400+ games/sec)
+- Replay viewer with scrubbing
+- Balance dashboard (win rate tracking)
+- Stat editor with live preview
 
 ---
 
-## Vertical Slice Gate (Required to Enter Phase 3)
+## Phase 3: Vertical Slice (Current)
 
-This is the hard ship gate for any external demo or publisher review.
+**Goal:** Polished two-faction experience proving asymmetric fun.
 
-- [ ] One faction fully playable from data (no hardcoded spawns)
-- [ ] Core commands complete and reliable (Attack-Move, Hold, Patrol, Stop)
-- [ ] Visual readability baseline met (health bars, selection, hit feedback)
-- [ ] Determinism checks in CI (hash divergence fails build)
-- [ ] One polished 2-player map with resource flow and expansions
+### 3.0 Testing Infrastructure ✅
+- Debug console, scenario system, replay system
+- Headless runner with batch testing
+- Procedural map generation
+- Faction data wiring
 
----
+### 3.1 Development Tooling
+- Balance Dashboard
+- Replay Viewer  
+- Sprite Preview Pipeline
+- Stat Editor GUI
+- PlayerFacade (unified player interface)
 
-## Phase 3: The Vertical Slice (Weeks 16-22) 📅 PLANNED
+### 3.2 Combat System Migration
+- Resistance-based damage (% reduction, not flat armor)
+- Armor penetration, damage types, size classes
 
-**Goal:** A fully playable, polished single-player experience with **one faction** (Continuity Authority). This is our proof-of-concept for publishers/players.
+### 3.3 Tier System & Unit Roster
+- 21 Continuity units across 5 tiers
+- 22 Collegium units across 5 tiers
+- Role system: Scout, Tackle, EW, Sniper, Tank, Command, etc.
+- Ability system with cooldowns
 
-### 3.1 Technical Wiring (GDD Alignment)
+### 3.4 Technical Wiring
+- Data-driven unit spawning (no hardcoded types)
+- Visibility system (sight ≠ attack range)
+- Fog of war
 
-- [ ] **Data Wiring:** Connect FactionData RON files to actual Unit/Building spawning.
-- [ ] **No Hardcoded Spawns:** All scenario/unit spawns are driven by data definitions.
-- [ ] **Fog of War (Prototype):** Basic explored/unexplored/visible states.
-- [ ] **Line of Sight:** Units cannot shoot what they cannot see.
-
-### 3.2 Visual Identity
-
-- [ ] **Sprite Audit:** Replace "programmer art" with cohesive placeholders.
-- [ ] **Silhouette Pass:** Faction-specific silhouettes at strategic zoom (deferred from Phase 2.7.1).
-- [ ] **Asset Pipeline:** Define automated import process & sprite atlas tools.
-- [ ] **Animation:** Basic Idle (breathing) / Move (bobbing) / Attack (recoil) states.
-- [ ] **Audio:** Basic SFX for specific unit types (gunfire, engines).
-- [ ] **Terrain:** Basic tileset variation (not just flat color).
-- [ ] **Ability/Hit VFX:** Ability activation and critical-hit VFX pass (deferred from Phase 2.7.1).
-
-### 3.3 The Slice Content
-
-- [ ] **Map:** One polished 2-player map with distinct terrain functionality.
-- [ ] **Faction:** Continuity Authority fully playable (Tier 1-3).
-- [ ] **AI:** "Standard" AI personality that uses the full tech tree.
-- [ ] **Tutorial:** A 5-minute onboarding flow (text/triggers).
-
-### 3.4 Infrastructure Catch-up
-
-- [ ] **Headless Simulation Runner:** Run games without graphics (critical for balance).
-- [ ] **Performance:** Benchmark suite (1k pathfinding, UI redraw).
-- [ ] **Determinism CI:** Fail builds if simulation diverges on replay.
-- [ ] **Asset Pipeline:** Hot-reloading watcher for textures/data ([Details](design/systems/ai-testing-and-toolchain.md)).
-
-**Exit Criteria:**
-
-- [ ] "Vertical Slice" build labeled and archived.
-- [ ] Automated headless simulation can run 100 battles < 1 min.
-- [ ] Factions data driving gameplay 100%.
+### 3.5 Visual Identity
+- Faction silhouettes at strategic zoom
+- Animation states (idle, move, attack, death)
+- Terrain tileset
 
 ---
 
-## Phase 4: Faction Rollout (Weeks 23-30)
+## Phase 4: Faction Expansion
 
-**Goal:** Expand to full roster using the infrastructure built in Phase 3.
+**Goal:** Expand to 5 factions using Phase 3 infrastructure.
 
-### 4.0 Process & Document Health
-
-- [ ] **Documentation:** Quarterly Architecture vs Implementation review.
-- [ ] **AI Gym:** Automated gameplay evaluation loop ([Details](design/systems/ai-testing-and-toolchain.md)).
-
-### 4.1 Faction Batch A: Collegium & Tinkers' Union
-
-- [ ] Implement unique mechanics (Drone Swarms / Scrap Salvage).
-- [ ] Asset rollout for Batch A.
-- [ ] Balance pass: 3-way matchup.
-
-### 4.2 Faction Batch B: Sculptors & Zephyr Guild
-
-- [ ] Implement unique mechanics (Regeneration / Flight).
-- [ ] Asset rollout for Batch B.
-- [ ] Balance pass: 5-way matchup.
-
-### 4.3 Automated Balance Tuning
-
-- [ ] Time-to-Kill (TTK) Matrix validation.
-- [ ] Regression testing using Headless Runner.
-- [ ] Cost derivation formula (prevent "cheap OP" units).
-
-**Exit Criteria:**
-
-- [ ] All 5 factions playable.
-- [ ] Automated balance tests passing (+/- 5% win rate deviation).
+- Tinkers' Union (scrap salvage, makeshift repairs)
+- Sculptors of Flesh (regeneration, bio-adaptation)
+- Zephyr Guild (flight, speed, altitude advantage)
+- Multi-trigger AI architecture (scout, wave, economic triggers)
+- 5-way balance validation
 
 ---
 
-## Phase 5: Advanced Simulation (Weeks 31-38)
+## Phase 5: Advanced Simulation
 
-**Goal:** Implement the complex GDD features deferred during the Vertical Slice.
-
-### 5.1 Tactical Depth
-
-- [ ] **Height Advantage:** Damage/Range bonus from cliffs.
-- [ ] **Cover System:** Damage reduction in craters/ruins.
-- [ ] **Veterancy:** Units gain stats on kills.
-- [ ] **Projectile Physics:** (Optional) Switch from hitscan if needed for gameplay feel.
-
-### 5.2 Advanced AI
-
-- [ ] Behavior Trees / Utility AI integration.
-- [ ] Distinct Personalities (Aggressive, Turtle, Experimental).
-- [ ] Difficulty Tiers.
-
-### 5.3 Polish & Accessibility
-
-- [ ] **Accessibility:** Colorblind modes & High contrast.
-- [ ] **Feedback:** Advanced audio mix for combat clarity.
+- Height advantage (damage/range bonus from cliffs)
+- Cover system (damage reduction in craters)
+- Veterancy (XP, ranks, stat bonuses)
+- Behavior tree / utility AI
 
 ---
 
-## Phase 6: Multiplayer & Networking (Weeks 39-46)
+## Phase 6: Multiplayer
 
-**Goal:** Turn the deterministic sim into a networked game.
-
-### 6.1 Networking
-
-- [ ] Lockstep protocol implementation.
-- [ ] Desync detection & recovery tools.
-- [ ] Lobby system.
-
-### 6.2 Platform Features
-
-- [ ] Steamworks integration.
-- [ ] Replay system with fast-forward.
-- [ ] Spectator mode.
+- Lockstep protocol
+- Desync detection
+- Lobby system
+- Steamworks integration
 
 ---
 
-## Phase 7: Content & Campaign (Weeks 47+)
+## Phase 7: Campaign
 
-**Goal:** Narrative content and distinct game modes.
-
-- [ ] Campaign Mission Framework (triggers, objectives).
-- [ ] Mission scripting.
-- [ ] Briefing screens / Narrative delivery.
-- [ ] Alternate Victory Conditions (Economic, Domination).
+- Mission framework (triggers, objectives)
+- Briefing screens
+- Narrative delivery
+- Alternate victory conditions
 
 ---
 
-## Deferred / Out of Scope (For Now)
+## Design Documents
 
-- Modding Support (SDK).
-- Procedural Map Generation.
-- Co-op Survival Mode.
+Core design details are in the `/docs/design/` folder:
+- [Game Design Document](design/gdd.md)
+- [Combat System](design/systems/combat.md)
+- [Vision & Intel](design/systems/vision-and-intel.md)
+- [Unit Roles](design/systems/unit-roles-and-scale.md)
+- [Continuity Faction](design/factions/continuity.md)
+- [Collegium Faction](design/factions/collegium.md)
+
+---
+
+## Deferred
+
+- Modding Support (SDK)
+- Co-op Survival Mode

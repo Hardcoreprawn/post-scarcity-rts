@@ -6,6 +6,7 @@
 
 use bevy::prelude::*;
 use rts_core::components::Command as CoreCommand;
+use rts_core::components::EntityId;
 use rts_core::factions::FactionId;
 use rts_core::math::Vec2Fixed;
 use rts_core::unit_kind::{UnitKindId, UnitRole};
@@ -13,6 +14,10 @@ use rts_core::unit_kind::{UnitKindId, UnitRole};
 // ============================================================================
 // Core Component Wrappers
 // ============================================================================
+
+/// Maps a Bevy entity to a core simulation entity ID.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CoreEntityId(pub EntityId);
 
 /// Wrapper for rts_core::Position that implements Bevy Component.
 ///
@@ -122,6 +127,17 @@ pub struct Selectable;
 pub struct MovementTarget {
     /// The target position to move toward.
     pub target: Vec2Fixed,
+}
+
+/// Component tracking patrol behavior between two points.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct PatrolState {
+    /// Patrol origin (starting point).
+    pub origin: Vec2Fixed,
+    /// Patrol target (destination point).
+    pub target: Vec2Fixed,
+    /// Whether the unit is heading toward the target.
+    pub heading_to_target: bool,
 }
 
 /// Marker component for entities currently selected.
@@ -840,6 +856,109 @@ impl UnitDataId {
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+/// Component identifying a unit's kind using the unified identity system.
+///
+/// This is the primary unit identity component, replacing the hardcoded
+/// `UnitType` enum with data-driven lookups. Contains:
+/// - `id`: Numeric ID for data lookups via `UnitKindRegistry`
+/// - `role`: Cached role flags for fast O(1) classification queries
+///
+/// # Example
+///
+/// ```ignore
+/// // Check if a unit is a harvester without registry lookup
+/// if unit_kind.role.contains(UnitRole::HARVESTER) {
+///     // Handle harvester logic
+/// }
+/// ```
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameUnitKind {
+    /// Numeric ID for registry lookups.
+    pub id: UnitKindId,
+    /// Cached role flags for fast classification queries.
+    pub role: UnitRole,
+}
+
+impl GameUnitKind {
+    /// Create a new unit kind with explicit role.
+    #[must_use]
+    pub const fn new(id: UnitKindId, role: UnitRole) -> Self {
+        Self { id, role }
+    }
+
+    /// Create from registry lookup.
+    ///
+    /// Returns `None` if the ID is invalid.
+    #[must_use]
+    pub fn from_registry(
+        id: UnitKindId,
+        registry: &rts_core::unit_kind::UnitKindRegistry,
+    ) -> Option<Self> {
+        registry.get(id).map(|info| Self {
+            id,
+            role: info.role,
+        })
+    }
+
+    /// Check if this unit has a specific role.
+    #[inline]
+    #[must_use]
+    pub const fn has_role(&self, role: UnitRole) -> bool {
+        self.role.contains(role)
+    }
+
+    /// Check if this unit is a harvester.
+    #[inline]
+    #[must_use]
+    pub fn is_harvester(&self) -> bool {
+        self.has_role(UnitRole::HARVESTER)
+    }
+
+    /// Check if this unit can attack.
+    #[inline]
+    #[must_use]
+    pub fn is_combatant(&self) -> bool {
+        self.has_role(UnitRole::COMBATANT)
+    }
+
+    /// Check if this unit is infantry.
+    #[inline]
+    #[must_use]
+    pub fn is_infantry(&self) -> bool {
+        self.has_role(UnitRole::INFANTRY)
+    }
+
+    /// Check if this unit is a vehicle.
+    #[inline]
+    #[must_use]
+    pub fn is_vehicle(&self) -> bool {
+        self.has_role(UnitRole::VEHICLE)
+    }
+
+    /// Check if this unit is a mech.
+    #[inline]
+    #[must_use]
+    pub fn is_mech(&self) -> bool {
+        self.has_role(UnitRole::MECH)
+    }
+
+    /// Check if this unit is airborne.
+    #[inline]
+    #[must_use]
+    pub fn is_air(&self) -> bool {
+        self.has_role(UnitRole::AIR)
+    }
+}
+
+impl Default for GameUnitKind {
+    fn default() -> Self {
+        Self {
+            id: UnitKindId::NONE,
+            role: UnitRole::empty(),
+        }
     }
 }
 

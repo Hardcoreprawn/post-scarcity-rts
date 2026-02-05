@@ -176,6 +176,13 @@ impl NavGrid {
     }
 }
 
+impl Default for NavGrid {
+    /// Create a default NavGrid (64x64 cells, 32 unit cell size).
+    fn default() -> Self {
+        Self::new(64, 64, Fixed::from_num(32))
+    }
+}
+
 /// A node in the A* open set priority queue.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 struct AStarNode {
