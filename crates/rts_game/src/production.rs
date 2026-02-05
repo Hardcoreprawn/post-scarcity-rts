@@ -113,6 +113,11 @@ fn production_system(
                                 UnitType::Infantry
                             };
                             
+                            // Look up the UnitKindId from the registry
+                            let unit_kind_id = unit_kind_registry
+                                .find(faction.faction, &unit_id)
+                                .unwrap_or(rts_core::unit_kind::UnitKindId::NONE);
+                            
                             commands
                                 .spawn(UnitBundle::from_data(
                                     spawn_pos,
@@ -120,7 +125,7 @@ fn production_system(
                                     unit_data,
                                     unit_kind_id,
                                 ))
-                                .insert(Unit::new(UnitType::Infantry)); // Legacy component for supply tracking
+                                .insert(Unit::new(unit_type));
                             // Supply was already reserved at queue time
                         }
 
