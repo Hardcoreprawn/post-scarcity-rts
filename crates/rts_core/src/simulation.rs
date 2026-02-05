@@ -61,7 +61,7 @@ use crate::systems::{
     PositionLookup,
 };
 
-/// Serde support for Option<Fixed>.
+/// Serde support for `Option<Fixed>`.
 mod option_fixed_serde {
     use crate::math::Fixed;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
