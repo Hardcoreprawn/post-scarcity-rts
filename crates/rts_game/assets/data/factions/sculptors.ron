@@ -220,7 +220,7 @@
             description: "building.BioSovereigns.atelier.description",
             cost: 0,  // Starting building
             build_time: 0,
-            health: 1100,
+            health: 3700,  // proportional increase with other factions
             produces: [],
             tech_required: [],
             provides_tech: ["atelier_online"],

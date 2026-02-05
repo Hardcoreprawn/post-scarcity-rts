@@ -220,7 +220,7 @@
             description: "building.zephyr.sky_platform.description",
             cost: 0,  // Starting building
             build_time: 0,
-            health: 900,  // Lower HP, but mobile
+            health: 3000,  // proportional increase - lower HP but mobile
             produces: ["cloudrunner", "sky_collector"],
             tech_required: [],
             provides_tech: ["platform_online"],
