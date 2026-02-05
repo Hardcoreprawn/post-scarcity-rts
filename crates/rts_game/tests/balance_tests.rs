@@ -428,7 +428,10 @@ mod ai {
         let min_wave_size = 8; // Waves require 8 units minimum
 
         let should_launch_wave = rally_units >= min_wave_size;
-        assert!(!should_launch_wave, "AI shouldn't launch wave with only 7 units");
+        assert!(
+            !should_launch_wave,
+            "AI shouldn't launch wave with only 7 units"
+        );
 
         let rally_units = 8;
         let should_launch_wave = rally_units >= min_wave_size;

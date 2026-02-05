@@ -380,7 +380,7 @@ fn ai_attack_orders(
 
             if let Some((_, _, enemy_pos)) = nearest_enemy {
                 let unit_count = wave_state.rally_units.len();
-                
+
                 // Launch wave - send all rallied units to attack
                 for &unit_entity in &wave_state.rally_units {
                     commands.entity(unit_entity).insert(MovementTarget {
