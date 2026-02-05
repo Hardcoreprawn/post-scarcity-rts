@@ -3,10 +3,12 @@
 //! Provides basic AI behavior for enemy factions:
 //! - Resource gathering with harvesters
 //! - Unit production when resources allow
-//! - Attacking enemy units when there are enough combat units
+//! - Wave-based attacks: units accumulate at rally points before attacking as coordinated waves
 
 use bevy::prelude::*;
 use rts_core::factions::FactionId;
+use rts_core::math::Vec2Fixed;
+use std::collections::HashMap;
 
 use crate::components::{
     CombatStats, GameDepot, GameFaction, GameHarvester, GameHarvesterState, GamePosition,
@@ -36,6 +38,32 @@ pub struct AiState {
     pub harvester_timer: f32,
     /// Grace period before AI can attack (seconds since game start).
     pub game_time: f32,
+    /// Wave-based attack state per faction.
+    pub wave_state: HashMap<FactionId, WaveState>,
+}
+
+/// Per-faction wave attack state.
+#[derive(Debug, Clone)]
+pub struct WaveState {
+    /// Units accumulating at rally point for next wave.
+    pub rally_units: Vec<Entity>,
+    /// Time when next wave can be launched.
+    pub next_wave_time: f32,
+    /// Number of waves launched so far.
+    pub wave_number: u32,
+    /// Rally point location.
+    pub rally_point: Vec2Fixed,
+}
+
+impl WaveState {
+    fn new(rally_point: Vec2Fixed) -> Self {
+        Self {
+            rally_units: Vec::new(),
+            next_wave_time: 0.0,
+            wave_number: 0,
+            rally_point,
+        }
+    }
 }
 
 impl Default for AiState {
@@ -45,6 +73,7 @@ impl Default for AiState {
             attack_timer: 0.0,
             harvester_timer: 0.0,
             game_time: 0.0,
+            wave_state: HashMap::new(),
         }
     }
 }
@@ -52,8 +81,11 @@ impl Default for AiState {
 /// Minimum game time before AI will attack (gives player time to prepare).
 const AI_GRACE_PERIOD: f32 = 60.0;
 
-/// Minimum units AI needs before considering an attack.
-const AI_ATTACK_THRESHOLD: usize = 5;
+/// Minimum units AI needs before launching a wave.
+const MIN_WAVE_SIZE: usize = 8;
+
+/// Time between waves (seconds).
+const WAVE_INTERVAL: f32 = 20.0;
 
 /// AI resources per faction (simulated - not using player resources).
 #[derive(Component)]
@@ -197,7 +229,8 @@ fn ai_harvester_assignment(
     }
 }
 
-/// AI attack orders - sends combat units to attack enemies.
+/// AI attack orders - uses wave-based attacks with rally points.
+/// Units accumulate at rally points, then attack as coordinated waves.
 fn ai_attack_orders(
     time: Res<Time>,
     mut ai_state: ResMut<AiState>,
@@ -208,6 +241,7 @@ fn ai_attack_orders(
         Without<MovementTarget>,
     >,
     enemies: Query<(Entity, &GameFaction, &GamePosition), With<CombatStats>>,
+    depots: Query<(&GameFaction, &GamePosition), With<GameDepot>>,
 ) {
     // Track total game time
     ai_state.game_time += time.delta_seconds();
@@ -225,55 +259,108 @@ fn ai_attack_orders(
     }
     ai_state.attack_timer = 0.0;
 
+    // Initialize wave state for factions that don't have it yet
+    for (faction, depot_pos) in depots.iter() {
+        if faction.faction == player_faction.faction {
+            continue;
+        }
+        ai_state
+            .wave_state
+            .entry(faction.faction)
+            .or_insert_with(|| {
+                // Place rally point offset from depot
+                let depot_vec = depot_pos.as_vec2();
+                let rally_offset = Vec2::new(100.0, 100.0);
+                let rally_pos = depot_vec + rally_offset;
+                WaveState::new(Vec2Fixed::new(
+                    rts_core::math::Fixed::from_num(rally_pos.x),
+                    rts_core::math::Fixed::from_num(rally_pos.y),
+                ))
+            });
+    }
+
     // Group idle combat units by faction
-    let mut faction_units: std::collections::HashMap<FactionId, Vec<Entity>> =
-        std::collections::HashMap::new();
+    let mut faction_idle_units: HashMap<FactionId, Vec<Entity>> = HashMap::new();
 
     for (entity, faction, _, _) in combat_units.iter() {
         if faction.faction == player_faction.faction {
             continue;
         }
-        faction_units
+        faction_idle_units
             .entry(faction.faction)
             .or_default()
             .push(entity);
     }
 
-    // For each AI faction with enough units, attack!
-    for (faction_id, units) in faction_units {
-        // Need enough idle units to attack
-        if units.len() < AI_ATTACK_THRESHOLD {
-            continue;
-        }
+    // Store game time to avoid borrow checker issues
+    let current_game_time = ai_state.game_time;
 
-        // Find nearest enemy to the first unit
-        let first_unit = units[0];
-        let Ok((_, _, first_pos, _)) = combat_units.get(first_unit) else {
+    // Process each AI faction
+    for (faction_id, idle_units) in faction_idle_units {
+        let Some(wave_state) = ai_state.wave_state.get_mut(&faction_id) else {
             continue;
         };
-        let my_pos = first_pos.as_vec2();
 
-        // Find nearest enemy from a different faction
-        let nearest_enemy = enemies
-            .iter()
-            .filter(|(_, f, _)| f.faction != faction_id)
-            .min_by(|(_, _, a), (_, _, b)| {
-                let dist_a = a.as_vec2().distance_squared(my_pos);
-                let dist_b = b.as_vec2().distance_squared(my_pos);
-                dist_a.partial_cmp(&dist_b).unwrap()
-            });
+        // Add newly idle units to rally
+        for &unit in &idle_units {
+            if !wave_state.rally_units.contains(&unit) {
+                wave_state.rally_units.push(unit);
+                // Send unit to rally point
+                commands.entity(unit).insert(MovementTarget {
+                    target: wave_state.rally_point,
+                });
+                tracing::debug!(
+                    "AI {:?} unit rallying (wave {}, total {})",
+                    faction_id,
+                    wave_state.wave_number + 1,
+                    wave_state.rally_units.len()
+                );
+            }
+        }
 
-        if let Some((_, _, enemy_pos)) = nearest_enemy {
-            let unit_count = units.len();
-            // Send all idle units to attack
-            for unit_entity in &units {
-                if let Ok((_, _, _, _)) = combat_units.get(*unit_entity) {
-                    commands.entity(*unit_entity).insert(MovementTarget {
+        // Check if we should launch a wave
+        let has_enough_units = wave_state.rally_units.len() >= MIN_WAVE_SIZE;
+        let wave_ready = current_game_time >= wave_state.next_wave_time;
+
+        if has_enough_units && wave_ready {
+            // Find nearest enemy to launch the wave at
+            let first_unit = wave_state.rally_units[0];
+            let Ok((_, _, first_pos, _)) = combat_units.get(first_unit) else {
+                continue;
+            };
+            let my_pos = first_pos.as_vec2();
+
+            let nearest_enemy = enemies
+                .iter()
+                .filter(|(_, f, _)| f.faction != faction_id)
+                .min_by(|(_, _, a), (_, _, b)| {
+                    let dist_a = a.as_vec2().distance_squared(my_pos);
+                    let dist_b = b.as_vec2().distance_squared(my_pos);
+                    dist_a.partial_cmp(&dist_b).unwrap()
+                });
+
+            if let Some((_, _, enemy_pos)) = nearest_enemy {
+                let unit_count = wave_state.rally_units.len();
+                
+                // Launch wave - send all rallied units to attack
+                for &unit_entity in &wave_state.rally_units {
+                    commands.entity(unit_entity).insert(MovementTarget {
                         target: enemy_pos.value,
                     });
                 }
+
+                tracing::info!(
+                    "AI {:?} launching wave {} with {} units",
+                    faction_id,
+                    wave_state.wave_number + 1,
+                    unit_count
+                );
+
+                // Update wave state
+                wave_state.wave_number += 1;
+                wave_state.next_wave_time = current_game_time + WAVE_INTERVAL;
+                wave_state.rally_units.clear();
             }
-            tracing::info!("AI {:?} attacking with {} units", faction_id, unit_count);
         }
     }
 }
