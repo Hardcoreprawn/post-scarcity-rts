@@ -87,6 +87,12 @@ const MIN_WAVE_SIZE: usize = 8;
 /// Time between waves (seconds).
 const WAVE_INTERVAL: f32 = 20.0;
 
+/// Rally point offset from depot (horizontal).
+const RALLY_OFFSET_X: f32 = 100.0;
+
+/// Rally point offset from depot (vertical).
+const RALLY_OFFSET_Y: f32 = 100.0;
+
 /// AI resources per faction (simulated - not using player resources).
 #[derive(Component)]
 pub struct AiFaction {
@@ -270,7 +276,7 @@ fn ai_attack_orders(
             .or_insert_with(|| {
                 // Place rally point offset from depot
                 let depot_vec = depot_pos.as_vec2();
-                let rally_offset = Vec2::new(100.0, 100.0);
+                let rally_offset = Vec2::new(RALLY_OFFSET_X, RALLY_OFFSET_Y);
                 let rally_pos = depot_vec + rally_offset;
                 WaveState::new(Vec2Fixed::new(
                     rts_core::math::Fixed::from_num(rally_pos.x),
