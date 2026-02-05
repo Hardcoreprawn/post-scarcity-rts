@@ -196,7 +196,7 @@
             description: "building.collegium.assembly_core.description",
             cost: 0,  // Starting building
             build_time: 0,
-            health: 4000,
+            health: 4000,  // 20% weaker than Continuity for asymmetric balance
             produces: ["constructor_bot", "harvester_swarm"],
             tech_required: [],
             provides_tech: ["assembly_online"],
