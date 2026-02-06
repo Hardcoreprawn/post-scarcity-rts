@@ -421,18 +421,21 @@ mod ai {
         assert!(should_build_harvester);
     }
 
-    /// AI should only attack with sufficient force  
+    /// AI should only launch waves with sufficient force  
     #[test]
     fn test_ai_attack_threshold() {
-        let idle_combat_units = 4;
-        let attack_threshold = 5; // Increased to prevent weak rushes
+        let rally_units = 7;
+        let min_wave_size = 8; // Waves require 8 units minimum
 
-        let should_attack = idle_combat_units >= attack_threshold;
-        assert!(!should_attack, "AI shouldn't attack with only 4 units");
+        let should_launch_wave = rally_units >= min_wave_size;
+        assert!(
+            !should_launch_wave,
+            "AI shouldn't launch wave with only 7 units"
+        );
 
-        let idle_combat_units = 5;
-        let should_attack = idle_combat_units >= attack_threshold;
-        assert!(should_attack, "AI should attack with 5+ units");
+        let rally_units = 8;
+        let should_launch_wave = rally_units >= min_wave_size;
+        assert!(should_launch_wave, "AI should launch wave with 8+ units");
     }
 
     /// AI harvesters should seek nodes
