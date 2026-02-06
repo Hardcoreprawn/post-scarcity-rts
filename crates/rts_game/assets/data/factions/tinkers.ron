@@ -60,6 +60,7 @@
                 range: 214748364800,  // Fixed-point for 50.0
                 attack_cooldown: 30,
                 armor: 8,
+                projectile_speed: Some(85899345920),
             )),
             tech_required: [],
             tier: 1,
@@ -79,6 +80,8 @@
                 range: 386547056640,  // Fixed-point for 90.0
                 attack_cooldown: 45,
                 armor: 5,
+                projectile_speed: Some(85899345920),
+                damage_type: "energy",
             )),
             tech_required: [],
             tier: 1,
@@ -114,6 +117,7 @@
                 range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 35,
                 armor: 30,
+                projectile_speed: Some(64424509440),
             )),
             tech_required: [],
             tier: 2,
@@ -147,6 +151,7 @@
                 range: 214748364800,  // Fixed-point for 50.0
                 attack_cooldown: 40,
                 armor: 12,
+                projectile_speed: Some(85899345920),
             )),
             tech_required: [],
             tier: 2,
@@ -168,6 +173,8 @@
                 range: 343597383680,  // Fixed-point for 80.0
                 attack_cooldown: 40,
                 armor: 55,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(128849018880),
             )),
             tech_required: ["master_workshop"],
             tier: 3,
@@ -206,6 +213,8 @@
                 range: 429496729600,  // Fixed-point for 100.0
                 attack_cooldown: 60,
                 armor: 25,
+                projectile_speed: Some(42949672960),
+                damage_type: "energy",
             )),
             tech_required: ["master_workshop"],
             tier: 3,

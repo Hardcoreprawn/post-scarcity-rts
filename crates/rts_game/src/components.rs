@@ -559,6 +559,10 @@ pub struct CombatStats {
     pub attack_cooldown: f32,
     /// Current cooldown timer (counts down to 0).
     pub cooldown_timer: f32,
+    /// Projectile speed in world units per second (0 = hitscan).
+    pub projectile_speed: f32,
+    /// Splash damage radius in world units (0 = single-target).
+    pub splash_radius: f32,
 }
 
 impl CombatStats {
@@ -576,7 +580,23 @@ impl CombatStats {
             range,
             attack_cooldown,
             cooldown_timer: 0.0,
+            projectile_speed: 0.0,
+            splash_radius: 0.0,
         }
+    }
+
+    /// Builder to set projectile speed.
+    #[must_use]
+    pub const fn with_projectile_speed(mut self, speed: f32) -> Self {
+        self.projectile_speed = speed;
+        self
+    }
+
+    /// Builder to set splash radius.
+    #[must_use]
+    pub const fn with_splash_radius(mut self, radius: f32) -> Self {
+        self.splash_radius = radius;
+        self
     }
 
     /// Check if the unit can attack (cooldown ready).

@@ -60,6 +60,7 @@
                 range: 214748364800,  // Fixed-point for 50.0
                 attack_cooldown: 30,
                 armor: 10,
+                projectile_speed: Some(64424509440),
             )),
             tech_required: [],
             tier: 1,
@@ -109,6 +110,7 @@
                 range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 35,
                 armor: 30,
+                projectile_speed: Some(64424509440),
             )),
             tech_required: [],
             tier: 2,
@@ -142,6 +144,9 @@
                 range: 343597383680,  // Fixed-point for 80.0
                 attack_cooldown: 50,
                 armor: 15,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(257698037760),
+                damage_type: "explosive",
             )),
             tech_required: [],
             tier: 2,
@@ -163,6 +168,8 @@
                 range: 300647710720,  // Fixed-point for 70.0
                 attack_cooldown: 40,
                 armor: 50,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(128849018880),
             )),
             tech_required: ["sanctum"],
             tier: 3,
@@ -182,6 +189,7 @@
                 range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 35,
                 armor: 35,
+                projectile_speed: Some(64424509440),
             )),
             tech_required: ["sanctum"],
             tier: 3,

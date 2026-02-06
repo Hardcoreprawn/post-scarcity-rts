@@ -503,6 +503,10 @@ pub struct CombatStats {
     /// Weapon size class affects tracking vs different armor classes.
     #[serde(default)]
     pub weapon_size: WeaponSize,
+    /// Splash damage radius (0 = single-target).
+    #[serde(default)]
+    #[serde(with = "fixed_serde")]
+    pub splash_radius: Fixed,
 }
 
 impl CombatStats {
@@ -523,6 +527,7 @@ impl CombatStats {
             resistance: 0,
             armor_penetration: 0,
             weapon_size: WeaponSize::Medium,
+            splash_radius: Fixed::ZERO,
         }
     }
 
@@ -547,6 +552,13 @@ impl CombatStats {
     #[must_use]
     pub fn with_projectile_speed(mut self, speed: Fixed) -> Self {
         self.projectile_speed = speed;
+        self
+    }
+
+    /// Builder method to set splash damage radius.
+    #[must_use]
+    pub fn with_splash_radius(mut self, radius: Fixed) -> Self {
+        self.splash_radius = radius;
         self
     }
 
@@ -649,6 +661,7 @@ impl Default for CombatStats {
             resistance: 0,
             armor_penetration: 0,
             weapon_size: WeaponSize::Medium,
+            splash_radius: Fixed::ZERO,
         }
     }
 }
@@ -657,13 +670,17 @@ impl Default for CombatStats {
 // Projectile Component
 // ============================================================================
 
-/// A projectile entity traveling toward a target.
+/// A projectile entity traveling toward a target position.
+///
+/// Projectiles travel to the target's position at the time of firing.
+/// This means fast-moving targets can dodge projectiles, adding
+/// tactical depth to combat.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Projectile {
     /// Entity that fired this projectile.
     pub source: EntityId,
-    /// Target entity.
-    pub target: EntityId,
+    /// Position the projectile is traveling toward.
+    pub target_position: Vec2Fixed,
     /// Damage to deal on impact.
     pub damage: u32,
     /// Type of damage.
@@ -671,24 +688,29 @@ pub struct Projectile {
     /// Travel speed per tick.
     #[serde(with = "fixed_serde")]
     pub speed: Fixed,
+    /// Splash damage radius (0 = single target).
+    #[serde(with = "fixed_serde")]
+    pub splash_radius: Fixed,
 }
 
 impl Projectile {
-    /// Create a new projectile.
+    /// Create a new projectile targeting a specific position.
     #[must_use]
     pub fn new(
         source: EntityId,
-        target: EntityId,
+        target_position: Vec2Fixed,
         damage: u32,
         damage_type: DamageType,
         speed: Fixed,
+        splash_radius: Fixed,
     ) -> Self {
         Self {
             source,
-            target,
+            target_position,
             damage,
             damage_type,
             speed,
+            splash_radius,
         }
     }
 }

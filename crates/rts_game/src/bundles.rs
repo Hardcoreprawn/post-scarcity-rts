@@ -98,16 +98,25 @@ impl UnitBundle {
         use rts_core::unit_kind::UnitRole;
 
         // Convert combat stats from RON data
-        let (damage, range, cooldown, armor_value) = if let Some(combat) = &unit_data.combat {
-            (
-                combat.damage,
-                combat.range.to_num::<f32>(),
-                1.0 / (combat.attack_cooldown as f32 / 60.0), // Convert ticks to attacks/sec
-                combat.armor,
-            )
-        } else {
-            (0, 0.0, 0.0, 0) // Non-combat unit
-        };
+        let (damage, range, cooldown, armor_value, projectile_speed, splash_radius) =
+            if let Some(combat) = &unit_data.combat {
+                (
+                    combat.damage,
+                    combat.range.to_num::<f32>(),
+                    1.0 / (combat.attack_cooldown as f32 / 60.0), // Convert ticks to attacks/sec
+                    combat.armor,
+                    combat
+                        .projectile_speed
+                        .map(|s| s.to_num::<f32>())
+                        .unwrap_or(0.0),
+                    combat
+                        .splash_radius
+                        .map(|r| r.to_num::<f32>())
+                        .unwrap_or(0.0),
+                )
+            } else {
+                (0, 0.0, 0.0, 0, 0.0, 0.0) // Non-combat unit
+            };
 
         // Determine armor type from tags
         let armor_type = if unit_data.has_tag("vehicle") || unit_data.has_tag("mech") {
@@ -152,7 +161,9 @@ impl UnitBundle {
                 Fixed::from_num(position.y),
             )),
             health: GameHealth::new(unit_data.health),
-            combat: CombatStats::new(damage, DamageType::Kinetic, range, cooldown),
+            combat: CombatStats::new(damage, DamageType::Kinetic, range, cooldown)
+                .with_projectile_speed(projectile_speed)
+                .with_splash_radius(splash_radius),
             armor: Armor::new_with_value(armor_type, armor_value),
             unit_data_id: UnitDataId::new(&unit_data.id),
             unit_kind: GameUnitKind::new(unit_kind_id, role),

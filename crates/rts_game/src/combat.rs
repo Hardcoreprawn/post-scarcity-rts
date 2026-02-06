@@ -2,11 +2,14 @@
 
 use bevy::prelude::*;
 
+use rts_core::components::EntityId;
+
 use crate::components::{
     Armor, ArmorType, AttackTarget, CombatStats, DamageType, Dead, GameFaction, GameHealth,
     GamePosition, MovementTarget, PlayerFaction, Regeneration, Unit,
 };
 use crate::economy::PlayerResources;
+use crate::simulation::CoreSimulation;
 
 /// Range at which units will auto-acquire targets.
 pub const AUTO_ATTACK_RANGE: f32 = 200.0;
@@ -75,7 +78,8 @@ impl Plugin for CombatPlugin {
             )
                 .chain(),
         )
-        .add_systems(Update, (update_weapon_fire, render_weapon_fire));
+        .add_systems(Update, (update_weapon_fire, render_weapon_fire))
+        .add_systems(Update, sync_projectile_visuals);
     }
 }
 
@@ -323,6 +327,74 @@ fn render_weapon_fire(mut gizmos: Gizmos, fires: Query<&WeaponFire>) {
         gizmos.line_2d(fire.from, fire.to, color);
         // Draw impact hit marker
         gizmos.circle_2d(fire.to, 5.0, color);
+    }
+}
+
+// ============================================================================
+// Projectile Rendering
+// ============================================================================
+
+/// Component marking a Bevy entity as a visual projectile synced from core.
+#[derive(Component)]
+pub struct GameProjectile {
+    /// The core simulation entity ID of this projectile.
+    pub core_id: EntityId,
+}
+
+/// Projectile visual size.
+const PROJECTILE_SIZE: f32 = 6.0;
+
+/// Syncs projectile visuals from core simulation tick events.
+///
+/// Each tick, the core provides a list of active projectile positions.
+/// This system spawns new visual entities for newly-seen projectiles,
+/// updates positions for existing ones, and despawns visuals for
+/// projectiles that no longer exist.
+fn sync_projectile_visuals(
+    mut commands: Commands,
+    core: Res<CoreSimulation>,
+    mut projectiles: Query<(Entity, &mut GameProjectile, &mut Transform)>,
+) {
+    let events = &core.last_events;
+
+    // Build a set of active core projectile IDs and their positions
+    let active: std::collections::HashMap<EntityId, (f32, f32)> = events
+        .projectile_positions
+        .iter()
+        .map(|(id, pos)| (*id, (pos.x.to_num::<f32>(), pos.y.to_num::<f32>())))
+        .collect();
+
+    // Track which core IDs have matching Bevy entities
+    let mut seen_core_ids = std::collections::HashSet::new();
+
+    // Update existing projectile visuals or despawn removed ones
+    for (entity, proj, mut transform) in projectiles.iter_mut() {
+        if let Some(&(x, y)) = active.get(&proj.core_id) {
+            transform.translation.x = x;
+            transform.translation.y = y;
+            seen_core_ids.insert(proj.core_id);
+        } else {
+            // Projectile no longer exists in core — despawn visual
+            commands.entity(entity).despawn();
+        }
+    }
+
+    // Spawn visuals for new projectiles
+    for (core_id, (x, y)) in &active {
+        if !seen_core_ids.contains(core_id) {
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgb(1.0, 0.9, 0.3), // Bright yellow
+                        custom_size: Some(Vec2::splat(PROJECTILE_SIZE)),
+                        ..default()
+                    },
+                    transform: Transform::from_translation(Vec3::new(*x, *y, 0.5)),
+                    ..default()
+                },
+                GameProjectile { core_id: *core_id },
+            ));
+        }
     }
 }
 

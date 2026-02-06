@@ -227,6 +227,14 @@ fn sync_spawned_entities(
                     cooldown_ticks,
                 );
                 core_stats = core_stats.with_damage_type(map_damage_type(stats.damage_type));
+                if stats.projectile_speed > 0.0 {
+                    core_stats =
+                        core_stats.with_projectile_speed(Fixed::from_num(stats.projectile_speed));
+                }
+                if stats.splash_radius > 0.0 {
+                    core_stats =
+                        core_stats.with_splash_radius(Fixed::from_num(stats.splash_radius));
+                }
                 core_stats
             } else {
                 CoreCombatStats::new(0, Fixed::ZERO, 1)

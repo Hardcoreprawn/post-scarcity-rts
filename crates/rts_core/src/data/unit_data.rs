@@ -4,6 +4,30 @@ use serde::{Deserialize, Serialize};
 
 use crate::math::{fixed_serde, Fixed};
 
+/// Serde support for `Option<Fixed>` in data files.
+mod option_fixed_serde {
+    use crate::math::Fixed;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(value: &Option<Fixed>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(v) => v.to_bits().serialize(serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Fixed>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt = Option::<i64>::deserialize(deserializer)?;
+        Ok(opt.map(Fixed::from_bits))
+    }
+}
+
 /// Combat statistics for a unit.
 ///
 /// Optional combat data - units without combat stats are non-combatants
@@ -23,6 +47,27 @@ pub struct CombatStats {
     /// Armor value that reduces incoming damage.
     #[serde(default)]
     pub armor: u32,
+
+    /// Projectile speed in game units per tick (None or 0 = hitscan/instant).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_fixed_serde"
+    )]
+    pub projectile_speed: Option<Fixed>,
+
+    /// Damage type string ("kinetic", "energy", "explosive", "biological").
+    /// Defaults to "kinetic" if not specified.
+    #[serde(default = "default_damage_type")]
+    pub damage_type: String,
+
+    /// Splash damage radius in game units (None or 0 = single target).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_fixed_serde"
+    )]
+    pub splash_radius: Option<Fixed>,
 }
 
 /// Data-driven unit definition.
@@ -103,6 +148,11 @@ const fn default_tier() -> u8 {
     1
 }
 
+/// Default damage type for units without explicit damage type.
+fn default_damage_type() -> String {
+    "kinetic".to_string()
+}
+
 impl UnitData {
     /// Check if this unit requires a specific technology.
     #[must_use]
@@ -141,6 +191,9 @@ mod tests {
                 range: Fixed::from_num(3),
                 attack_cooldown: 30,
                 armor: 5,
+                projectile_speed: None,
+                splash_radius: None,
+                damage_type: "kinetic".to_string(),
             }),
             tech_required: vec!["enhanced_training".to_string()],
             tier: 1,

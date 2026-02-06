@@ -60,6 +60,7 @@
                 range: 171798691840,  // Fixed-point for 40.0
                 attack_cooldown: 25,
                 armor: 3,
+                damage_type: "explosive",
             )),
             tech_required: [],
             tier: 1,
@@ -79,6 +80,7 @@
                 range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 20,
                 armor: 10,
+                projectile_speed: Some(85899345920),
             )),
             tech_required: [],
             tier: 1,
@@ -114,6 +116,7 @@
                 range: 300647710720,  // Fixed-point for 70.0
                 attack_cooldown: 45,
                 armor: 50,
+                projectile_speed: Some(64424509440),
             )),
             tech_required: [],
             tier: 2,
@@ -133,6 +136,9 @@
                 range: 515396075520,  // Fixed-point for 120.0
                 attack_cooldown: 90,
                 armor: 40,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(257698037760),
+                damage_type: "explosive",
             )),
             tech_required: [],
             tier: 2,
@@ -173,6 +179,9 @@
                 range: 386547056640,  // Fixed-point for 90.0
                 attack_cooldown: 60,
                 armor: 80,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(128849018880),
+                damage_type: "explosive",
             )),
             tech_required: ["strategic_operations"],
             tier: 3,
@@ -192,6 +201,7 @@
                 range: 343597383680,  // Fixed-point for 80.0
                 attack_cooldown: 40,
                 armor: 30,
+                projectile_speed: Some(85899345920),
             )),
             tech_required: ["strategic_operations"],
             tier: 3,

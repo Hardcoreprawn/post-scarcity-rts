@@ -286,6 +286,25 @@ pub struct TickEvents {
     pub spawned: Vec<EntityId>,
     /// Winning faction if the match ended.
     pub game_end: Option<FactionId>,
+    /// Active projectile positions for rendering (entity_id, position).
+    pub projectile_positions: Vec<(EntityId, Vec2Fixed)>,
+    /// Projectiles spawned this tick for visual creation.
+    pub projectile_spawns: Vec<ProjectileSpawnInfo>,
+    /// Projectiles that hit/expired this tick for visual removal.
+    pub projectile_removals: Vec<EntityId>,
+}
+
+/// Info about a newly spawned projectile for visual rendering.
+#[derive(Debug, Clone)]
+pub struct ProjectileSpawnInfo {
+    /// The core entity ID of the projectile.
+    pub entity_id: EntityId,
+    /// Starting position.
+    pub start_pos: Vec2Fixed,
+    /// Target position.
+    pub target_pos: Vec2Fixed,
+    /// Splash radius (0 = single-target).
+    pub splash_radius: Fixed,
 }
 
 /// The core game simulation.
@@ -427,6 +446,13 @@ impl Simulation {
         // 3.5 Projectile System
         let mut projectile_damage = self.run_projectile_system(&entity_ids);
         events.damage_events.append(&mut projectile_damage);
+
+        // Collect active projectile positions for rendering
+        for (&id, entity) in self.entities.iter() {
+            if let (Some(position), Some(_projectile)) = (&entity.position, &entity.projectile) {
+                events.projectile_positions.push((id, position.value));
+            }
+        }
 
         // 4. Health System - identify and remove dead entities
         events.deaths = self.run_health_system(&entity_ids);
@@ -716,12 +742,14 @@ impl Simulation {
 
                     if dist_sq <= range_sq && combat_stats.cooldown_remaining == 0 {
                         if combat_stats.uses_projectiles() {
+                            // Snapshot target position for position-based targeting
                             let projectile = Projectile::new(
                                 attacker_id,
-                                target_id,
+                                target_pos.value,
                                 combat_stats.damage,
                                 combat_stats.damage_type,
                                 combat_stats.projectile_speed,
+                                combat_stats.splash_radius,
                             );
                             self.spawn_projectile(position.value, projectile);
                             combat_stats.cooldown_remaining = combat_stats.attack_cooldown;
@@ -828,20 +856,22 @@ impl Simulation {
 
         for update in updates {
             if update.hit {
-                if let Some(CombatEvent::ProjectileHit {
-                    source,
-                    target,
-                    damage,
-                }) = update.event
-                {
-                    damage_events.push(DamageEvent {
-                        attacker: source,
+                for event in &update.events {
+                    if let CombatEvent::ProjectileHit {
+                        source,
                         target,
                         damage,
-                    });
-                    if let Some(entity) = self.entities.get_mut(target) {
-                        if let Some(health) = entity.health.as_mut() {
-                            health.apply_damage(damage);
+                    } = event
+                    {
+                        damage_events.push(DamageEvent {
+                            attacker: *source,
+                            target: *target,
+                            damage: *damage,
+                        });
+                        if let Some(entity) = self.entities.get_mut(*target) {
+                            if let Some(health) = entity.health.as_mut() {
+                                health.apply_damage(*damage);
+                            }
                         }
                     }
                 }
@@ -1210,10 +1240,12 @@ impl Simulation {
                 // Hash projectile
                 if let Some(ref projectile) = entity.projectile {
                     projectile.source.hash(&mut hasher);
-                    projectile.target.hash(&mut hasher);
+                    projectile.target_position.x.to_bits().hash(&mut hasher);
+                    projectile.target_position.y.to_bits().hash(&mut hasher);
                     projectile.damage.hash(&mut hasher);
                     projectile.damage_type.hash(&mut hasher);
                     projectile.speed.to_bits().hash(&mut hasher);
+                    projectile.splash_radius.to_bits().hash(&mut hasher);
                 }
 
                 // Hash patrol state
@@ -1490,5 +1522,161 @@ mod tests {
         let events = sim.tick();
         assert!(events.deaths.contains(&id));
         assert!(sim.get_entity(id).is_none());
+    }
+
+    #[test]
+    fn test_projectile_misses_moved_target() {
+        // Projectile targets a position; if the target moves away before impact,
+        // and nobody else is near impact point, no damage is dealt.
+        let mut sim = Simulation::new();
+
+        // Attacker at origin with slow projectile
+        let attacker = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            health: Some(100),
+            movement: Some(Fixed::from_num(1)),
+            combat_stats: Some(
+                CombatStats::new(50, Fixed::from_num(200), 999)
+                    .with_projectile_speed(Fixed::from_num(2)), // Very slow projectile
+            ),
+            ..Default::default()
+        });
+
+        // Target at (50, 0) — well within range
+        let target = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(50), Fixed::from_num(0))),
+            health: Some(100),
+            movement: Some(Fixed::from_num(100)), // Very fast
+            ..Default::default()
+        });
+
+        sim.set_attack_target(attacker, target).unwrap();
+        sim.tick(); // Attacker fires projectile toward (50,0)
+
+        // Move the target far away before projectile arrives
+        sim.apply_command(
+            target,
+            crate::components::Command::MoveTo(Vec2Fixed::new(
+                Fixed::from_num(900),
+                Fixed::from_num(900),
+            )),
+        )
+        .unwrap();
+
+        // Tick many times — projectile should arrive at (50,0) after ~25 ticks
+        // and the target (at speed 100) is long gone
+        for _ in 0..40 {
+            sim.tick();
+        }
+
+        // Target should be unharmed — nobody was at (50,0) when projectile arrived
+        // (attacker at 0,0 is outside 30-unit hit radius of impact at 50,0)
+        if let Some(entity) = sim.get_entity(target) {
+            assert_eq!(
+                entity.health.unwrap().current,
+                100,
+                "Target should be unharmed since it moved away"
+            );
+        }
+    }
+
+    #[test]
+    fn test_splash_damage_hits_multiple_targets() {
+        let mut sim = Simulation::new();
+
+        // Attacker with splash damage
+        let attacker = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            health: Some(100),
+            movement: Some(Fixed::from_num(1)),
+            combat_stats: Some(
+                CombatStats::new(50, Fixed::from_num(100), 10)
+                    .with_projectile_speed(Fixed::from_num(20))
+                    .with_splash_radius(Fixed::from_num(60)),
+            ),
+            ..Default::default()
+        });
+
+        // Target cluster at (30, 0) - within range
+        let target1 = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(30), Fixed::from_num(0))),
+            health: Some(200),
+            combat_stats: Some(CombatStats::default()),
+            ..Default::default()
+        });
+
+        // Nearby target within splash radius (60 units)
+        let target2 = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(50), Fixed::from_num(0))),
+            health: Some(200),
+            combat_stats: Some(CombatStats::default()),
+            ..Default::default()
+        });
+
+        // Target outside splash radius
+        let target3 = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(200), Fixed::from_num(0))),
+            health: Some(200),
+            combat_stats: Some(CombatStats::default()),
+            ..Default::default()
+        });
+
+        sim.set_attack_target(attacker, target1).unwrap();
+
+        // Tick enough times for projectile to spawn and hit
+        for _ in 0..5 {
+            sim.tick();
+        }
+
+        // Target1 should take splash damage (near center)
+        let t1_health = sim.get_entity(target1).unwrap().health.unwrap().current;
+        assert!(
+            t1_health < 200,
+            "Target1 should be damaged, has {t1_health}"
+        );
+
+        // Target2 should also take splash damage (within 60 units of impact)
+        let t2_health = sim.get_entity(target2).unwrap().health.unwrap().current;
+        assert!(
+            t2_health < 200,
+            "Target2 should take splash damage, has {t2_health}"
+        );
+
+        // Target3 should be unharmed (far outside splash radius)
+        let t3_health = sim.get_entity(target3).unwrap().health.unwrap().current;
+        assert_eq!(t3_health, 200, "Target3 should be unharmed");
+    }
+
+    #[test]
+    fn test_projectile_positions_in_tick_events() {
+        let mut sim = Simulation::new();
+
+        let attacker = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::ZERO),
+            health: Some(100),
+            movement: Some(Fixed::from_num(1)),
+            combat_stats: Some(
+                CombatStats::new(10, Fixed::from_num(100), 10)
+                    .with_projectile_speed(Fixed::from_num(2)), // Slow to ensure multiple ticks
+            ),
+            ..Default::default()
+        });
+
+        let target = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(50), Fixed::from_num(0))),
+            health: Some(100),
+            combat_stats: Some(CombatStats::default()),
+            ..Default::default()
+        });
+
+        sim.set_attack_target(attacker, target).unwrap();
+        sim.tick(); // Fire
+
+        // Tick again — projectile should be in flight
+        let events = sim.tick();
+        assert!(
+            !events.projectile_positions.is_empty(),
+            "Should have projectile position data"
+        );
     }
 }
