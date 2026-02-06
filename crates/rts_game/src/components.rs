@@ -1138,8 +1138,9 @@ impl UnitKind {
 /// An item in the production queue.
 #[derive(Debug, Clone)]
 pub struct QueuedUnit {
-    /// Type of unit being built.
-    pub unit_type: UnitType,
+    /// String ID of the unit being built (e.g., "security_team", "field_engineer").
+    /// Maps to faction-specific unit data via FactionRegistry.
+    pub unit_id: String,
     /// Progress toward completion (0.0 to 1.0).
     pub progress: f32,
 }
@@ -1172,19 +1173,19 @@ impl GameProductionQueue {
         self.queue.len() < self.max_queue_size
     }
 
-    /// Add a unit to the production queue.
-    pub fn enqueue(&mut self, unit_type: UnitType) {
+    /// Add a unit to the production queue by string ID.
+    pub fn enqueue(&mut self, unit_id: String) {
         if self.can_queue() {
             self.queue.push(QueuedUnit {
-                unit_type,
+                unit_id,
                 progress: 0.0,
             });
         }
     }
 
-    /// Cancel the last item in the queue, returning partial refund.
-    pub fn cancel_last(&mut self) -> Option<(UnitType, f32)> {
-        self.queue.pop().map(|q| (q.unit_type, 1.0 - q.progress))
+    /// Cancel the last item in the queue, returning unit ID and partial refund progress.
+    pub fn cancel_last(&mut self) -> Option<(String, f32)> {
+        self.queue.pop().map(|q| (q.unit_id, 1.0 - q.progress))
     }
 
     /// Get the currently building unit (front of queue).
@@ -1199,9 +1200,9 @@ impl GameProductionQueue {
     }
 
     /// Complete the current unit and remove from queue.
-    pub fn complete_current(&mut self) -> Option<UnitType> {
+    pub fn complete_current(&mut self) -> Option<String> {
         if !self.queue.is_empty() {
-            Some(self.queue.remove(0).unit_type)
+            Some(self.queue.remove(0).unit_id)
         } else {
             None
         }

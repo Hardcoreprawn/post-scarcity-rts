@@ -32,6 +32,7 @@ pub mod selection;
 pub mod simulation;
 pub mod sprites;
 pub mod ui;
+pub mod unit_utils;
 pub mod victory;
 
 // Development tools (only compiled with dev-tools feature)

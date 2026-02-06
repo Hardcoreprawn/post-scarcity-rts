@@ -8,8 +8,17 @@ use crate::bundles::{HarvesterBundle, UnitBundle};
 use crate::components::{
     GameFaction, GamePosition, GameProductionQueue, PlayerFaction, Unit, UnitType,
 };
-use crate::data_loader::{BevyUnitKindRegistry, FactionRegistry};
+use crate::data_loader::BevyUnitKindRegistry;
+use crate::data_loader::FactionRegistry;
 use crate::economy::PlayerResources;
+use crate::unit_utils::is_ranged_unit;
+
+/// Ticks per second - used to convert build_time from ticks (stored in data) to seconds (used in calculations).
+/// Matches rts_core::simulation::TICK_RATE which is 20 ticks per second.
+const TICKS_PER_SECOND: f32 = 20.0;
+
+/// Default build time in seconds when unit data is not found.
+const DEFAULT_BUILD_TIME_SECONDS: f32 = 5.0;
 
 /// Plugin that handles unit production from buildings.
 pub struct ProductionPlugin;
@@ -46,12 +55,30 @@ fn production_system(
     for (pos, faction, mut production) in buildings.iter_mut() {
         // Only process if there's something in the queue
         if let Some(current) = production.current_mut() {
-            let build_time = current.unit_type.build_time();
+            // Look up build time from faction data
+            let faction_data = faction_registry.get(faction.faction);
+            let build_time = if let Some(data) = faction_data {
+                if let Some(unit_data) = data.get_unit(&current.unit_id) {
+                    // Convert ticks to seconds
+                    unit_data.build_time as f32 / TICKS_PER_SECOND
+                } else {
+                    // Fallback if unit not found in data
+                    tracing::warn!(
+                        "Unit '{}' not found in faction {:?} data, using default build time",
+                        current.unit_id,
+                        faction.faction
+                    );
+                    DEFAULT_BUILD_TIME_SECONDS
+                }
+            } else {
+                DEFAULT_BUILD_TIME_SECONDS
+            };
+
             current.progress += dt / build_time;
 
             // Check if complete
             if current.progress >= 1.0 {
-                let unit_type = production.complete_current().unwrap();
+                let unit_id = production.complete_current().unwrap();
                 let spawn_pos: Vec2 = production.rally_point.unwrap_or_else(|| {
                     Vec2::new(
                         pos.value.x.to_num::<f32>() + 80.0,
@@ -60,24 +87,31 @@ fn production_system(
                 });
 
                 // Look up faction-specific unit data
-                let unit_id = unit_type.to_unit_id(faction.faction);
                 let faction_data = faction_registry.get(faction.faction);
 
-                // Try to spawn with data-driven stats, fall back to legacy if data missing
-                match (faction_data, unit_type) {
-                    (Some(_data), UnitType::Harvester) => {
-                        // Harvesters use special bundle with harvester component
-                        commands
-                            .spawn(HarvesterBundle::new(spawn_pos, faction.faction))
-                            .insert(Unit::new(unit_type));
-                        // Supply was already reserved at queue time
-                    }
-                    (Some(data), _) => {
-                        // Combat units use data-driven stats
-                        if let Some(unit_data) = data.get_unit(unit_id) {
+                // Try to spawn with data-driven stats
+                let mut spawn_failed = false;
+                if let Some(data) = faction_data {
+                    if let Some(unit_data) = data.get_unit(&unit_id) {
+                        // Check if this is a harvester by looking at tags
+                        if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
+                            // Harvesters use special bundle with harvester component
+                            commands
+                                .spawn(HarvesterBundle::new(spawn_pos, faction.faction))
+                                .insert(Unit::new(UnitType::Harvester));
+                            // Supply was already reserved at queue time
+                        } else {
+                            // Combat units use data-driven stats
+                            // Determine appropriate UnitType for backward compatibility
+                            let unit_type = if is_ranged_unit(unit_data) {
+                                UnitType::Ranger
+                            } else {
+                                UnitType::Infantry
+                            };
+
                             // Look up the UnitKindId from the registry
                             let unit_kind_id = unit_kind_registry
-                                .find(faction.faction, unit_id)
+                                .find(faction.faction, &unit_id)
                                 .unwrap_or(rts_core::unit_kind::UnitKindId::NONE);
 
                             commands
@@ -89,78 +123,63 @@ fn production_system(
                                 ))
                                 .insert(Unit::new(unit_type));
                             // Supply was already reserved at queue time
-                        } else {
-                            // Unit not found in data, use legacy spawn
-                            tracing::warn!(
-                                "Unit '{}' not found in faction {:?} data, using legacy spawn",
-                                unit_id,
-                                faction.faction
-                            );
-                            let is_player = faction.faction == player_faction.faction;
-                            spawn_legacy_unit(
-                                &mut commands,
-                                unit_type,
-                                spawn_pos,
-                                faction.faction,
-                                &mut resources,
-                                is_player,
+                        }
+
+                        tracing::info!(
+                            "Produced {} ({}) for {:?}",
+                            unit_data.name,
+                            unit_id,
+                            faction.faction
+                        );
+                    } else {
+                        // Unit not found in data, log error and mark for refund
+                        tracing::error!(
+                            "Unit '{}' not found in faction {:?} data, cannot spawn - refunding resources",
+                            unit_id,
+                            faction.faction
+                        );
+                        spawn_failed = true;
+                    }
+                } else {
+                    // No faction data loaded, log error and mark for refund
+                    tracing::error!(
+                        "No faction data for {:?}, cannot spawn unit '{}' - refunding resources",
+                        faction.faction,
+                        unit_id
+                    );
+                    spawn_failed = true;
+                }
+
+                // Refund resources if spawn failed and this is the player's faction
+                if spawn_failed && faction.faction == player_faction.faction {
+                    // Try to look up the unit cost for refund
+                    if let Some(data) = faction_registry.get(faction.faction) {
+                        if let Some(unit_data) = data.get_unit(&unit_id) {
+                            let refund = unit_data.cost as i32;
+                            resources.feedstock += refund;
+
+                            // Refund supply based on tags
+                            let supply = if unit_data.has_tag("harvester")
+                                || unit_data.has_tag("worker")
+                                || is_ranged_unit(unit_data)
+                                || unit_data.has_tag("heavy")
+                            {
+                                2
+                            } else {
+                                1
+                            };
+                            resources.supply_used -= supply;
+
+                            tracing::info!(
+                                "Refunded {} feedstock and {} supply for failed spawn of '{}'",
+                                refund,
+                                supply,
+                                unit_id
                             );
                         }
                     }
-                    (None, _) => {
-                        // No faction data loaded, use legacy spawn
-                        tracing::warn!(
-                            "No faction data for {:?}, using legacy spawn",
-                            faction.faction
-                        );
-                        let is_player = faction.faction == player_faction.faction;
-                        spawn_legacy_unit(
-                            &mut commands,
-                            unit_type,
-                            spawn_pos,
-                            faction.faction,
-                            &mut resources,
-                            is_player,
-                        );
-                    }
                 }
-
-                tracing::info!(
-                    "Produced {:?} ({}) for {:?}",
-                    unit_type,
-                    unit_id,
-                    faction.faction
-                );
             }
-        }
-    }
-}
-
-/// Fallback spawning with hardcoded values (for backwards compatibility).
-fn spawn_legacy_unit(
-    commands: &mut Commands,
-    unit_type: UnitType,
-    spawn_pos: Vec2,
-    faction: rts_core::factions::FactionId,
-    _resources: &mut ResMut<PlayerResources>,
-    _is_player: bool,
-) {
-    // Supply is now reserved at queue time in UI, not at spawn time
-    match unit_type {
-        UnitType::Infantry => {
-            commands
-                .spawn(UnitBundle::new(spawn_pos, faction, 100))
-                .insert(Unit::new(unit_type));
-        }
-        UnitType::Harvester => {
-            commands
-                .spawn(HarvesterBundle::new(spawn_pos, faction))
-                .insert(Unit::new(unit_type));
-        }
-        UnitType::Ranger => {
-            commands
-                .spawn(UnitBundle::new(spawn_pos, faction, 75))
-                .insert(Unit::new(unit_type));
         }
     }
 }

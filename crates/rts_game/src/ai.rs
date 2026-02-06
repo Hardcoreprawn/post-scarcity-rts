@@ -111,27 +111,32 @@ fn ai_production(
             .filter(|f| f.faction == faction.faction)
             .count();
 
+        // Get faction-specific unit IDs
+        let harvester_id = UnitType::Harvester.to_unit_id(faction.faction).to_string();
+        let infantry_id = UnitType::Infantry.to_unit_id(faction.faction).to_string();
+        let ranger_id = UnitType::Ranger.to_unit_id(faction.faction).to_string();
+
         // Prioritize: 1 harvester first, then combat units, then more harvesters
         if harvester_count == 0 {
-            production.enqueue(UnitType::Harvester);
+            production.enqueue(harvester_id);
             tracing::info!("AI {:?} queued Harvester (first)", faction.faction);
         } else if combat_count < 3 {
             // Build infantry until we have 3
-            production.enqueue(UnitType::Infantry);
+            production.enqueue(infantry_id);
             tracing::info!(
                 "AI {:?} queued Infantry (combat {})",
                 faction.faction,
                 combat_count
             );
         } else if harvester_count < 2 {
-            production.enqueue(UnitType::Harvester);
+            production.enqueue(harvester_id);
             tracing::info!("AI {:?} queued Harvester (second)", faction.faction);
         } else if combat_count < 6 {
             // Mix of infantry and rangers
             if combat_count % 2 == 0 {
-                production.enqueue(UnitType::Infantry);
+                production.enqueue(infantry_id);
             } else {
-                production.enqueue(UnitType::Ranger);
+                production.enqueue(ranger_id);
             }
             tracing::info!(
                 "AI {:?} queued combat unit (total {})",
