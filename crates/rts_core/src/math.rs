@@ -38,7 +38,6 @@ pub mod fixed_serde {
     where
         S: Serializer,
     {
-        // Serialize as raw bits to preserve exact value
         value.to_bits().serialize(serializer)
     }
 
@@ -49,6 +48,35 @@ pub mod fixed_serde {
     {
         let bits = i64::deserialize(deserializer)?;
         Ok(Fixed::from_bits(bits))
+    }
+}
+
+/// Serde support for `Option<Fixed>`.
+///
+/// Serializes optional fixed-point numbers via their raw bit representation,
+/// preserving `None` as a serialized `None` value.
+pub mod option_fixed_serde {
+    use super::Fixed;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Serialize an optional fixed-point number.
+    pub fn serialize<S>(value: &Option<Fixed>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(v) => v.to_bits().serialize(serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    /// Deserialize an optional fixed-point number.
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Fixed>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt = Option::<i64>::deserialize(deserializer)?;
+        Ok(opt.map(Fixed::from_bits))
     }
 }
 

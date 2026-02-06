@@ -493,6 +493,8 @@ pub enum DamageType {
     Energy,
     /// Explosive damage (rockets, grenades).
     Explosive,
+    /// Biological damage (acid, toxins).
+    Biological,
 }
 
 /// Type of armor protecting a unit.
@@ -531,6 +533,12 @@ impl ArmorType {
             (DamageType::Explosive, ArmorType::Light) => 1.25,
             (DamageType::Explosive, ArmorType::Heavy) => 1.0,
             (DamageType::Explosive, ArmorType::Structure) => 1.5,
+
+            // Biological: strong vs unarmored/light, weak vs heavy/structure
+            (DamageType::Biological, ArmorType::Unarmored) => 1.5,
+            (DamageType::Biological, ArmorType::Light) => 1.25,
+            (DamageType::Biological, ArmorType::Heavy) => 0.5,
+            (DamageType::Biological, ArmorType::Structure) => 0.25,
         }
     }
 

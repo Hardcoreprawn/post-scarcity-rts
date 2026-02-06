@@ -3,6 +3,7 @@
 //! These bundles combine multiple components for easy entity creation.
 
 use bevy::prelude::*;
+use rts_core::components::DamageType as CoreDamageType;
 use rts_core::factions::FactionId;
 use rts_core::math::{Fixed, Vec2Fixed};
 
@@ -12,6 +13,16 @@ use crate::components::{
     GameResourceNode, GameUnitKind, Regeneration, Selectable, Stationary, UnderConstruction,
     UnitDataId,
 };
+
+/// Map core simulation `DamageType` to game-side `DamageType`.
+fn map_core_damage_type(dt: CoreDamageType) -> DamageType {
+    match dt {
+        CoreDamageType::Kinetic => DamageType::Kinetic,
+        CoreDamageType::Energy => DamageType::Energy,
+        CoreDamageType::Explosive => DamageType::Explosive,
+        CoreDamageType::Biological => DamageType::Biological,
+    }
+}
 
 /// Returns the faction color for rendering.
 #[must_use]
@@ -98,10 +109,11 @@ impl UnitBundle {
         use rts_core::unit_kind::UnitRole;
 
         // Convert combat stats from RON data
-        let (damage, range, cooldown, armor_value, projectile_speed, splash_radius) =
+        let (damage, damage_type, range, cooldown, armor_value, projectile_speed, splash_radius) =
             if let Some(combat) = &unit_data.combat {
                 (
                     combat.damage,
+                    map_core_damage_type(combat.damage_type),
                     combat.range.to_num::<f32>(),
                     1.0 / (combat.attack_cooldown as f32 / 60.0), // Convert ticks to attacks/sec
                     combat.armor,
@@ -115,7 +127,7 @@ impl UnitBundle {
                         .unwrap_or(0.0),
                 )
             } else {
-                (0, 0.0, 0.0, 0, 0.0, 0.0) // Non-combat unit
+                (0, DamageType::Kinetic, 0.0, 0.0, 0, 0.0, 0.0) // Non-combat unit
             };
 
         // Determine armor type from tags
@@ -161,7 +173,7 @@ impl UnitBundle {
                 Fixed::from_num(position.y),
             )),
             health: GameHealth::new(unit_data.health),
-            combat: CombatStats::new(damage, DamageType::Kinetic, range, cooldown)
+            combat: CombatStats::new(damage, damage_type, range, cooldown)
                 .with_projectile_speed(projectile_speed)
                 .with_splash_radius(splash_radius),
             armor: Armor::new_with_value(armor_type, armor_value),

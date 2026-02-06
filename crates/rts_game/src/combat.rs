@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use rts_core::components::EntityId;
+use rts_core::components::{DamageType as CoreDamageType, EntityId};
 
 use crate::components::{
     Armor, ArmorType, AttackTarget, CombatStats, DamageType, Dead, GameFaction, GameHealth,
@@ -57,6 +57,7 @@ pub fn weapon_fire_color(damage_type: DamageType) -> Color {
         DamageType::Kinetic => Color::srgb(1.0, 0.8, 0.0), // Yellow-orange
         DamageType::Energy => Color::srgb(0.3, 0.8, 1.0),  // Cyan-blue
         DamageType::Explosive => Color::srgb(1.0, 0.4, 0.2), // Hot red-orange
+        DamageType::Biological => Color::srgb(0.4, 1.0, 0.2), // Acid green
     }
 }
 
@@ -79,7 +80,10 @@ impl Plugin for CombatPlugin {
                 .chain(),
         )
         .add_systems(Update, (update_weapon_fire, render_weapon_fire))
-        .add_systems(Update, sync_projectile_visuals);
+        .add_systems(
+            Update,
+            (sync_projectile_visuals, render_projectile_trails).chain(),
+        );
     }
 }
 
@@ -339,10 +343,32 @@ fn render_weapon_fire(mut gizmos: Gizmos, fires: Query<&WeaponFire>) {
 pub struct GameProjectile {
     /// The core simulation entity ID of this projectile.
     pub core_id: EntityId,
+    /// Damage type for visual coloring.
+    pub damage_type: DamageType,
 }
+
+/// Component tracking the previous position for trail rendering.
+#[derive(Component)]
+pub struct ProjectileTrail {
+    /// Previous position of the projectile.
+    pub prev_pos: Vec2,
+}
+
+/// Length of the trail line behind each projectile (world units).
+const TRAIL_LENGTH: f32 = 20.0;
 
 /// Projectile visual size.
 const PROJECTILE_SIZE: f32 = 6.0;
+
+/// Map a core simulation `DamageType` to a game-side `DamageType`.
+fn map_core_damage_type(dt: CoreDamageType) -> DamageType {
+    match dt {
+        CoreDamageType::Kinetic => DamageType::Kinetic,
+        CoreDamageType::Energy => DamageType::Energy,
+        CoreDamageType::Explosive => DamageType::Explosive,
+        CoreDamageType::Biological => DamageType::Biological,
+    }
+}
 
 /// Syncs projectile visuals from core simulation tick events.
 ///
@@ -364,6 +390,13 @@ fn sync_projectile_visuals(
         .map(|(id, pos)| (*id, (pos.x.to_num::<f32>(), pos.y.to_num::<f32>())))
         .collect();
 
+    // Build a lookup for newly-spawned projectile damage types
+    let spawn_damage_types: std::collections::HashMap<EntityId, DamageType> = events
+        .projectile_spawns
+        .iter()
+        .map(|info| (info.entity_id, map_core_damage_type(info.damage_type)))
+        .collect();
+
     // Track which core IDs have matching Bevy entities
     let mut seen_core_ids = std::collections::HashSet::new();
 
@@ -382,19 +415,51 @@ fn sync_projectile_visuals(
     // Spawn visuals for new projectiles
     for (core_id, (x, y)) in &active {
         if !seen_core_ids.contains(core_id) {
+            let damage_type = spawn_damage_types
+                .get(core_id)
+                .copied()
+                .unwrap_or(DamageType::Kinetic);
+            let color = weapon_fire_color(damage_type);
+
             commands.spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        color: Color::srgb(1.0, 0.9, 0.3), // Bright yellow
+                        color,
                         custom_size: Some(Vec2::splat(PROJECTILE_SIZE)),
                         ..default()
                     },
                     transform: Transform::from_translation(Vec3::new(*x, *y, 0.5)),
                     ..default()
                 },
-                GameProjectile { core_id: *core_id },
+                GameProjectile {
+                    core_id: *core_id,
+                    damage_type,
+                },
+                ProjectileTrail {
+                    prev_pos: Vec2::new(*x, *y),
+                },
             ));
         }
+    }
+}
+
+/// Renders fading trail lines behind active projectiles using gizmos.
+fn render_projectile_trails(
+    mut gizmos: Gizmos,
+    mut projectiles: Query<(&Transform, &GameProjectile, &mut ProjectileTrail)>,
+) {
+    for (transform, proj, mut trail) in projectiles.iter_mut() {
+        let current = transform.translation.truncate();
+        let direction = current - trail.prev_pos;
+
+        if direction.length_squared() > 0.1 {
+            // Draw a trail line from the current position back along the direction
+            let trail_end = current - direction.normalize() * TRAIL_LENGTH;
+            let color = weapon_fire_color(proj.damage_type).with_alpha(0.4);
+            gizmos.line_2d(current, trail_end, color);
+        }
+
+        trail.prev_pos = current;
     }
 }
 

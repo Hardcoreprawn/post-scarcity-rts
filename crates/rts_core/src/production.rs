@@ -10,7 +10,7 @@ use std::collections::{HashMap, VecDeque};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{EntityId, Position};
-use crate::math::{fixed_serde, Fixed, Vec2Fixed};
+use crate::math::{fixed_serde, option_fixed_serde, Fixed, Vec2Fixed};
 
 /// Unique identifier for unit types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -76,32 +76,6 @@ pub struct UnitBlueprint {
         with = "option_fixed_serde"
     )]
     pub attack_range: Option<Fixed>,
-}
-
-/// Serde support for optional fixed-point numbers.
-mod option_fixed_serde {
-    use super::Fixed;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    /// Serialize an optional fixed-point number.
-    pub fn serialize<S>(value: &Option<Fixed>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match value {
-            Some(v) => v.to_bits().serialize(serializer),
-            None => serializer.serialize_none(),
-        }
-    }
-
-    /// Deserialize an optional fixed-point number.
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Fixed>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let opt = Option::<i64>::deserialize(deserializer)?;
-        Ok(opt.map(Fixed::from_bits))
-    }
 }
 
 impl UnitBlueprint {

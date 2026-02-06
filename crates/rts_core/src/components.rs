@@ -23,6 +23,7 @@ pub type EntityId = u64;
 /// Each damage type has different effectiveness against various armor types,
 /// creating a rock-paper-scissors dynamic in combat.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
 pub enum DamageType {
     /// Kinetic damage (bullets, shells) - reduced by armor.
     /// Best vs unarmored, worst vs buildings.

@@ -13,6 +13,14 @@ use crate::components::{
 };
 use crate::math::{Fixed, Vec2Fixed};
 
+/// Radius (in game units) within which a single-target projectile can hit
+/// a unit at the impact position. A projectile arriving at a location will
+/// damage the nearest enemy within this radius.
+pub const PROJECTILE_HIT_RADIUS: i64 = 30;
+
+/// Squared hit radius used for distance comparisons (avoids sqrt).
+const PROJECTILE_HIT_RADIUS_SQ: i64 = PROJECTILE_HIT_RADIUS * PROJECTILE_HIT_RADIUS;
+
 /// Updates entity positions based on their velocities.
 ///
 /// This is the core movement integration step. Each entity's position
@@ -499,9 +507,6 @@ pub fn projectile_system(
 ) -> Vec<ProjectileUpdate> {
     let mut updates = Vec::new();
 
-    /// Radius within which a single-target projectile can hit a unit at the destination.
-    const HIT_RADIUS_SQ: i64 = 900; // 30^2 game units
-
     for (proj_id, proj_pos, projectile) in projectiles.iter_mut() {
         let target_pos = projectile.target_position;
 
@@ -522,7 +527,7 @@ pub fn projectile_system(
             );
 
             let has_splash = projectile.splash_radius > Fixed::ZERO;
-            let hit_radius_sq = Fixed::from_bits(HIT_RADIUS_SQ << 32);
+            let hit_radius_sq = Fixed::from_bits(PROJECTILE_HIT_RADIUS_SQ << 32);
 
             if has_splash {
                 // Splash damage: hit all enemies within splash_radius
@@ -530,6 +535,10 @@ pub fn projectile_system(
                 let mut events = Vec::new();
 
                 for (target_id, target_health, target_combat) in targets.iter_mut() {
+                    // Don't damage the source with its own splash
+                    if *target_id == projectile.source {
+                        continue;
+                    }
                     if let Some(pos) = target_positions.get(*target_id) {
                         let d_sq = pos.value.distance_squared(impact_pos);
                         if d_sq <= splash_radius_sq {

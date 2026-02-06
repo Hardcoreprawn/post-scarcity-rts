@@ -146,7 +146,7 @@
                 armor: 15,
                 projectile_speed: Some(42949672960),
                 splash_radius: Some(257698037760),
-                damage_type: "explosive",
+                damage_type: explosive,
             )),
             tech_required: [],
             tier: 2,

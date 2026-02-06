@@ -45,8 +45,8 @@ use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{
-    AttackTarget, CombatStats, Command, CommandQueue, EntityId, FactionMember, Health, Movement,
-    PatrolState, Position, Projectile, Velocity,
+    AttackTarget, CombatStats, Command, CommandQueue, DamageType, EntityId, FactionMember, Health,
+    Movement, PatrolState, Position, Projectile, Velocity,
 };
 use crate::economy::Depot;
 use crate::error::{GameError, Result};
@@ -61,31 +61,7 @@ use crate::systems::{
     PositionLookup,
 };
 
-/// Serde support for `Option<Fixed>`.
-mod option_fixed_serde {
-    use crate::math::Fixed;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    /// Serialize an optional fixed-point number.
-    pub fn serialize<S>(value: &Option<Fixed>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match value {
-            Some(v) => v.to_bits().serialize(serializer),
-            None => serializer.serialize_none(),
-        }
-    }
-
-    /// Deserialize an optional fixed-point number.
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Fixed>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let opt = Option::<i64>::deserialize(deserializer)?;
-        Ok(opt.map(Fixed::from_bits))
-    }
-}
+use crate::math::option_fixed_serde;
 
 /// Ticks per second for the simulation.
 pub const TICK_RATE: u32 = 20;
@@ -305,6 +281,8 @@ pub struct ProjectileSpawnInfo {
     pub target_pos: Vec2Fixed,
     /// Splash radius (0 = single-target).
     pub splash_radius: Fixed,
+    /// Type of damage for visual coloring.
+    pub damage_type: DamageType,
 }
 
 /// The core game simulation.
@@ -441,11 +419,14 @@ impl Simulation {
         self.run_movement_system(&entity_ids);
 
         // 3. Combat System
-        events.damage_events = self.run_combat_system(&entity_ids);
+        let (combat_damage, projectile_spawns) = self.run_combat_system(&entity_ids);
+        events.damage_events = combat_damage;
+        events.projectile_spawns = projectile_spawns;
 
         // 3.5 Projectile System
-        let mut projectile_damage = self.run_projectile_system(&entity_ids);
+        let (mut projectile_damage, projectile_removals) = self.run_projectile_system(&entity_ids);
         events.damage_events.append(&mut projectile_damage);
+        events.projectile_removals = projectile_removals;
 
         // Collect active projectile positions for rendering
         for (&id, entity) in self.entities.iter() {
@@ -686,7 +667,10 @@ impl Simulation {
     }
 
     /// Run the combat system on all applicable entities.
-    fn run_combat_system(&mut self, entity_ids: &[EntityId]) -> Vec<DamageEvent> {
+    fn run_combat_system(
+        &mut self,
+        entity_ids: &[EntityId],
+    ) -> (Vec<DamageEvent>, Vec<ProjectileSpawnInfo>) {
         // Build position lookup
         let positions: Vec<(EntityId, Position)> = entity_ids
             .iter()
@@ -699,6 +683,7 @@ impl Simulation {
         let pos_lookup = PositionLookup::new(&positions);
 
         let mut all_damage_events = Vec::new();
+        let mut all_projectile_spawns = Vec::new();
 
         // Process attackers one at a time to avoid borrow issues
         for &attacker_id in entity_ids {
@@ -751,7 +736,14 @@ impl Simulation {
                                 combat_stats.projectile_speed,
                                 combat_stats.splash_radius,
                             );
-                            self.spawn_projectile(position.value, projectile);
+                            let proj_id = self.spawn_projectile(position.value, projectile);
+                            all_projectile_spawns.push(ProjectileSpawnInfo {
+                                entity_id: proj_id,
+                                start_pos: position.value,
+                                target_pos: target_pos.value,
+                                splash_radius: combat_stats.splash_radius,
+                                damage_type: combat_stats.damage_type,
+                            });
                             combat_stats.cooldown_remaining = combat_stats.attack_cooldown;
                         } else if let Some(target_entity) = self.entities.get_mut(target_id) {
                             if let Some(ref mut health) = target_entity.health.as_mut() {
@@ -797,11 +789,14 @@ impl Simulation {
             }
         }
 
-        all_damage_events
+        (all_damage_events, all_projectile_spawns)
     }
 
     /// Run the projectile system on all active projectiles.
-    fn run_projectile_system(&mut self, entity_ids: &[EntityId]) -> Vec<DamageEvent> {
+    fn run_projectile_system(
+        &mut self,
+        entity_ids: &[EntityId],
+    ) -> (Vec<DamageEvent>, Vec<EntityId>) {
         let positions: Vec<(EntityId, Position)> = entity_ids
             .iter()
             .filter_map(|&id| {
@@ -822,7 +817,7 @@ impl Simulation {
             .collect();
 
         if projectile_data.is_empty() {
-            return Vec::new();
+            return (Vec::new(), Vec::new());
         }
 
         let mut target_data: Vec<(EntityId, Health, CombatStats)> = entity_ids
@@ -853,6 +848,7 @@ impl Simulation {
             .collect();
 
         let mut damage_events = Vec::new();
+        let mut removals = Vec::new();
 
         for update in updates {
             if update.hit {
@@ -875,6 +871,7 @@ impl Simulation {
                         }
                     }
                 }
+                removals.push(update.projectile_id);
                 self.entities.remove(update.projectile_id);
             } else if let Some(new_pos) = position_map.remove(&update.projectile_id) {
                 if let Some(entity) = self.entities.get_mut(update.projectile_id) {
@@ -883,7 +880,7 @@ impl Simulation {
             }
         }
 
-        damage_events
+        (damage_events, removals)
     }
 
     /// Run the health system and return dead entity IDs.

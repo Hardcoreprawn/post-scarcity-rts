@@ -488,6 +488,7 @@ fn map_damage_type(damage_type: DamageType) -> CoreDamageType {
         DamageType::Kinetic => CoreDamageType::Kinetic,
         DamageType::Energy => CoreDamageType::Energy,
         DamageType::Explosive => CoreDamageType::Explosive,
+        DamageType::Biological => CoreDamageType::Biological,
     }
 }
 

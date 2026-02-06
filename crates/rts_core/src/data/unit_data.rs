@@ -2,31 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::math::{fixed_serde, Fixed};
-
-/// Serde support for `Option<Fixed>` in data files.
-mod option_fixed_serde {
-    use crate::math::Fixed;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn serialize<S>(value: &Option<Fixed>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match value {
-            Some(v) => v.to_bits().serialize(serializer),
-            None => serializer.serialize_none(),
-        }
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Fixed>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let opt = Option::<i64>::deserialize(deserializer)?;
-        Ok(opt.map(Fixed::from_bits))
-    }
-}
+use crate::components::DamageType;
+use crate::math::{fixed_serde, option_fixed_serde, Fixed};
 
 /// Combat statistics for a unit.
 ///
@@ -56,10 +33,10 @@ pub struct CombatStats {
     )]
     pub projectile_speed: Option<Fixed>,
 
-    /// Damage type string ("kinetic", "energy", "explosive", "biological").
-    /// Defaults to "kinetic" if not specified.
-    #[serde(default = "default_damage_type")]
-    pub damage_type: String,
+    /// Damage type for this unit's weapon.
+    /// Defaults to Kinetic if not specified.
+    #[serde(default)]
+    pub damage_type: DamageType,
 
     /// Splash damage radius in game units (None or 0 = single target).
     #[serde(
@@ -148,11 +125,6 @@ const fn default_tier() -> u8 {
     1
 }
 
-/// Default damage type for units without explicit damage type.
-fn default_damage_type() -> String {
-    "kinetic".to_string()
-}
-
 impl UnitData {
     /// Check if this unit requires a specific technology.
     #[must_use]
@@ -193,7 +165,7 @@ mod tests {
                 armor: 5,
                 projectile_speed: None,
                 splash_radius: None,
-                damage_type: "kinetic".to_string(),
+                damage_type: DamageType::Kinetic,
             }),
             tech_required: vec!["enhanced_training".to_string()],
             tier: 1,
