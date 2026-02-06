@@ -8,7 +8,8 @@ use crate::bundles::{HarvesterBundle, UnitBundle};
 use crate::components::{
     GameFaction, GamePosition, GameProductionQueue, PlayerFaction, Unit, UnitType,
 };
-use crate::data_loader::{BevyUnitKindRegistry, FactionRegistry};
+use crate::data_loader::BevyUnitKindRegistry;
+use crate::data_loader::FactionRegistry;
 use crate::economy::PlayerResources;
 use crate::unit_utils::is_ranged_unit;
 
@@ -92,11 +93,6 @@ fn production_system(
                 let mut spawn_failed = false;
                 if let Some(data) = faction_data {
                     if let Some(unit_data) = data.get_unit(&unit_id) {
-                        // Look up the UnitKindId from the registry
-                        let unit_kind_id = unit_kind_registry
-                            .find(faction.faction, &unit_id)
-                            .unwrap_or(rts_core::unit_kind::UnitKindId::NONE);
-
                         // Check if this is a harvester by looking at tags
                         if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
                             // Harvesters use special bundle with harvester component
@@ -112,12 +108,12 @@ fn production_system(
                             } else {
                                 UnitType::Infantry
                             };
-                            
+
                             // Look up the UnitKindId from the registry
                             let unit_kind_id = unit_kind_registry
                                 .find(faction.faction, &unit_id)
                                 .unwrap_or(rts_core::unit_kind::UnitKindId::NONE);
-                            
+
                             commands
                                 .spawn(UnitBundle::from_data(
                                     spawn_pos,
@@ -161,17 +157,19 @@ fn production_system(
                         if let Some(unit_data) = data.get_unit(&unit_id) {
                             let refund = unit_data.cost as i32;
                             resources.feedstock += refund;
-                            
+
                             // Refund supply based on tags
-                            let supply = if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
-                                2
-                            } else if is_ranged_unit(unit_data) || unit_data.has_tag("heavy") {
+                            let supply = if unit_data.has_tag("harvester")
+                                || unit_data.has_tag("worker")
+                                || is_ranged_unit(unit_data)
+                                || unit_data.has_tag("heavy")
+                            {
                                 2
                             } else {
                                 1
                             };
                             resources.supply_used -= supply;
-                            
+
                             tracing::info!(
                                 "Refunded {} feedstock and {} supply for failed spawn of '{}'",
                                 refund,
@@ -185,4 +183,3 @@ fn production_system(
         }
     }
 }
-

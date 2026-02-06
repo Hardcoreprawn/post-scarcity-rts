@@ -221,16 +221,18 @@ fn ui_combat_legend(
 }
 
 /// Helper to get supply cost from unit data.
-/// 
+///
 /// TODO: Move supply costs into unit data RON files once `UnitData` exposes an explicit
 /// `supply` field, so balance can be tuned in data instead of being inferred from tags.
 /// Until that migration is done, we derive supply from tags here to stay consistent with the
 /// existing unit definitions.
 fn get_unit_supply(unit_data: &rts_core::data::UnitData) -> i32 {
-    if unit_data.has_tag("harvester") || unit_data.has_tag("worker") {
-        HEAVY_UNIT_SUPPLY // Harvesters cost 2 supply
-    } else if is_ranged_unit(unit_data) || unit_data.has_tag("heavy") {
-        HEAVY_UNIT_SUPPLY // Rangers and heavy units cost 2 supply
+    if unit_data.has_tag("harvester")
+        || unit_data.has_tag("worker")
+        || is_ranged_unit(unit_data)
+        || unit_data.has_tag("heavy")
+    {
+        HEAVY_UNIT_SUPPLY
     } else {
         LIGHT_UNIT_SUPPLY // Infantry and light units cost 1 supply
     }
@@ -579,7 +581,7 @@ fn ui_command_panel(
 
                         // Look up faction-specific harvester unit ID
                         let harvester_id = UnitType::Harvester.to_unit_id(faction.faction);
-                        
+
                         // Get unit data from registry
                         if let Some(faction_data) = faction_registry.get(faction.faction) {
                             if let Some(unit_data) = faction_data.get_unit(harvester_id) {
@@ -636,7 +638,7 @@ fn ui_command_panel(
                         // Look up faction-specific unit IDs
                         let infantry_id = UnitType::Infantry.to_unit_id(faction.faction);
                         let ranger_id = UnitType::Ranger.to_unit_id(faction.faction);
-                        
+
                         if let Some(faction_data) = faction_registry.get(faction.faction) {
                             ui.horizontal(|ui| {
                                 // Infantry button
@@ -839,6 +841,7 @@ fn building_tooltip(building_type: BuildingType) -> String {
     )
 }
 
+#[cfg(test)]
 fn unit_tooltip(unit_type: UnitType) -> String {
     format!(
         "{}\nCost: {} feedstock\nSupply: {}",

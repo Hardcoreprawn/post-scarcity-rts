@@ -12,7 +12,6 @@ use crate::components::{
     CombatStats, GameDepot, GameFaction, GameHarvester, GameHarvesterState, GamePosition,
     GameProductionQueue, GameResourceNode, MovementTarget, PlayerFaction, UnitType,
 };
-use crate::data_loader::FactionRegistry;
 
 /// Plugin for AI-controlled factions.
 pub struct AiPlugin;
