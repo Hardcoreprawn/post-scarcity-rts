@@ -2,7 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::math::{fixed_serde, Fixed};
+use crate::components::DamageType;
+use crate::math::{fixed_serde, option_fixed_serde, Fixed};
 
 /// Combat statistics for a unit.
 ///
@@ -23,6 +24,27 @@ pub struct CombatStats {
     /// Armor value that reduces incoming damage.
     #[serde(default)]
     pub armor: u32,
+
+    /// Projectile speed in game units per tick (None or 0 = hitscan/instant).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_fixed_serde"
+    )]
+    pub projectile_speed: Option<Fixed>,
+
+    /// Damage type for this unit's weapon.
+    /// Defaults to Kinetic if not specified.
+    #[serde(default)]
+    pub damage_type: DamageType,
+
+    /// Splash damage radius in game units (None or 0 = single target).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_fixed_serde"
+    )]
+    pub splash_radius: Option<Fixed>,
 }
 
 /// Data-driven unit definition.
@@ -141,6 +163,9 @@ mod tests {
                 range: Fixed::from_num(3),
                 attack_cooldown: 30,
                 armor: 5,
+                projectile_speed: None,
+                splash_radius: None,
+                damage_type: DamageType::Kinetic,
             }),
             tech_required: vec!["enhanced_training".to_string()],
             tier: 1,

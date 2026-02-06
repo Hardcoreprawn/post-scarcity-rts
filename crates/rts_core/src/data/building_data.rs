@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::math::Fixed;
+use crate::math::{option_fixed_serde, Fixed};
 
 /// Data-driven building definition.
 ///
@@ -94,32 +94,6 @@ const fn default_tier() -> u8 {
 /// Default to true for targetable.
 const fn default_true() -> bool {
     true
-}
-
-/// Serde support for optional fixed-point numbers.
-mod option_fixed_serde {
-    use crate::math::Fixed;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    /// Serialize an optional fixed-point number.
-    pub fn serialize<S>(value: &Option<Fixed>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match value {
-            Some(v) => v.to_bits().serialize(serializer),
-            None => serializer.serialize_none(),
-        }
-    }
-
-    /// Deserialize an optional fixed-point number.
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Fixed>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let opt = Option::<i64>::deserialize(deserializer)?;
-        Ok(opt.map(Fixed::from_bits))
-    }
 }
 
 impl BuildingData {

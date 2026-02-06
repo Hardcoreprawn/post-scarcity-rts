@@ -618,6 +618,57 @@ mod tests {
         sim
     }
 
+    /// Setup a projectile combat scenario with splash damage.
+    ///
+    /// Creates an attacker with projectile-based weapons (non-zero speed)
+    /// and splash damage, attacking a cluster of defenders. This tests
+    /// determinism of projectile travel, impact detection, and splash damage.
+    fn setup_projectile_combat_scenario() -> Simulation {
+        let mut sim = Simulation::new();
+
+        // Attacker with projectile weapon + splash
+        let attacker = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(0), Fixed::from_num(0))),
+            health: Some(200),
+            movement: Some(Fixed::from_num(3)),
+            combat_stats: Some(
+                CombatStats::new(15, Fixed::from_num(80), 10)
+                    .with_projectile_speed(Fixed::from_num(8))
+                    .with_splash_radius(Fixed::from_num(30)),
+            ),
+            ..Default::default()
+        });
+
+        // Cluster of defenders close together (splash should hit multiple)
+        let defender1 = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(40), Fixed::from_num(0))),
+            health: Some(100),
+            movement: Some(Fixed::from_num(2)),
+            combat_stats: Some(CombatStats::new(5, Fixed::from_num(50), 8)),
+            ..Default::default()
+        });
+
+        let _defender2 = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(45), Fixed::from_num(10))),
+            health: Some(80),
+            movement: Some(Fixed::from_num(2)),
+            ..Default::default()
+        });
+
+        let _defender3 = sim.spawn_entity(EntitySpawnParams {
+            position: Some(Vec2Fixed::new(Fixed::from_num(42), Fixed::from_num(-8))),
+            health: Some(120),
+            movement: Some(Fixed::from_num(2)),
+            ..Default::default()
+        });
+
+        // Attacker fires projectiles at the first defender; splash
+        // should affect the nearby defenders deterministically.
+        let _ = sim.set_attack_target(attacker, defender1);
+
+        sim
+    }
+
     #[test]
     fn test_combat_determinism() {
         let result = verify_determinism(
@@ -655,6 +706,53 @@ mod tests {
                 assert_eq!(e1.damage, e2.damage, "Damage values differ");
             }
         }
+    }
+
+    // =========================================================================
+    // Integration tests: Projectile combat determinism
+    // =========================================================================
+
+    #[test]
+    fn test_projectile_combat_determinism() {
+        let result = verify_determinism(
+            5,
+            300,
+            setup_projectile_combat_scenario,
+            |sim| {
+                sim.tick();
+            },
+            |sim| sim.state_hash(),
+        );
+        result.assert_deterministic();
+    }
+
+    #[test]
+    fn test_projectile_splash_determinism() {
+        // Run the projectile scenario twice and verify damage events match
+        let mut sim1 = setup_projectile_combat_scenario();
+        let mut sim2 = setup_projectile_combat_scenario();
+
+        for tick in 0..300 {
+            let events1 = sim1.tick();
+            let events2 = sim2.tick();
+
+            assert_eq!(
+                events1.damage_events.len(),
+                events2.damage_events.len(),
+                "Different number of damage events at tick {tick}"
+            );
+
+            for (e1, e2) in events1.damage_events.iter().zip(&events2.damage_events) {
+                assert_eq!(e1.damage, e2.damage, "Damage values differ at tick {tick}");
+                assert_eq!(e1.target, e2.target, "Damage targets differ at tick {tick}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_parallel_projectile_simulations() {
+        let result = run_parallel_simulations_scoped(setup_projectile_combat_scenario, 4, 300);
+        result.assert_deterministic();
     }
 
     // =========================================================================

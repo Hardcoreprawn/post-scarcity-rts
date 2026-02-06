@@ -43,6 +43,8 @@
                 range: 193273528320,  // Fixed-point for 45.0 (90% of ST)
                 attack_cooldown: 31,  // Slightly slower than ST (30)
                 armor: 1,  // Much less than ST (5)
+                projectile_speed: Some(64424509440),
+                damage_type: energy,
             )),
             tech_required: [],
             tier: 1,
@@ -106,6 +108,8 @@
                 range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 25,
                 armor: 0,  // Very fragile
+                projectile_speed: Some(85899345920),
+                damage_type: energy,
             )),
             tech_required: [],
             tier: 2,
@@ -139,6 +143,8 @@
                 range: 386547056640,  // Fixed-point for 90.0
                 attack_cooldown: 40,
                 armor: 25,
+                projectile_speed: Some(85899345920),
+                damage_type: energy,
             )),
             tech_required: [],
             tier: 2,
@@ -160,6 +166,9 @@
                 range: 343597383680,  // Fixed-point for 80.0
                 attack_cooldown: 50,
                 armor: 40,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(128849018880),
+                damage_type: energy,
             )),
             tech_required: ["research_campus"],
             tier: 3,
@@ -179,6 +188,8 @@
                 range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 45,
                 armor: 20,
+                projectile_speed: Some(85899345920),
+                damage_type: energy,
             )),
             tech_required: ["research_campus"],
             tier: 3,

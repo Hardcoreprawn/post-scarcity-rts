@@ -13,6 +13,14 @@ use crate::components::{
 };
 use crate::math::{Fixed, Vec2Fixed};
 
+/// Radius (in game units) within which a single-target projectile can hit
+/// a unit at the impact position. A projectile arriving at a location will
+/// damage the nearest enemy within this radius.
+pub const PROJECTILE_HIT_RADIUS: i64 = 30;
+
+/// Squared hit radius used for distance comparisons (avoids sqrt).
+const PROJECTILE_HIT_RADIUS_SQ: i64 = PROJECTILE_HIT_RADIUS * PROJECTILE_HIT_RADIUS;
+
 /// Updates entity positions based on their velocities.
 ///
 /// This is the core movement integration step. Each entity's position
@@ -228,8 +236,8 @@ pub enum CombatEvent {
     ProjectileSpawned {
         /// Entity that fired the projectile.
         source: EntityId,
-        /// Target entity for the projectile.
-        target: EntityId,
+        /// Position the projectile is aimed at.
+        target_position: Vec2Fixed,
         /// Damage the projectile will deal.
         damage: u32,
         /// Type of damage.
@@ -238,6 +246,8 @@ pub enum CombatEvent {
         start_pos: Vec2Fixed,
         /// Travel speed per tick.
         speed: Fixed,
+        /// Splash damage radius (0 = single-target).
+        splash_radius: Fixed,
     },
     /// A projectile hit its target.
     ProjectileHit {
@@ -408,14 +418,15 @@ pub fn combat_system(
 
         // Check if this is a projectile weapon
         if combat_stats.uses_projectiles() {
-            // Spawn projectile - damage will be applied when it hits
+            // Spawn projectile aimed at target's current position (snapshot)
             combat_events.push(CombatEvent::ProjectileSpawned {
                 source: *attacker_id,
-                target: target_id,
+                target_position: target_pos.value,
                 damage: combat_stats.damage,
                 damage_type: combat_stats.damage_type,
                 start_pos: attacker_pos.value,
                 speed: combat_stats.projectile_speed,
+                splash_radius: combat_stats.splash_radius,
             });
             combat_stats.reset_cooldown();
         } else {
@@ -471,79 +482,160 @@ pub struct ProjectileUpdate {
     pub projectile_id: EntityId,
     /// Whether the projectile hit its target and should be removed.
     pub hit: bool,
-    /// Combat event if damage was dealt.
-    pub event: Option<CombatEvent>,
+    /// Combat events from this projectile (may be multiple for splash damage).
+    pub events: Vec<CombatEvent>,
 }
 
-/// Processes active projectiles, moving them toward targets and applying damage on hit.
+/// Processes active projectiles, moving them toward their target positions.
+///
+/// Projectiles travel to a fixed position (snapshot of target at fire time).
+/// When they arrive:
+/// - Single-target projectiles damage the nearest enemy within a small hit radius.
+/// - Splash projectiles damage all enemies within splash_radius, with falloff.
 ///
 /// # Arguments
 /// * `projectiles` - Active projectile entities with positions
-/// * `targets` - Target entities with health and combat stats
-/// * `positions` - Position lookup for target positions
+/// * `targets` - All entities with health and combat stats (potential splash victims)
+/// * `target_positions` - Position lookup for all entities
 ///
 /// # Returns
 /// Vector of projectile updates (which hit, damage dealt)
 pub fn projectile_system(
     projectiles: &mut [(EntityId, &mut Position, &Projectile)],
     targets: &mut [(EntityId, &mut Health, &CombatStats)],
-    positions: &PositionLookup<'_>,
+    target_positions: &PositionLookup<'_>,
 ) -> Vec<ProjectileUpdate> {
     let mut updates = Vec::new();
 
     for (proj_id, proj_pos, projectile) in projectiles.iter_mut() {
-        // Get target position
-        let Some(target_pos) = positions.get(projectile.target) else {
-            // Target gone - projectile fizzles
-            updates.push(ProjectileUpdate {
-                projectile_id: *proj_id,
-                hit: true, // Remove it
-                event: None,
-            });
-            continue;
-        };
+        let target_pos = projectile.target_position;
 
-        // Calculate direction to target
-        let diff = target_pos.value - proj_pos.value;
-        let dist_sq = proj_pos.value.distance_squared(target_pos.value);
+        // Calculate direction to target position
+        let diff = target_pos - proj_pos.value;
+        let dist_sq = proj_pos.value.distance_squared(target_pos);
         let speed_sq = projectile.speed * projectile.speed;
 
         // Check if we've arrived (within one tick of movement)
         if dist_sq <= speed_sq {
-            // Hit the target!
-            if let Some((_, target_health, target_combat)) = targets
-                .iter_mut()
-                .find(|(id, _, _)| *id == projectile.target)
-            {
-                // Create weapon stats from projectile data using resistance-based system
-                use crate::combat::{ExtendedDamageType, WeaponStats};
-                let weapon_stats = WeaponStats::new(
-                    projectile.damage,
-                    ExtendedDamageType::from_damage_type(projectile.damage_type),
-                );
-                let target_stats = target_combat.to_resistance_stats();
-                let final_damage = calculate_resistance_damage(&weapon_stats, &target_stats);
+            // Arrived at target position
+            let impact_pos = target_pos;
 
-                target_health.apply_damage(final_damage);
+            use crate::combat::{ExtendedDamageType, WeaponStats};
+            let weapon_stats = WeaponStats::new(
+                projectile.damage,
+                ExtendedDamageType::from_damage_type(projectile.damage_type),
+            );
+
+            let has_splash = projectile.splash_radius > Fixed::ZERO;
+            let hit_radius_sq = Fixed::from_bits(PROJECTILE_HIT_RADIUS_SQ << 32);
+
+            if has_splash {
+                // Splash damage: hit all enemies within splash_radius
+                let splash_radius_sq = projectile.splash_radius * projectile.splash_radius;
+                let mut events = Vec::new();
+
+                for (target_id, target_health, target_combat) in targets.iter_mut() {
+                    // Don't damage the source with its own splash
+                    if *target_id == projectile.source {
+                        continue;
+                    }
+                    if let Some(pos) = target_positions.get(*target_id) {
+                        let d_sq = pos.value.distance_squared(impact_pos);
+                        if d_sq <= splash_radius_sq {
+                            // Falloff: 100% at center, 50% at edge
+                            let ratio = if splash_radius_sq > Fixed::ZERO {
+                                // ratio = distance / splash_radius (0.0 at center, 1.0 at edge)
+                                let d = fixed_sqrt(d_sq);
+                                let r = fixed_sqrt(splash_radius_sq);
+                                if r > Fixed::ZERO {
+                                    d / r
+                                } else {
+                                    Fixed::ZERO
+                                }
+                            } else {
+                                Fixed::ZERO
+                            };
+                            // damage_mult = 1.0 - 0.5 * ratio (100% at center, 50% at edge)
+                            let damage_mult = Fixed::from_num(1)
+                                - (Fixed::from_num(1) / Fixed::from_num(2)) * ratio;
+
+                            let target_stats = target_combat.to_resistance_stats();
+                            let base_damage =
+                                calculate_resistance_damage(&weapon_stats, &target_stats);
+                            let final_damage = (Fixed::from_num(base_damage) * damage_mult)
+                                .to_num::<u32>()
+                                .max(1);
+
+                            target_health.apply_damage(final_damage);
+
+                            events.push(CombatEvent::ProjectileHit {
+                                source: projectile.source,
+                                target: *target_id,
+                                damage: final_damage,
+                            });
+                        }
+                    }
+                }
 
                 updates.push(ProjectileUpdate {
                     projectile_id: *proj_id,
                     hit: true,
-                    event: Some(CombatEvent::ProjectileHit {
-                        source: projectile.source,
-                        target: projectile.target,
-                        damage: final_damage,
-                    }),
+                    events,
                 });
             } else {
-                updates.push(ProjectileUpdate {
-                    projectile_id: *proj_id,
-                    hit: true,
-                    event: None,
-                });
+                // Single-target: find nearest enemy within hit radius
+                let mut best_target: Option<(EntityId, Fixed)> = None;
+                for (target_id, _, _) in targets.iter() {
+                    // Don't damage the source
+                    if *target_id == projectile.source {
+                        continue;
+                    }
+                    if let Some(pos) = target_positions.get(*target_id) {
+                        let d_sq = pos.value.distance_squared(impact_pos);
+                        if d_sq <= hit_radius_sq
+                            && best_target.map_or(true, |(_, best_d)| d_sq < best_d)
+                        {
+                            best_target = Some((*target_id, d_sq));
+                        }
+                    }
+                }
+
+                if let Some((hit_id, _)) = best_target {
+                    if let Some((_, target_health, target_combat)) =
+                        targets.iter_mut().find(|(id, _, _)| *id == hit_id)
+                    {
+                        let target_stats = target_combat.to_resistance_stats();
+                        let final_damage =
+                            calculate_resistance_damage(&weapon_stats, &target_stats);
+                        target_health.apply_damage(final_damage);
+
+                        updates.push(ProjectileUpdate {
+                            projectile_id: *proj_id,
+                            hit: true,
+                            events: vec![CombatEvent::ProjectileHit {
+                                source: projectile.source,
+                                target: hit_id,
+                                damage: final_damage,
+                            }],
+                        });
+                    } else {
+                        updates.push(ProjectileUpdate {
+                            projectile_id: *proj_id,
+                            hit: true,
+                            events: vec![],
+                        });
+                    }
+                } else {
+                    // No target at destination — projectile missed
+                    updates.push(ProjectileUpdate {
+                        projectile_id: *proj_id,
+                        hit: true, // Still remove it
+                        events: vec![],
+                    });
+                }
             }
         } else {
-            // Move toward target
+            // Move toward target position
             let direction = normalize_vec2(diff);
             proj_pos.value = proj_pos.value
                 + Vec2Fixed::new(
@@ -554,7 +646,7 @@ pub fn projectile_system(
             updates.push(ProjectileUpdate {
                 projectile_id: *proj_id,
                 hit: false,
-                event: None,
+                events: vec![],
             });
         }
     }

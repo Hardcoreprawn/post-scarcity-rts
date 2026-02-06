@@ -109,6 +109,7 @@
                 range: 300647710720,  // Fixed-point for 70.0
                 attack_cooldown: 30,
                 armor: 20,
+                projectile_speed: Some(85899345920),
             )),
             tech_required: [],
             tier: 2,
@@ -128,6 +129,9 @@
                 range: 343597383680,  // Fixed-point for 80.0
                 attack_cooldown: 60,
                 armor: 25,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(257698037760),
+                damage_type: explosive,
             )),
             tech_required: ["navigation_tower"],
             tier: 2,
@@ -163,6 +167,9 @@
                 range: 429496729600,  // Fixed-point for 100.0
                 attack_cooldown: 50,
                 armor: 50,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(128849018880),
+                damage_type: explosive,
             )),
             tech_required: ["admirals_bridge"],
             tier: 3,
@@ -182,6 +189,7 @@
                 range: 257698037760,  // Fixed-point for 60.0
                 attack_cooldown: 45,
                 armor: 30,
+                projectile_speed: Some(85899345920),
             )),
             tech_required: ["admirals_bridge"],
             tier: 3,
@@ -201,6 +209,9 @@
                 range: 472446402560,  // Fixed-point for 110.0 - long range
                 attack_cooldown: 75,
                 armor: 40,
+                projectile_speed: Some(42949672960),
+                splash_radius: Some(257698037760),
+                damage_type: energy,
             )),
             tech_required: ["admirals_bridge"],
             tier: 3,
